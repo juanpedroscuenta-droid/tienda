@@ -1,32 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  Package, 
-  ShoppingCart, 
-  TrendingUp,
-  Settings,
-  BarChart3,
-  DollarSign,
-  AlertCircle,
-  Home,
+import {
+  Search,
   Bell,
-  Tag,
   Menu,
   X,
   ChevronRight,
-  BrainCog, // Icono para el Asistente IA
-  HelpCircle, // Icono para el Manual de Ayuda
-  Star, // Icono para Versión Completa
-  Briefcase, // Icono para Gestión de Empleados
-  PlusCircle, // Icono para Funciones Extra
-  ChevronDown, // Icono para desplegable
-  Share2, // Icono para compartir
-  ImageIcon, // Icono para herramientas de imágenes
-  FileType2 // Icono para WebP Converter
+  ChevronDown,
+  LayoutDashboard,
+  MessageSquare,
+  Calendar,
+  Contact,
+  Lightbulb,
+  CreditCard,
+  Bot,
+  Megaphone,
+  Workflow,
+  Globe,
+  Settings,
+  Home,
+  Users,
+  Package,
+  ShoppingCart,
+  TrendingUp,
+  BarChart3,
+  DollarSign,
+  AlertCircle,
+  Tag,
+  BrainCog,
+  HelpCircle,
+  PlusCircle,
+  Share2,
+  Building2,
+  ChevronLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from '@/hooks/use-toast';
+import { db } from '@/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SidebarProps {
   activeTab: string;
@@ -36,116 +47,158 @@ interface SidebarProps {
   navigateToHome: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ 
-  activeTab, 
-  setActiveTab, 
-  isAdmin, 
+interface SidebarItem {
+  id: string;
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  hasDropdown?: boolean;
+  isDropdownOpen?: boolean;
+  toggleDropdown?: () => void;
+  dropdownItems?: Array<{
+    id: string;
+    label: string;
+    icon: React.ReactNode;
+  }>;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({
+  activeTab,
+  setActiveTab,
+  isAdmin,
   isSubAdmin,
   navigateToHome
 }) => {
   const isMobile = useIsMobile();
+  const { user } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
-  const [showExtraFunctions, setShowExtraFunctions] = useState(false);
-  const [showImageTools, setShowImageTools] = useState(false);
-  
+  const [showConfigurationMenu, setShowConfigurationMenu] = useState(false);
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string>('');
+  const [companyCity, setCompanyCity] = useState<string>('');
+  const [companyState, setCompanyState] = useState<string>('');
+  const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
+
+  // Determinar qué mostrar en el sidebar
+  const showMainMenu = !showConfigurationMenu;
+
+  // Función para cargar el perfil de empresa
+  const loadCompanyProfile = async () => {
+    const isSupabase = typeof (db as any)?.from === 'function';
+    try {
+      if (isSupabase) {
+        const { data, error } = await db
+          .from('company_profile')
+          .select()
+          .maybeSingle();
+
+        if (error) {
+          if (error.code !== 'PGRST116') {
+            console.warn('[Sidebar] company_profile:', error.code || 'error', (error as any)?.message || error);
+          }
+          return;
+        }
+        if (data) {
+          if (data.logo) setCompanyLogo(data.logo);
+          if (data.friendly_name) setCompanyName(data.friendly_name);
+          if (data.city) setCompanyCity(data.city);
+          if (data.state) setCompanyState(data.state);
+        }
+      }
+    } catch (e: any) {
+      console.warn('[Sidebar] company_profile load failed:', e?.message || e);
+    }
+  };
+
+  // Cargar logo de empresa al montar el componente
+  useEffect(() => {
+    loadCompanyProfile();
+  }, []);
+
+  // Escuchar cambios en el perfil de empresa (cuando se actualiza el logo)
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      // Recargar el perfil después de un pequeño delay para asegurar que la BD se actualizó
+      setTimeout(() => {
+        loadCompanyProfile();
+      }, 500);
+    };
+
+    window.addEventListener('companyProfileUpdated', handleProfileUpdate);
+
+    return () => {
+      window.removeEventListener('companyProfileUpdated', handleProfileUpdate);
+    };
+  }, []);
+
+  // Recargar logo cuando cambia la pestaña activa (por si se actualizó en otra vista)
+  useEffect(() => {
+    loadCompanyProfile();
+  }, [activeTab]);
+
+  // Abrir el menú de configuración automáticamente si estamos en configuration, subaccounts, info o filters
+  useEffect(() => {
+    if (activeTab === 'configuration' || activeTab === 'subaccounts' || activeTab === 'info' || activeTab === 'filters') {
+      setShowConfigurationMenu(true);
+    } else {
+      setShowConfigurationMenu(false);
+    }
+  }, [activeTab]);
+
   // Cerrar sidebar automáticamente al cambiar de pestaña en móvil
   useEffect(() => {
     if (isMobile) {
       setIsSidebarOpen(false);
     }
   }, [activeTab, isMobile]);
-  
+
   // Escuchar cambios de tamaño de pantalla
   useEffect(() => {
     const handleResize = () => {
       setIsSidebarOpen(!isMobile);
     };
-    
+
     // Inicializar estado
     handleResize();
-    
+
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [isMobile]);
-  
+
   // Toggle sidebar
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
-  const sidebarItems = [
+  const sidebarItems: SidebarItem[] = [
     ...(isSubAdmin ? [] : [
-      { id: 'dashboard', icon: <BarChart3 className="h-5 w-5" />, label: 'Dashboard', description: 'Vista general del sistema' }
+      { id: 'dashboard', icon: <LayoutDashboard className="h-5 w-5" />, label: 'Dashboard', description: 'Vista general' }
     ]),
     { id: 'products', icon: <Package className="h-5 w-5" />, label: 'Productos', description: 'Gestión de inventario' },
+    { id: 'contacts', icon: <Contact className="h-5 w-5" />, label: 'Contactos', description: 'Gestión de contactos' },
     { id: 'orders', icon: <ShoppingCart className="h-5 w-5" />, label: 'Pedidos', description: 'Control de ventas' },
     { id: 'categories', icon: <Tag className="h-5 w-5" />, label: 'Categorías', description: 'Organizar productos' },
-    // Info disponible tanto para admin como para subadmin
-    { id: 'info', icon: <Settings className="h-5 w-5" />, label: 'Info Secciones', description: 'Configuración general' },
-    // Herramientas de imagen disponible para todos
-    { 
-      id: 'image-tools', 
-      icon: <ImageIcon className="h-5 w-5" />, 
-      label: 'Herramientas', 
-      description: 'Optimizar imágenes y URLs',
-      hasDropdown: true,
-      isDropdownOpen: showImageTools,
-      toggleDropdown: () => setShowImageTools(!showImageTools),
-      dropdownItems: [
-        { 
-          id: 'update-image-urls', 
-          icon: <Share2 className="h-5 w-5" />, 
-          label: 'Actualizar URLs', 
-          description: 'Cambiar rutas de imágenes' 
-        },
-          {
-            id: 'rotate-image',
-            icon: <ImageIcon className="h-5 w-5" />,
-            label: 'Rotar Imagen',
-            description: 'Corregir orientación de producto'
-          },
-        { 
-          id: 'webp-converter', 
-          icon: <FileType2 className="h-5 w-5" />, 
-          label: 'Convertir a WebP', 
-          description: 'Optimizar imágenes' 
-        },
-      ]
-    },
-    // Asistente IA disponible para todos (admin y subadmin)
-    { id: 'ai-assistant', icon: <BrainCog className="h-5 w-5" />, label: 'Asistente IA', description: 'Inteligencia artificial avanzada' },
-    // Manual de Ayuda disponible para todos (admin y subadmin)
-    { id: 'help-manual', icon: <HelpCircle className="h-5 w-5" />, label: 'Manual de Ayuda', description: 'Guías y tutoriales' },
+    { id: 'ai-assistant', icon: <Bot className="h-5 w-5" />, label: 'Asistente IA', description: 'Inteligencia artificial' },
+    { id: 'help-manual', icon: <HelpCircle className="h-5 w-5" />, label: 'Ayuda', description: 'Manual de usuario' },
+
     ...(isSubAdmin ? [] : [
-      { id: 'users', icon: <Users className="h-5 w-5" />, label: 'Usuarios', description: 'Administrar clientes' },
-      { id: 'subaccounts', icon: <Users className="h-5 w-5" />, label: 'Subcuentas', description: 'Gestión de accesos' },
-      { id: 'revisiones', icon: <Bell className="h-5 w-5" />, label: 'Revisiones', description: 'Aprobar cambios pendientes' },
-      { id: 'analytics', icon: <TrendingUp className="h-5 w-5" />, label: 'Analítica', description: 'Estadísticas avanzadas' },
-      { 
-        id: 'full-version', 
-        icon: <Star className="h-5 w-5" />, 
-        label: 'Versión Completa', 
-        description: 'Funcionalidades premium', 
-        hasDropdown: true,
-        isDropdownOpen: showExtraFunctions,
-        toggleDropdown: () => setShowExtraFunctions(!showExtraFunctions),
-        dropdownItems: [
-          { 
-            id: 'employees', 
-            icon: <Briefcase className="h-5 w-5" />, 
-            label: 'Guardar Empleados', 
-            description: 'Gestión del personal' 
-          },
-          { 
-            id: 'share-employees', 
-            icon: <Share2 className="h-5 w-5" />, 
-            label: 'Compartir Acceso', 
-            description: 'Compartir funcionalidades' 
-          },
-          // Aquí puedes agregar más opciones en el futuro
-        ]
-      }
+      { id: 'revisiones', icon: <Bell className="h-5 w-5" />, label: 'Revisiones', description: 'Aprobar cambios' },
+      { id: 'analytics', icon: <TrendingUp className="h-5 w-5" />, label: 'Analítica', description: 'Estadísticas' }
     ])
   ];
+
+  const handleNavigation = (id: string) => {
+    setActiveTab(id);
+    if (isMobile) setIsSidebarOpen(false);
+  };
+
+  const isTabActive = (itemId: string) => {
+    // Check if parent tab is active or if any of its dropdown children are active
+    if (activeTab === itemId) return true;
+
+    // Logic for dropdown children highlighting parent could be added here if needed
+    // But basic exact match works for now as 'activeTab' is set to the child ID
+    return activeTab === itemId;
+  };
 
   // Animación para iconos
   const iconAnimation = (isActive: boolean) => {
@@ -154,18 +207,19 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   // Toggle button para móvil con diseño mejorado
   const MobileToggleButton = () => (
-    <button 
+    <button
       onClick={toggleSidebar}
-      className="fixed z-50 bottom-6 right-6 w-16 h-16 rounded-2xl bg-gradient-to-r from-sky-400 to-blue-500 flex items-center justify-center shadow-lg text-white lg:hidden transform hover:scale-105 transition-all duration-300"
+      className="fixed z-50 bottom-6 right-6 w-16 h-16 rounded-2xl bg-gradient-to-r from-sky-400 to-blue-500 flex items-center justify-center shadow-lg text-white lg:hidden active:scale-95 transition-all duration-200 touch-manipulation"
       aria-label={isSidebarOpen ? "Cerrar menú" : "Abrir menú"}
       style={{
-        boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.5), 0 8px 10px -6px rgba(59, 130, 246, 0.3)'
+        boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.5), 0 8px 10px -6px rgba(59, 130, 246, 0.3)',
+        WebkitTapHighlightColor: 'transparent'
       }}
     >
       <div className="relative">
-        {isSidebarOpen ? 
-          <X className="h-7 w-7 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-in zoom-in-95 duration-300" /> : 
-          <Menu className="h-7 w-7 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-in zoom-in-95 duration-300" />
+        {isSidebarOpen ?
+          <X className="h-7 w-7 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-200" /> :
+          <Menu className="h-7 w-7 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-200" />
         }
       </div>
     </button>
@@ -175,207 +229,298 @@ const Sidebar: React.FC<SidebarProps> = ({
     <>
       {/* Overlay para móvil cuando el sidebar está abierto con blur mejorado */}
       {isMobile && isSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-900/50 backdrop-blur-md z-40 lg:hidden animate-in fade-in duration-300"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar con diseño mejorado */}
-      <div 
+      <div
         className={cn(
-          "h-[calc(100vh-80px)] bg-gradient-to-b from-slate-50 to-white border-r border-slate-200/70 shadow-xl flex flex-col z-40 admin-sidebar notranslate critical-ui-container",
-          isMobile ? "fixed left-0 top-[80px] w-[300px] transition-all duration-500 ease-in-out transform" : "w-72 sticky top-[80px]",
+          "h-screen bg-[#1e293b] text-slate-300 flex flex-col z-40 admin-sidebar notranslate critical-ui-container w-[220px]",
+          isMobile ? "fixed left-0 top-0 transition-transform duration-300 ease-in-out" : "",
           isMobile && !isSidebarOpen ? "-translate-x-full" : "translate-x-0"
         )}
-        style={{
-          boxShadow: '5px 0 30px -15px rgba(59, 130, 246, 0.15)'
-        }}
         translate="no"
       >
-        {/* Header con glassmorphism */}
-        <div className="p-6 border-b border-sky-100">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gradient-to-tr from-sky-400 to-blue-600 rounded-2xl flex items-center justify-center shadow-md transform rotate-3 hover:rotate-0 transition-all duration-300">
-              <Settings className="h-6 w-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-bold bg-gradient-to-r from-sky-500 to-blue-600 bg-clip-text text-transparent">
-                Panel Admin
-              </h2>
-              <div className="flex items-center text-xs text-sky-700 mt-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                <p>Sesión activa</p>
+        {/* Brand Logo Area */}
+        <div className="h-16 flex items-center justify-center px-6 border-b border-slate-700/50">
+          {companyLogo ? (
+            <img
+              src={companyLogo}
+              alt={companyName}
+              className="h-12 w-auto object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                setCompanyLogo(null);
+              }}
+            />
+          ) : (
+            <h1 className="text-xl font-bold text-orange-500 tracking-wider">{companyName}</h1>
+          )}
+        </div>
+
+        {/* User / Location Selector */}
+        <div className="p-4">
+          <div
+            className="bg-slate-800/50 rounded-lg p-3 flex items-center justify-between border border-slate-700 cursor-pointer hover:bg-slate-800 transition-colors"
+            onClick={() => setIsBranchMenuOpen(!isBranchMenuOpen)}
+          >
+            <div className="flex items-center space-x-3 overflow-hidden">
+              <div className="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                {companyName.split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase()}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-medium text-white truncate">{companyName}</span>
+                <span className="text-xs text-slate-400 truncate">
+                  {companyCity && companyState ? `${companyCity}, ${companyState}` : companyCity || companyState || 'Sin ubicación'}
+                </span>
               </div>
             </div>
-            {isMobile && (
-              <button 
-                onClick={() => setIsSidebarOpen(false)}
-                className="p-2 rounded-lg hover:bg-sky-100 transition-colors"
-              >
-                <X className="h-5 w-5 text-sky-500" />
+            <div className="flex flex-col">
+              <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isBranchMenuOpen ? 'rotate-180' : ''}`} />
+            </div>
+          </div>
+
+          {/* Dropdown de sucursales */}
+          {isBranchMenuOpen && (
+            <div className="mt-2 bg-slate-800/30 rounded-lg p-3 border border-slate-700/50">
+              <p className="text-xs text-slate-400 text-center italic">
+                No hay sucursales asociadas
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Search Bar */}
+        <div className="px-4 mb-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search"
+              className="w-full bg-slate-800/50 border border-slate-700 rounded-md py-2 pl-9 pr-12 text-sm text-slate-300 focus:outline-none focus:border-slate-600 placeholder-slate-500"
+            />
+            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+              <span className="text-[10px] text-slate-500 bg-slate-800 px-1 rounded border border-slate-700">ctrlK</span>
+              <button className="text-emerald-500 hover:text-emerald-400">
+                <div className="w-4 h-4 bg-emerald-500/20 rounded flex items-center justify-center">
+                  <span className="text-xs font-bold">+</span>
+                </div>
               </button>
-            )}
+            </div>
           </div>
         </div>
-        
-        {/* Navigation Menu con animaciones y colores actualizados */}
-        <nav className="flex-1 overflow-y-auto py-6 px-3">
-          <div className="mb-4 px-3">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Menú Principal</h3>
-          </div>
-          <ul className="space-y-1.5">
-            {sidebarItems.map(item => (
-              <React.Fragment key={item.id}>
-                <li>
-                  <button
-                    onClick={() => {
-                      if (item.hasDropdown && item.toggleDropdown) {
-                        item.toggleDropdown();
-                      } else {
-                        setActiveTab(item.id);
-                        if (isMobile) setIsSidebarOpen(false);
-                      }
-                    }}
-                    className={cn(
-                      "w-full flex items-center px-4 py-3.5 rounded-xl text-left transition-all duration-300",
-                      activeTab === item.id 
-                        ? "bg-gradient-to-r from-sky-100/70 to-blue-100/70 shadow-sm" 
-                        : "hover:bg-sky-50"
-                    )}
-                  >
-                    <div className={cn(
-                      "flex items-center justify-center w-10 h-10 rounded-lg mr-3",
-                      activeTab === item.id 
-                        ? "bg-gradient-to-br from-sky-400 to-blue-600 shadow-md shadow-sky-200" 
-                        : "bg-slate-100 text-slate-500"
-                    )}>
+
+        {/* Navigation Menu */}
+        <nav className="flex-1 overflow-y-auto py-2 px-2 custom-scrollbar">
+          {showMainMenu ? (
+            <ul className="space-y-1">
+              {sidebarItems.map((item, index) => (
+                <React.Fragment key={item.id}>
+                  <li>
+                    <button
+                      onClick={() => {
+                        if (item.hasDropdown && item.toggleDropdown) {
+                          item.toggleDropdown();
+                        } else {
+                          handleNavigation(item.id);
+                        }
+                      }}
+                      className={cn(
+                        "w-full flex items-center px-4 py-2.5 rounded-md text-left transition-all duration-200 group relative",
+                        isTabActive(item.id)
+                          ? "bg-slate-800 text-white font-medium"
+                          : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                      )}
+                    >
+                      {/* Active Indicator Line for main items */}
+                      {isTabActive(item.id) && !item.hasDropdown && (
+                        <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-6 w-1 bg-orange-500 rounded-r-md" />
+                      )}
+
                       <span className={cn(
-                        activeTab === item.id ? "text-white" : "",
-                        activeTab === item.id ? iconAnimation(true) : iconAnimation(false)
+                        "flex-shrink-0 mr-3",
+                        isTabActive(item.id) ? "text-orange-500" : "text-slate-500 group-hover:text-slate-400"
                       )}>
                         {item.icon}
                       </span>
-                    </div>
-                    
-                    <div className="flex flex-col">
-                      <span className={cn(
-                        "font-medium",
-                        activeTab === item.id ? "text-sky-700" : "text-slate-600"
-                      )}>
+
+                      <span className="truncate flex-1">
                         {item.label}
                       </span>
-                      
-                      {activeTab === item.id && !item.hasDropdown && (
-                        <span className="text-xs text-sky-500 mt-0.5">
-                          Seleccionado
-                        </span>
+
+                      {/* Dropdown chevron */}
+                      {item.hasDropdown && (
+                        <ChevronDown className={cn(
+                          "h-4 w-4 transition-transform duration-200",
+                          item.isDropdownOpen ? "transform rotate-180" : ""
+                        )} />
                       )}
-                    </div>
-                    
-                    <div className="ml-auto flex items-center">
-                      {item.hasDropdown ? (
-                        <ChevronDown className={`h-4 w-4 text-sky-500 transition-transform duration-300 ${item.isDropdownOpen ? 'transform rotate-180' : ''}`} />
-                      ) : activeTab === item.id && (
-                        <>
-                          <div className="w-2 h-2 rounded-full bg-sky-500 mr-2"></div>
-                          <ChevronRight className="h-4 w-4 text-sky-500" />
-                        </>
-                      )}
-                    </div>
+                    </button>
+
+                    {/* Dropdown Items */}
+                    {item.hasDropdown && item.isDropdownOpen && item.dropdownItems && (
+                      <div className="mt-1 ml-4 space-y-1 border-l border-slate-700/50 pl-2 animate-in slide-in-from-top-2 duration-200">
+                        {item.dropdownItems.map(subItem => (
+                          <button
+                            key={subItem.id}
+                            onClick={() => handleNavigation(subItem.id)}
+                            className={cn(
+                              "w-full flex items-center px-4 py-2 rounded-md text-left transition-all duration-200 text-sm group",
+                              isTabActive(subItem.id)
+                                ? "text-white bg-slate-800/50"
+                                : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/30"
+                            )}
+                          >
+                            <span className={cn(
+                              "mr-3",
+                              isTabActive(subItem.id) ? "text-orange-500" : "text-slate-600 group-hover:text-slate-400"
+                            )}>
+                              {React.cloneElement(subItem.icon as React.ReactElement, { className: "h-4 w-4" })}
+                            </span>
+                            <span className="truncate">{subItem.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </li>
+                </React.Fragment>
+              ))}
+            </ul>
+          ) : (
+            /* Menú de Configuración */
+            <ul className="space-y-1">
+              <li>
+                <button
+                  onClick={() => setShowConfigurationMenu(false)}
+                  className="w-full flex items-center px-4 py-2.5 rounded-md text-left transition-all duration-200 text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 group"
+                >
+                  <ChevronLeft className="h-5 w-5 mr-3 text-slate-500 group-hover:text-slate-400" />
+                  <span className="truncate flex-1">Volver atrás</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => {
+                    handleNavigation('configuration');
+                  }}
+                  className={cn(
+                    "w-full flex items-center px-4 py-2.5 rounded-md text-left transition-all duration-200 group relative",
+                    isTabActive('configuration')
+                      ? "bg-slate-800 text-white font-medium"
+                      : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                  )}
+                >
+                  {isTabActive('configuration') && (
+                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-6 w-1 bg-orange-500 rounded-r-md" />
+                  )}
+                  <span className="truncate flex-1">Perfil de empresa</span>
+                </button>
+              </li>
+              {isAdmin && (
+                <li>
+                  <button
+                    onClick={() => {
+                      handleNavigation('subaccounts');
+                    }}
+                    className={cn(
+                      "w-full flex items-center px-4 py-2.5 rounded-md text-left transition-all duration-200 group relative",
+                      isTabActive('subaccounts')
+                        ? "bg-slate-800 text-white font-medium"
+                        : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                    )}
+                  >
+                    {isTabActive('subaccounts') && (
+                      <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-6 w-1 bg-orange-500 rounded-r-md" />
+                    )}
+                    <span className="truncate flex-1">Subcuentas</span>
                   </button>
                 </li>
-                
-                {/* Dropdown items */}
-                {item.hasDropdown && item.isDropdownOpen && item.dropdownItems && (
-                  <li className="pl-6 pb-1 animate-in slide-in-from-top-5 duration-300">
-                    <div className="border-l-2 border-sky-200 pl-4 py-2 space-y-1">
-                      {item.dropdownItems.map(dropdownItem => (
-                        <button
-                          key={dropdownItem.id}
-                          onClick={() => {
-                            setActiveTab(dropdownItem.id);
-                            if (isMobile) setIsSidebarOpen(false);
-                          }}
-                          className={cn(
-                            "w-full flex items-center px-3 py-2.5 rounded-lg text-left transition-all duration-300",
-                            activeTab === dropdownItem.id 
-                              ? "bg-gradient-to-r from-sky-100/70 to-blue-100/70 shadow-sm" 
-                              : "hover:bg-sky-50"
-                          )}
-                        >
-                          <div className={cn(
-                            "flex items-center justify-center w-8 h-8 rounded-lg mr-2",
-                            activeTab === dropdownItem.id 
-                              ? "bg-gradient-to-br from-sky-400 to-blue-600 shadow-md shadow-sky-200" 
-                              : "bg-slate-100 text-slate-500"
-                          )}>
-                            <span className={cn(
-                              activeTab === dropdownItem.id ? "text-white" : "",
-                              activeTab === dropdownItem.id ? iconAnimation(true) : iconAnimation(false)
-                            )}>
-                              {dropdownItem.icon}
-                            </span>
-                          </div>
-                          
-                          <span className={cn(
-                            "font-medium text-sm",
-                            activeTab === dropdownItem.id ? "text-sky-700" : "text-slate-600"
-                          )}>
-                            {dropdownItem.label}
-                          </span>
-                          
-                          {activeTab === dropdownItem.id && (
-                            <div className="ml-auto flex items-center">
-                              <div className="w-1.5 h-1.5 rounded-full bg-sky-500"></div>
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </li>
-                )}
-              </React.Fragment>
-            ))}
-          </ul>
-          
-          <div className="my-6 px-3">
-            <div className="h-px bg-gradient-to-r from-transparent via-sky-200 to-transparent"></div>
-          </div>
-          
-          <div className="px-3 py-4 bg-gradient-to-r from-sky-50 to-blue-50 rounded-xl mx-3">
-            <div className="flex items-center mb-3">
-              <div className="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center text-sky-500 mr-3">
-                <Bell className="h-4 w-4" />
-              </div>
-              <span className="text-sm font-medium text-sky-700">Soporte Técnico</span>
-            </div>
-            <p className="text-xs text-slate-500 mb-3">¿Necesitas ayuda con el panel? Contáctanos para asistencia.</p>
-            <button 
-              onClick={() => toast({
-                title: "Función no disponible",
-                description: "El sistema de soporte técnico estará disponible próximamente",
-                variant: "destructive"
-              })}
-              className="text-xs px-3 py-2 bg-white text-sky-600 border border-sky-200 rounded-lg w-full hover:bg-sky-50 transition-colors"
-            >
-              Contactar Soporte
-            </button>
-          </div>
+              )}
+              <li>
+                <button
+                  onClick={() => {
+                    handleNavigation('info');
+                  }}
+                  className={cn(
+                    "w-full flex items-center px-4 py-2.5 rounded-md text-left transition-all duration-200 group relative",
+                    isTabActive('info')
+                      ? "bg-slate-800 text-white font-medium"
+                      : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                  )}
+                >
+                  {isTabActive('info') && (
+                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-6 w-1 bg-orange-500 rounded-r-md" />
+                  )}
+                  <span className="truncate flex-1">Info Secciones</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => {
+                    handleNavigation('filters');
+                  }}
+                  className={cn(
+                    "w-full flex items-center px-4 py-2.5 rounded-md text-left transition-all duration-200 group relative",
+                    isTabActive('filters')
+                      ? "bg-slate-800 text-white font-medium"
+                      : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                  )}
+                >
+                  {isTabActive('filters') && (
+                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-6 w-1 bg-orange-500 rounded-r-md" />
+                  )}
+                  <span className="truncate flex-1">Filtros</span>
+                </button>
+              </li>
+            </ul>
+          )}
         </nav>
-        
-        {/* Footer con estilo renovado */}
-        <div className="p-5 border-t border-sky-100">
-          <button
-            onClick={navigateToHome}
-            className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-sky-400 to-blue-600 text-white rounded-xl hover:shadow-lg hover:shadow-sky-200/50 transition-all duration-300 transform hover:-translate-y-0.5"
-          >
-            <Home className="h-4 w-4" />
-            <span className="font-medium">Ir a Tienda</span>
-          </button>
-        </div>
+
+        {/* Footer Actions - Configuración separada */}
+        {showMainMenu && (
+          <div className="px-4 py-2 border-t border-slate-700/50 mt-auto">
+            <button
+              onClick={() => {
+                setShowConfigurationMenu(true);
+                handleNavigation('configuration');
+              }}
+              className={cn(
+                "w-full flex items-center px-3 py-2 rounded-md text-left transition-all duration-200 group relative",
+                isTabActive('configuration') || isTabActive('subaccounts') || isTabActive('info') || isTabActive('filters')
+                  ? "bg-slate-800 text-white font-medium"
+                  : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+              )}
+            >
+              {/* Active Indicator Line */}
+              {(isTabActive('configuration') || isTabActive('subaccounts') || isTabActive('info') || isTabActive('filters')) && (
+                <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-5 w-1 bg-orange-500 rounded-r-md" />
+              )}
+
+              <span className={cn(
+                "flex-shrink-0 mr-2.5",
+                (isTabActive('configuration') || isTabActive('subaccounts') || isTabActive('info') || isTabActive('filters')) ? "text-orange-500" : "text-slate-500 group-hover:text-slate-400"
+              )}>
+                <Settings className="h-4 w-4" />
+              </span>
+
+              <span className="truncate flex-1 text-sm">
+                Configuración
+              </span>
+            </button>
+
+            {/* Collapse Sidebar Button (Visual only for now matching design) */}
+            <div className="absolute -right-3 bottom-6">
+              <button className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-md hover:bg-emerald-600 transition-colors">
+                <ChevronRight className="h-3 w-3 transform rotate-180" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-      
+
       {/* Botón toggle para móvil */}
       {isMobile && <MobileToggleButton />}
     </>

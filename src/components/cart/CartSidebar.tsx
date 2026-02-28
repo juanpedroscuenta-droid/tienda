@@ -8,9 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
 import { ShoppingCart, Plus, Minus, Trash2, MessageCircle, X } from 'lucide-react';
-import { doc, getDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db, auth } from "@/firebase";
+import { db } from "@/firebase";
 import { useAuth } from "@/contexts/AuthContext";
+import { createOrder } from '@/lib/api';
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -28,18 +28,29 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
 
   useEffect(() => {
     const fetchUserData = async () => {
-      const firebaseUser = auth.currentUser;
-      if (isAuthenticated && firebaseUser && firebaseUser.uid) {
-        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUserName(data.name || '');
-          setUserPhone(data.phone || '');
-          setUserEmail(data.email || firebaseUser.email || '');
-        } else {
-          setUserName(firebaseUser.email || '');
-          setUserPhone('');
-          setUserEmail(firebaseUser.email || '');
+      const isSupabase = typeof (db as any)?.from === 'function';
+      if (isAuthenticated && user?.id) {
+        // Initial values from context
+        setUserName(user.name || '');
+        setUserPhone(user.phone || '');
+        setUserEmail(user.email || '');
+
+        if (isSupabase) {
+          try {
+            const { data, error } = await (db as any)
+              .from("users")
+              .select("*")
+              .eq("id", user.id)
+              .maybeSingle();
+
+            if (data && !error) {
+              setUserName(data.name || data.nombre || '');
+              setUserPhone(data.phone || data.telefono || '');
+              setUserEmail(data.email || '');
+            }
+          } catch (err) {
+            console.error("Error fetching user data from Supabase:", err);
+          }
         }
       }
     };
@@ -87,7 +98,7 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
 
     // Mensaje con datos del usuario
     const message =
-      `🛒 *NUEVO PEDIDO - REGALA ALGO*\n\n` +
+      `🛒 *NUEVO PEDIDO - TIENDA 24-7*\n\n` +
       `👤 *Nombre:* ${userName}\n` +
       `📧 *Email:* ${userEmail}\n` +
       `📱 *Teléfono:* ${userPhone || 'No especificado'}\n` +
@@ -99,20 +110,20 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
         return itemText;
       }).join('\n')}\n\n` +
       (orderNotes ? `*📝 Notas adicionales:*\n${orderNotes}\n\n` : '') +
-      `💰 *TOTAL A PAGAR: $${getTotal().toLocaleString()}*\n\n` +
-      `⏰ Fecha: ${new Date().toLocaleDateString('es-AR')} - ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}\n\n` +
+      `💰 *TOTAL A PAGAR: $${total.toLocaleString('es-CO')}*\n\n` +
+      `⏰ Fecha: ${new Date().toLocaleDateString('es-CO')} - ${new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}\n\n` +
       `✅ Por favor confirma la disponibilidad y tiempo de entrega.\n`;
 
-    const storeWhatsApp = '543873439775'; // Número de WhatsApp de Regala Algo en Argentina
+    const storeWhatsApp = '573212619434'; // Número de WhatsApp de la tienda en Colombia
     const whatsappUrl = `https://wa.me/${storeWhatsApp}?text=${encodeURIComponent(message)}`;
 
     try {
-      // Guarda el pedido en Firestore
-      await addDoc(collection(db, "orders"), {
-        userId: isAuthenticated ? user.id : null,
-        userName,
-        userEmail,
-        userPhone,
+      // Guarda el pedido usando la API del backend
+      await createOrder({
+        user_id: isAuthenticated ? user.id : null,
+        user_name: userName,
+        user_email: userEmail,
+        user_phone: userPhone,
         items: items.map(item => ({
           id: item.id,
           name: item.name,
@@ -120,18 +131,18 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
           quantity: item.quantity,
           image: item.image
         })),
-        orderNotes,
-        total: getTotal(),
-        createdAt: serverTimestamp(),
+        order_notes: orderNotes,
+        total: total,
         status: "pending"
       });
     } catch (error) {
+      console.error("Error saving order:", error);
       toast({
         title: "Error",
         description: "No se pudo guardar el pedido en la base de datos.",
         variant: "destructive"
       });
-      // Puedes decidir si sigues con el WhatsApp o no
+      // Continuamos con el WhatsApp de todos modos
     }
 
     window.open(whatsappUrl, '_blank');
@@ -186,13 +197,13 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
                     />
                     <div className="flex-1 min-w-0">
                       <h4 className="font-medium text-sm leading-tight">{item.name}</h4>
-                      <p className="text-sm text-muted-foreground">${item.price.toLocaleString()}</p>
+                      <p className="text-sm text-muted-foreground">${item.price.toLocaleString('es-CO')}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="outline" className="text-xs">{item.category}</Badge>
                         {item.selectedColor && (
                           <div className="flex items-center gap-1">
-                            <span 
-                              className="w-3 h-3 rounded-full border border-gray-300" 
+                            <span
+                              className="w-3 h-3 rounded-full border border-gray-300"
                               style={{ backgroundColor: item.selectedColor.hexCode }}
                             ></span>
                             <span className="text-xs text-gray-500">{item.selectedColor.name}</span>
@@ -248,18 +259,18 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
               <div className="space-y-3 bg-muted/30 p-4 rounded-lg mb-6">
                 <div className="flex justify-between text-sm">
                   <span>Subtotal:</span>
-                  <span>${subtotal.toLocaleString()}</span>
+                  <span>${subtotal.toLocaleString('es-CO')}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Domicilio:</span>
                   <span className={deliveryFee === 0 ? 'text-green-600 font-medium' : ''}>
-                    {deliveryFee === 0 ? '¡GRATIS!' : `$${deliveryFee.toLocaleString()}`}
+                    {deliveryFee === 0 ? '¡GRATIS!' : `$${deliveryFee.toLocaleString('es-CO')}`}
                   </span>
                 </div>
                 <Separator />
                 <div className="flex justify-between font-semibold text-lg">
                   <span>Total:</span>
-                  <span className="gradient-text-orange">${total.toLocaleString()}</span>
+                  <span className="gradient-text-orange">${total.toLocaleString('es-CO')}</span>
                 </div>
                 {subtotal < 60000 && (
                   <p className="text-xs text-muted-foreground mt-2 text-center">
@@ -291,13 +302,13 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
                     </Button>
                   </div>
                 )}
-                
+
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={onClose} className="flex-1">
                     Seguir Comprando
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={clearCart}
                     className="text-destructive hover:text-destructive"
                   >
@@ -307,9 +318,10 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
               </div>
 
               {/* DEBUG: Muestra los datos obtenidos */}
-              <div style={{fontSize: 12, color: '#888', marginBottom: 8}}>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
                 <div>Nombre: {userName}</div>
                 <div>Email: {userEmail}</div>
                 <div>Teléfono: {userPhone || 'No especificado'}</div>
               </div>
-            </>          )}        </div>      </SheetContent>    </Sheet>  );};
+            </>)}        </div>      </SheetContent>    </Sheet>);
+};

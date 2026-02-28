@@ -8,7 +8,7 @@ import { TopPromoBar } from "@/components/layout/TopPromoBar";
 import { AdvancedHeader } from "@/components/layout/AdvancedHeader";
 
 const AboutUs = () => {
-  const { categories } = useCategories();
+  const { categories, mainCategories, subcategoriesByParent, thirdLevelBySubcategory } = useCategories();
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [promoVisible, setPromoVisible] = useState(true);
   const [customInfo, setCustomInfo] = useState(null);
@@ -38,6 +38,9 @@ const AboutUs = () => {
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         promoVisible={promoVisible}
+        mainCategories={mainCategories}
+        subcategoriesByParent={subcategoriesByParent}
+        thirdLevelBySubcategory={thirdLevelBySubcategory}
       />
       <main className="flex-1 flex flex-col">
         {/* Hero Section */}
@@ -73,7 +76,7 @@ const AboutUs = () => {
             ) : (
               <>
                 <h2 className="text-2xl md:text-3xl font-serif font-semibold text-gray-900 mb-8 w-full">¿Quiénes Somos?</h2>
-                
+
                 <div className="grid md:grid-cols-2 gap-6 mb-8">
                   <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 md:p-8 shadow-md border border-blue-100">
                     <p className="text-lg md:text-xl text-gray-700 font-normal leading-relaxed">
@@ -86,7 +89,7 @@ const AboutUs = () => {
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="bg-gradient-to-br from-slate-50 to-gray-100 rounded-xl p-6 md:p-8 shadow-md border border-gray-200 mb-8">
                   <p className="text-lg md:text-xl text-gray-700 font-normal leading-relaxed mb-6">
                     Nuestra misión es clara: que puedas comprar de forma rápida, segura y con la confianza de que estás haciendo una buena elección.
@@ -95,18 +98,18 @@ const AboutUs = () => {
                     ✨ Porque sabemos que regalar es una forma de decir mucho sin palabras, trabajamos día a día para que en nuestra tienda siempre encuentres algo especial.
                   </p>
                 </div>
-                
+
                 <div className="bg-gradient-to-r from-slate-900 to-gray-800 rounded-2xl p-8 md:p-12 text-white shadow-2xl mb-10">
                   <p className="text-lg md:text-xl font-bold leading-relaxed text-center">
                     "Encontrá tu regalo ideal al mejor precio" no es solo nuestro eslogan, es un compromiso.
                   </p>
                 </div>
-                
+
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-8 md:p-10 shadow-xl border border-green-200">
                   <h3 className="text-xl font-bold mb-4 text-gray-900">Nuestra Ubicación</h3>
                   <p className="mb-6 text-lg text-gray-700">📍 Olavarría 610 (esquina San Luis), Salta, Argentina</p>
-                  <a 
-                    href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
+                  <a
+                    href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold">
@@ -126,7 +129,7 @@ const AboutUs = () => {
                 <div className="w-8 h-8 gradient-orange rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">T</span>
                 </div>
-                <span className="text-lg font-bold gradient-text-orange">REGALA ALGO</span>
+                <span className="text-lg font-bold gradient-text-orange">TIENDA 24-7</span>
               </div>
               <p className="text-muted-foreground text-sm">
                 Tu tienda premium con los mejores productos y atención personalizada.
@@ -155,19 +158,19 @@ const AboutUs = () => {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>📍 Olavarría 610 (esquina San Luis)</li>
                 <li>
-                  <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
-                     className="text-blue-600 hover:underline">
+                  <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw"
+                    className="text-blue-600 hover:underline">
                     Ver en el mapa
                   </a>
                 </li>
-                <li>WhatsApp: +54 3873439775</li>
-                <li>Instagram: <a href="https://www.instagram.com/regala.algo?igsh=OWk2enhxYzg2eHVq" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">regala.algo</a></li>
+                <li>WhatsApp: +57 321 2619434</li>
+                <li>Instagram: <a href="https://www.instagram.com/tienda247" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">tienda247</a></li>
                 <li>Facebook: Regala Algo</li>
               </ul>
             </div>
           </div>
           <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
-            <p>&copy; 2024 REGALA ALGO. Todos los derechos reservados.</p>
+            <p>&copy; 2024 TIENDA 24-7. Todos los derechos reservados.</p>
           </div>
         </div>
       </footer>

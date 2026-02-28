@@ -8,22 +8,35 @@ export interface Product {
   price: number;
   image: string;
   additionalImages?: string[];
+  additional_images?: string[];
   specifications?: { name: string; value: string }[];
   category: string;
+  category_id?: string;
   categoryName?: string;
   subcategory?: string;
   subcategoryName?: string;
   terceraCategoria?: string;
+  tercera_categoria?: string;
   terceraCategoriaName?: string;
   stock: number;
+  cost?: number | string;
   isOffer?: boolean;
+  is_offer?: boolean;
   discount?: number;
   originalPrice?: number;
+  original_price?: number;
   benefits?: string[];
   warranties?: string[];
   paymentMethods?: string[];
+  payment_methods?: string[];
   colors?: { name: string; hexCode: string; image: string }[];
-  isPublished?: boolean; // Control de visibilidad pública
+  isPublished?: boolean;
+  is_published?: boolean;
+  filter_groups?: string[];
+  filterGroups?: string[];
+  filter_options?: any;
+  filterOptions?: any;
+  brand?: string;
 }
 
 export interface CartItem extends Product {
@@ -51,19 +64,20 @@ export const useCart = () => {
   return context;
 };
 
+const loadCartFromStorage = (): CartItem[] => {
+  try {
+    const saved = localStorage.getItem('cart');
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [items, setItems] = useState<CartItem[]>([]);
+  // Inicializar desde localStorage para que no se sobrescriba con [] al guardar
+  const [items, setItems] = useState<CartItem[]>(loadCartFromStorage);
 
   useEffect(() => {
-    // Cargar carrito desde localStorage
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      setItems(JSON.parse(savedCart));
-    }
-  }, []);
-
-  useEffect(() => {
-    // Guardar carrito en localStorage cuando cambie
     localStorage.setItem('cart', JSON.stringify(items));
   }, [items]);
 
@@ -72,10 +86,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // If there's a selected color, we need to check if that specific product+color combination exists
       if (selectedColor) {
         const existingItemWithColor = prevItems.find(
-          item => item.id === product.id && 
-                  item.selectedColor?.name === selectedColor.name
+          item => item.id === product.id &&
+            item.selectedColor?.name === selectedColor.name
         );
-        
+
         if (existingItemWithColor) {
           // If the same product with same color exists, update quantity
           return prevItems.map(item =>
@@ -92,7 +106,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const existingItem = prevItems.find(
           item => item.id === product.id && !item.selectedColor
         );
-        
+
         if (existingItem) {
           return prevItems.map(item =>
             item.id === product.id && !item.selectedColor
@@ -115,7 +129,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       removeFromCart(productId);
       return;
     }
-    
+
     setItems(prevItems =>
       prevItems.map(item =>
         item.id === productId ? { ...item, quantity } : item

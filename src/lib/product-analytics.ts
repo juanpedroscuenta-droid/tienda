@@ -1,4 +1,3 @@
-import { doc, updateDoc, getDoc, increment, collection, addDoc, serverTimestamp, query, where, orderBy, getDocs, limit, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/firebase';
 
 // Estructura de datos para el análisis de productos
@@ -76,23 +75,116 @@ export interface ProductAnalytics {
   viewEvents?: ViewEvent[]; // historial detallado de vistas
 }
 
-// Registra una vista de producto
+// Obtener o crear session ID único para el usuario
+const getSessionId = (): string => {
+  let sessionId = sessionStorage.getItem('website_session_id');
+  if (!sessionId) {
+    sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    sessionStorage.setItem('website_session_id', sessionId);
+    console.log('[getSessionId] ✅ Nueva sesión creada:', sessionId);
+  }
+  return sessionId;
+};
+
+// Registra una visita general al sitio web (por dispositivo)
+export const recordWebsiteVisit = async (
+  pageUrl: string,
+  pageTitle?: string,
+  userId?: string,
+  userEmail?: string | null,
+  userName?: string | null
+) => {
+  try {
+    const isSupabase = typeof (db as any)?.from === 'function';
+    if (!isSupabase) {
+      console.warn('[recordWebsiteVisit] ⚠️ Supabase no está disponible');
+      return false;
+    }
+
+    console.log('[recordWebsiteVisit] 📊 Iniciando registro de visita al sitio web...');
+    console.log('[recordWebsiteVisit] 📄 Página:', { pageUrl, pageTitle, userId: userId || 'Anónimo' });
+
+    const sessionId = getSessionId();
+    const today = new Date().toISOString().split('T')[0];
+    const currentTime = new Date().toLocaleTimeString();
+    const userAgent = window.navigator.userAgent;
+    const deviceInfo = {
+      browser: getBrowserInfo(userAgent),
+      os: getOSInfo(userAgent),
+      isMobile: /Mobi|Android/i.test(userAgent),
+      device: /Mobi|Android/i.test(userAgent) ? 'Mobile' : 'Desktop',
+      userAgent: userAgent
+    };
+
+    console.log('[recordWebsiteVisit] 📱 Información del dispositivo:', deviceInfo);
+
+    const visitData = {
+      session_id: sessionId,
+      user_id: userId ?? null,
+      user_email: userEmail ?? null,
+      user_name: userName ?? null,
+      is_anonymous: !userId,
+      page_url: pageUrl,
+      page_title: pageTitle || document.title || 'Sin título',
+      referrer: document.referrer || null,
+      date: today,
+      time: currentTime,
+      timestamp: new Date().toISOString(),
+      device_info: deviceInfo
+    };
+
+    console.log('[recordWebsiteVisit] 💾 Datos a insertar:', visitData);
+
+    const { data, error } = await (db as any)
+      .from('website_visits')
+      .insert(visitData)
+      .select();
+
+    if (error) {
+      console.error('[recordWebsiteVisit] ❌ Error al insertar visita:', error);
+      console.error('[recordWebsiteVisit] ❌ Detalles del error:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
+      return false;
+    }
+
+    console.log('[recordWebsiteVisit] ✅ Visita registrada exitosamente en website_visits');
+    console.log('[recordWebsiteVisit] ✅ ID de registro:', data?.[0]?.id);
+    return true;
+  } catch (error: any) {
+    console.error('[recordWebsiteVisit] ❌ Error crítico al registrar visita:', error?.message || error);
+    console.error('[recordWebsiteVisit] ❌ Stack trace:', error?.stack);
+    return false;
+  }
+};
+
+// Registra una vista de producto (SOLO Supabase)
 export const recordProductView = async (
-  productId: string, 
+  productId: string,
   productName: string,
   userId?: string,
   userEmail?: string | null,
   userName?: string | null
 ) => {
   try {
-    console.log(`[recordProductView] Registrando vista para producto: ${productId} - ${productName}`);
-    console.log(`[recordProductView] Datos usuario: ID=${userId || 'anónimo'}, Email=${userEmail || 'N/A'}, Nombre=${userName || 'N/A'}`);
-    
-    // Generamos un ID de sesión si no hay usuario autenticado
-    const sessionId = userId || `anon_${Math.random().toString(36).substring(2, 15)}`;
-    const isAnonymous = !userId;
-    
-    // Obtener información del navegador y dispositivo del cliente
+    console.log('[recordProductView] 🛍️ ========================================');
+    console.log('[recordProductView] 🛍️ INICIANDO REGISTRO DE VISTA DE PRODUCTO');
+    console.log('[recordProductView] 🛍️ ========================================');
+    console.log('[recordProductView] 📦 Producto:', { productId, productName });
+    console.log('[recordProductView] 👤 Usuario:', { userId: userId || 'Anónimo', userEmail, userName });
+
+    const isSupabase = typeof (db as any)?.from === 'function';
+    if (!isSupabase) {
+      console.error('[recordProductView] ❌ Supabase no está disponible');
+      return false;
+    }
+
+    const sessionId = getSessionId();
+    const today = new Date().toISOString().split('T')[0];
+    const currentTime = new Date().toLocaleTimeString();
     const userAgent = window.navigator.userAgent;
     const deviceInfo = {
       browser: getBrowserInfo(userAgent),
@@ -100,69 +192,179 @@ export const recordProductView = async (
       isMobile: /Mobi|Android/i.test(userAgent),
       device: /Mobi|Android/i.test(userAgent) ? 'Mobile' : 'Desktop'
     };
-    
-    // 1. Primero actualizamos el contador general de vistas del producto
-    const productAnalyticsRef = doc(db, "productAnalytics", productId);
-    const productAnalyticsDoc = await getDoc(productAnalyticsRef);
-    
-    // Formato de fecha YYYY-MM-DD para agrupar vistas por día
-    const today = new Date().toISOString().split('T')[0];
-    // Hora actual en formato legible
-    const currentTime = new Date().toLocaleTimeString();
-    
-    // Usar un timestamp explícito para todas las operaciones
-    const timestamp = serverTimestamp();
-    
-    console.log(`[recordProductView] Fecha actual: ${today}, Hora: ${currentTime}`);
-    
-    if (productAnalyticsDoc.exists()) {
-      console.log(`[recordProductView] Actualizando documento existente`);
-      // Actualizamos el documento existente
-      const viewsByDay = productAnalyticsDoc.data().viewsByDay || {};
-      viewsByDay[today] = (viewsByDay[today] || 0) + 1;
-      
-      await updateDoc(productAnalyticsRef, {
-        totalViews: increment(1),
-        lastViewed: timestamp,
-        viewsByDay: viewsByDay,
-        productName: productName // Por si cambió el nombre del producto
-      });
-    } else {
-      console.log(`[recordProductView] Creando nuevo documento de analytics`);
-      // Creamos un nuevo documento de analytics para este producto
-      const viewsByDay: Record<string, number> = {};
-      viewsByDay[today] = 1;
-      
-      await setDoc(productAnalyticsRef, {
-        productId,
-        productName,
-        totalViews: 1,
-        lastViewed: timestamp,
-        viewsByDay,
-        createdAt: timestamp
-      });
+
+    console.log('[recordProductView] 📱 Dispositivo:', deviceInfo);
+    console.log('[recordProductView] 📅 Fecha:', { today, currentTime });
+    console.log('[recordProductView] 🔑 Sesión:', sessionId);
+
+    // Paso 1: Registrar vista individual en product_views
+    console.log('[recordProductView] 📝 Paso 1: Insertando en product_views...');
+    try {
+      const viewData = {
+        product_id: productId,
+        product_name: productName,
+        user_id: userId ?? null,
+        user_email: userEmail ?? null,
+        user_name: userName ?? null,
+        is_anonymous: !userId,
+        session_id: sessionId,
+        timestamp: new Date().toISOString(),
+        device_info: deviceInfo
+      };
+
+      console.log('[recordProductView] 💾 Datos de vista:', viewData);
+
+      const { data: viewResult, error: viewError } = await (db as any)
+        .from('product_views')
+        .insert(viewData)
+        .select();
+
+      if (viewError) {
+        console.error('[recordProductView] ❌ Error al insertar en product_views:', viewError);
+        console.error('[recordProductView] ❌ Detalles:', {
+          message: viewError.message,
+          code: viewError.code,
+          details: viewError.details,
+          hint: viewError.hint
+        });
+        throw viewError;
+      }
+
+      console.log('[recordProductView] ✅ Vista individual registrada en product_views');
+      console.log('[recordProductView] ✅ ID de registro:', viewResult?.[0]?.id);
+    } catch (error: any) {
+      console.error('[recordProductView] ❌ Error crítico en product_views:', error?.message || error);
+      // Continuar con analytics aunque falle product_views
     }
-    
-    // 2. Registramos la vista individual con información detallada del usuario (para análisis detallado)
-    console.log(`[recordProductView] Registrando vista individual en productViews`);
-    const viewDocRef = await addDoc(collection(db, "productViews"), {
-      productId,
-      productName,
-      userId,
-      userEmail,
-      userName,
-      isAnonymous,
-      sessionId,
-      deviceInfo,
-      date: today,
-      time: currentTime,
-      timestamp: timestamp
-    });
-    
-    console.log(`[recordProductView] Vista registrada correctamente con ID: ${viewDocRef.id}`);
+
+    // Paso 2: Actualizar o crear analytics agregados en product_analytics
+    console.log('[recordProductView] 📊 Paso 2: Actualizando product_analytics...');
+    try {
+      const { data: existing, error: fetchError } = await (db as any)
+        .from('product_analytics')
+        .select('*')
+        .eq('product_id', productId)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('[recordProductView] ❌ Error al buscar analytics existente:', fetchError);
+        throw fetchError;
+      }
+
+      if (existing) {
+        console.log('[recordProductView] 📊 Analytics existente encontrado:', existing);
+        const viewsByDay = (existing.views_by_day ?? {}) as Record<string, number>;
+        const previousViews = viewsByDay[today] || 0;
+        viewsByDay[today] = previousViews + 1;
+
+        console.log('[recordProductView] 📈 Vistas del día:', {
+          fecha: today,
+          anteriores: previousViews,
+          nuevas: viewsByDay[today]
+        });
+
+        const { error: updateError } = await (db as any)
+          .from('product_analytics')
+          .update({
+            total_views: (existing.total_views ?? 0) + 1,
+            last_viewed: new Date().toISOString(),
+            views_by_day: viewsByDay,
+            product_name: productName,
+            updated_at: new Date().toISOString()
+          })
+          .eq('product_id', productId);
+
+        if (updateError) {
+          console.error('[recordProductView] ❌ Error al actualizar analytics:', updateError);
+          throw updateError;
+        }
+
+        console.log('[recordProductView] ✅ Analytics actualizado en product_analytics');
+        console.log('[recordProductView] ✅ Total de vistas:', (existing.total_views ?? 0) + 1);
+      } else {
+        console.log('[recordProductView] 📊 No existe analytics, creando nuevo registro...');
+        const viewsByDay: Record<string, number> = {};
+        viewsByDay[today] = 1;
+
+        const newAnalytics = {
+          product_id: productId,
+          product_name: productName,
+          total_views: 1,
+          last_viewed: new Date().toISOString(),
+          views_by_day: viewsByDay
+        };
+
+        console.log('[recordProductView] 💾 Nuevos analytics:', newAnalytics);
+
+        const { error: insertError } = await (db as any)
+          .from('product_analytics')
+          .insert(newAnalytics);
+
+        if (insertError) {
+          // Si hay un error 409 (duplicate key), significa que otra llamada ya creó el registro
+          // En ese caso, intentamos actualizar en lugar de fallar
+          if (insertError.code === '23505' || insertError.message?.includes('duplicate') || insertError.message?.includes('unique')) {
+            console.log('[recordProductView] 🔄 Conflicto detectado (otra llamada ya creó el registro), intentando actualizar...');
+
+            // Intentar obtener el registro que ya existe
+            const { data: existingAfterConflict, error: refetchError } = await (db as any)
+              .from('product_analytics')
+              .select('*')
+              .eq('product_id', productId)
+              .maybeSingle();
+
+            if (refetchError || !existingAfterConflict) {
+              console.error('[recordProductView] ❌ Error al obtener registro después del conflicto:', refetchError);
+              throw insertError; // Lanzar el error original
+            }
+
+            // Actualizar el registro existente
+            const viewsByDayUpdated = (existingAfterConflict.views_by_day ?? {}) as Record<string, number>;
+            viewsByDayUpdated[today] = (viewsByDayUpdated[today] || 0) + 1;
+
+            const { error: updateAfterConflictError } = await (db as any)
+              .from('product_analytics')
+              .update({
+                total_views: (existingAfterConflict.total_views ?? 0) + 1,
+                last_viewed: new Date().toISOString(),
+                views_by_day: viewsByDayUpdated,
+                product_name: productName,
+                updated_at: new Date().toISOString()
+              })
+              .eq('product_id', productId);
+
+            if (updateAfterConflictError) {
+              console.error('[recordProductView] ❌ Error al actualizar después del conflicto:', updateAfterConflictError);
+              throw updateAfterConflictError;
+            }
+
+            console.log('[recordProductView] ✅ Analytics actualizado después de resolver conflicto');
+            console.log('[recordProductView] ✅ Total de vistas:', (existingAfterConflict.total_views ?? 0) + 1);
+          } else {
+            // Si es otro tipo de error, lanzarlo normalmente
+            console.error('[recordProductView] ❌ Error al crear analytics:', insertError);
+            throw insertError;
+          }
+        } else {
+          console.log('[recordProductView] ✅ Analytics creado en product_analytics');
+        }
+      }
+    } catch (error: any) {
+      console.error('[recordProductView] ❌ Error crítico en product_analytics:', error?.message || error);
+      console.error('[recordProductView] ❌ Stack trace:', error?.stack);
+      return false;
+    }
+
+    console.log('[recordProductView] ✅ ========================================');
+    console.log('[recordProductView] ✅ VISTA DE PRODUCTO REGISTRADA EXITOSAMENTE');
+    console.log('[recordProductView] ✅ ========================================');
     return true;
-  } catch (error) {
-    console.error("[recordProductView] Error al registrar vista de producto:", error);
+  } catch (error: any) {
+    console.error('[recordProductView] ❌ ========================================');
+    console.error('[recordProductView] ❌ ERROR CRÍTICO AL REGISTRAR VISTA');
+    console.error('[recordProductView] ❌ ========================================');
+    console.error('[recordProductView] ❌ Error:', error?.message || error);
+    console.error('[recordProductView] ❌ Stack:', error?.stack);
     return false;
   }
 };
@@ -195,225 +397,227 @@ function getOSInfo(userAgent: string): string {
   else return 'Unknown';
 }
 
-// Obtiene los visitantes detallados de un producto específico
+// Obtiene los visitantes detallados de un producto específico (SOLO Supabase)
 export const getProductVisitors = async (productId: string, startDate?: Date, endDate?: Date) => {
   try {
-    // Verificar que tenemos un ID de producto válido
-    if (!productId) {
-      console.log("Error: No se proporcionó un ID de producto válido");
+    console.log('[getProductVisitors] 🔍 Buscando visitantes para producto:', productId);
+
+    const isSupabase = typeof (db as any)?.from === 'function';
+    if (!isSupabase) {
+      console.warn('[getProductVisitors] ⚠️ Supabase no está disponible');
       return [];
     }
-    
-    console.log(`Obteniendo visitantes para producto: ${productId}`);
-    console.log(`Fechas recibidas - Inicio: ${startDate?.toISOString() || 'No definida'}, Fin: ${endDate?.toISOString() || 'No definida'}`);
-    
-    // DIAGNÓSTICO: Primero verificar si hay registros sin filtros de fecha
-    const diagnosticQuery = query(
-      collection(db, "productViews"),
-      where("productId", "==", productId),
-      limit(5)
-    );
-    const diagnosticSnapshot = await getDocs(diagnosticQuery);
-    
-    console.log(`DIAGNÓSTICO: Encontrados ${diagnosticSnapshot.size} registros sin filtro de fecha`);
-    diagnosticSnapshot.forEach(doc => {
-      const data = doc.data();
-      console.log(`Registro: ID=${doc.id}, timestamp=${data.timestamp instanceof Timestamp ? 
-        `Timestamp(${data.timestamp.seconds}, ${data.timestamp.nanoseconds})` : 
-        'No es Timestamp'}, fecha=${data.date}, hora=${data.time}`);
-    });
 
-    // Asegurar que la fecha final incluya todo el día
-    let adjustedEndDate;
-    if (endDate) {
-      adjustedEndDate = new Date(endDate);
-      adjustedEndDate.setHours(23, 59, 59, 999);
-      console.log(`Fecha de fin ajustada: ${adjustedEndDate.toISOString()}`);
+    if (!productId) {
+      console.error('[getProductVisitors] ❌ No se proporcionó un ID de producto válido');
+      return [];
     }
-    
-    // Convertir fechas JavaScript a Timestamp de Firestore para la consulta
-    const startTimestamp = startDate ? Timestamp.fromDate(startDate) : undefined;
-    const endTimestamp = adjustedEndDate ? Timestamp.fromDate(adjustedEndDate) : undefined;
-    
-    console.log(`Timestamps para consulta: Start=${startTimestamp ? 
-      `${startTimestamp.seconds}.${startTimestamp.nanoseconds}` : 'undefined'}, 
-      End=${endTimestamp ? `${endTimestamp.seconds}.${endTimestamp.nanoseconds}` : 'undefined'}`);
-    
-    let q;
-    
-    if (startTimestamp && endTimestamp) {
-      console.log(`Buscando visitantes para producto ${productId} con Timestamps`);
-      q = query(
-        collection(db, "productViews"),
-        where("productId", "==", productId),
-        where("timestamp", ">=", startTimestamp),
-        where("timestamp", "<=", endTimestamp),
-        orderBy("timestamp", "desc")
-      );
-    } else {
-      console.log(`Buscando todos los visitantes para producto ${productId}`);
-      q = query(
-        collection(db, "productViews"),
-        where("productId", "==", productId),
-        orderBy("timestamp", "desc")
-      );
+
+    let query = (db as any).from('product_views').select('*').eq('product_id', productId);
+
+    if (startDate && endDate) {
+      const startISO = startDate.toISOString();
+      const endISO = new Date(endDate);
+      endISO.setHours(23, 59, 59, 999);
+      query = query.gte('timestamp', startISO).lte('timestamp', endISO.toISOString());
+      console.log('[getProductVisitors] 📅 Filtrando por fechas:', { startISO, endISO: endISO.toISOString() });
     }
-    
-    const snapshot = await getDocs(q);
-    
+
+    query = query.order('timestamp', { ascending: false });
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('[getProductVisitors] ❌ Error al obtener visitantes:', error);
+      return [];
+    }
+
+    console.log('[getProductVisitors] ✅ Encontrados', data?.length || 0, 'registros');
+
     // Procesar los resultados para agrupar por usuario
-    const visitorMap = new Map();
-    
-    snapshot.forEach(doc => {
-      const viewData = doc.data() as {
-        userId?: string;
-        sessionId: string;
-        userEmail?: string;
-        userName?: string;
-        isAnonymous?: boolean;
-        timestamp: Timestamp;
-        date: string;
-        time: string;
-        deviceInfo: DeviceInfo;
-      };
-      
-      const visitorId = viewData.userId || viewData.sessionId;
-      
+    const visitorMap = new Map<string, Visitor>();
+
+    (data || []).forEach((viewData: any) => {
+      const visitorId = viewData.user_id || viewData.session_id;
+      const timestamp = new Date(viewData.timestamp);
+
       if (visitorMap.has(visitorId)) {
-        // Incrementar número de visitas para este usuario
-        const existingVisitor = visitorMap.get(visitorId);
+        const existingVisitor = visitorMap.get(visitorId)!;
         existingVisitor.totalVisits += 1;
-        
-        // Actualizar última visita si es más reciente
-        const timestamp = viewData.timestamp?.toDate() || new Date();
-        if (timestamp > existingVisitor.lastSeen) {
+        if (timestamp > new Date(existingVisitor.lastSeen as string)) {
           existingVisitor.lastSeen = timestamp;
         }
-        
-        // Añadir este evento a la lista de visitas
-        existingVisitor.visits.push({
-          timestamp: timestamp,
+        existingVisitor.visits?.push({
+          timestamp,
           date: viewData.date,
           time: viewData.time,
-          deviceInfo: viewData.deviceInfo
+          deviceInfo: viewData.device_info
         });
-        
       } else {
-        // Crear nuevo registro de visitante
-        const timestamp = viewData.timestamp?.toDate() || new Date();
         visitorMap.set(visitorId, {
           userId: visitorId,
-          displayName: viewData.userName || (viewData.isAnonymous ? 'Usuario anónimo' : null),
-          email: viewData.userEmail || null,
-          isAnonymous: viewData.isAnonymous || !viewData.userId,
+          displayName: viewData.user_name || (viewData.is_anonymous ? 'Usuario anónimo' : null),
+          email: viewData.user_email || null,
+          isAnonymous: viewData.is_anonymous || !viewData.user_id,
           totalVisits: 1,
           firstVisit: timestamp,
           lastSeen: timestamp,
-          deviceInfo: viewData.deviceInfo,
+          deviceInfo: viewData.device_info,
           visits: [{
-            timestamp: timestamp,
+            timestamp,
             date: viewData.date,
             time: viewData.time,
-            deviceInfo: viewData.deviceInfo
+            deviceInfo: viewData.device_info
           }]
         });
       }
     });
-    
-    // Convertir el mapa a un array
+
     return Array.from(visitorMap.values());
-    
-  } catch (error) {
-    console.error("Error al obtener visitantes del producto:", error);
+  } catch (error: any) {
+    console.error('[getProductVisitors] ❌ Error crítico:', error?.message || error);
     return [];
   }
 };
 
-// Obtiene los productos más vistos
-export const getMostViewedProducts = async (limitCount = 10) => {
+// Tabla product_analytics puede no existir en Supabase. Si no existe, no llamar para evitar 404.
+// Cuando la crees y quieras “más vistos”, quita el early-return y descomenta la query.
+// Habilitar analytics de Supabase si está disponible
+const USE_PRODUCT_ANALYTICS_SUPABASE = typeof (db as any)?.from === 'function';
+
+// Obtiene los productos más vistos (Supabase o fallback vacío)
+export const getMostViewedProducts = async (limitCount = 10): Promise<ProductAnalytics[]> => {
   try {
-    const q = query(
-      collection(db, "productAnalytics"),
-      orderBy("totalViews", "desc"),
-      limit(limitCount)
-    );
-    
-    const snapshot = await getDocs(q);
-    let products = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as ProductAnalytics[];
-    
-    // Usamos solo datos reales, no simulados
-    products = products.map(product => {
-      return {
-        ...product,
-        uniqueVisitors: product.visitors?.length || 0,
-        returningVisitors: (product.visitors?.filter(v => (v.totalVisits || 0) > 1).length) || 0
-      };
-    });
-    
-    return products;
-  } catch (error) {
-    console.error("Error al obtener productos más vistos:", error);
+    const isSupabase = typeof (db as any)?.from === 'function';
+
+    if (isSupabase) {
+      // Intentar con Supabase primero
+      try {
+        const { data, error } = await (db as any)
+          .from('product_analytics')
+          .select('*')
+          .order('total_views', { ascending: false })
+          .limit(limitCount);
+        if (error) throw error;
+        const rows = data || [];
+        return rows.map((r: any) => ({
+          id: r.product_id ?? r.id,
+          productId: r.product_id ?? r.id,
+          productName: r.product_name ?? '',
+          totalViews: r.total_views ?? 0,
+          lastViewed: r.last_viewed ? new Date(r.last_viewed) : new Date(),
+          viewsByDay: r.views_by_day ?? {},
+          firstViewed: r.first_viewed ? new Date(r.first_viewed) : undefined,
+          uniqueVisitors: r.visitors?.length ?? 0,
+          returningVisitors: (r.visitors?.filter((v: any) => (v.totalVisits ?? 0) > 1).length) ?? 0
+        })) as ProductAnalytics[];
+      } catch (supabaseError) {
+        console.error('[getMostViewedProducts] ❌ Error con Supabase:', supabaseError);
+        return [];
+      }
+    }
+
+    console.warn('[getMostViewedProducts] ⚠️ Supabase no está disponible');
+    return [];
+  } catch (error: any) {
+    console.error('[getMostViewedProducts] ❌ Error crítico:', error?.message || error);
     return [];
   }
 };
 
-// Obtiene los productos menos vistos
-export const getLeastViewedProducts = async (limitCount = 10) => {
+// Obtiene los productos menos vistos (SOLO Supabase)
+export const getLeastViewedProducts = async (limitCount = 10): Promise<ProductAnalytics[]> => {
   try {
-    const q = query(
-      collection(db, "productAnalytics"),
-      orderBy("totalViews", "asc"),
-      limit(limitCount)
-    );
-    
-    const snapshot = await getDocs(q);
-    let products = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
+    console.log('[getLeastViewedProducts] 🔍 Buscando productos menos vistos, límite:', limitCount);
+
+    const isSupabase = typeof (db as any)?.from === 'function';
+    if (!isSupabase) {
+      console.warn('[getLeastViewedProducts] ⚠️ Supabase no está disponible');
+      return [];
+    }
+
+    const { data, error } = await (db as any)
+      .from('product_analytics')
+      .select('*')
+      .order('total_views', { ascending: true })
+      .limit(limitCount);
+
+    if (error) {
+      console.error('[getLeastViewedProducts] ❌ Error:', error);
+      return [];
+    }
+
+    console.log('[getLeastViewedProducts] ✅ Encontrados', data?.length || 0, 'productos');
+
+    return (data || []).map((r: any) => ({
+      id: r.product_id ?? r.id,
+      productId: r.product_id ?? r.id,
+      productName: r.product_name ?? '',
+      totalViews: r.total_views ?? 0,
+      lastViewed: r.last_viewed ? new Date(r.last_viewed) : new Date(),
+      viewsByDay: r.views_by_day ?? {},
+      firstViewed: r.first_viewed ? new Date(r.first_viewed) : undefined,
+      uniqueVisitors: r.visitors?.length ?? 0,
+      returningVisitors: (r.visitors?.filter((v: any) => (v.totalVisits ?? 0) > 1).length) ?? 0
     })) as ProductAnalytics[];
-    
-    // Usamos solo datos reales, no simulados
-    products = products.map(product => {
-      return {
-        ...product,
-        uniqueVisitors: product.visitors?.length || 0,
-        returningVisitors: (product.visitors?.filter(v => (v.totalVisits || 0) > 1).length) || 0
-      };
-    });
-    
-    return products;
-  } catch (error) {
-    console.error("Error al obtener productos menos vistos:", error);
+  } catch (error: any) {
+    console.error('[getLeastViewedProducts] ❌ Error crítico:', error?.message || error);
     return [];
   }
 };
 
-// Obtiene las vistas de un producto específico
+// Obtiene las vistas de un producto específico (SOLO Supabase)
 export const getProductViewsData = async (productId: string) => {
   try {
-    const docRef = doc(db, "productAnalytics", productId);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      return {
-        id: docSnap.id,
-        ...docSnap.data()
-      } as ProductAnalytics;
-    } else {
+    console.log('[getProductViewsData] 🔍 Buscando datos para producto:', productId);
+
+    const isSupabase = typeof (db as any)?.from === 'function';
+    if (!isSupabase) {
+      console.warn('[getProductViewsData] ⚠️ Supabase no está disponible');
       return null;
     }
-  } catch (error) {
-    console.error("Error al obtener datos de vistas del producto:", error);
+
+    const { data, error } = await (db as any)
+      .from('product_analytics')
+      .select('*')
+      .eq('product_id', productId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[getProductViewsData] ❌ Error:', error);
+      return null;
+    }
+
+    if (!data) {
+      console.log('[getProductViewsData] ℹ️ No se encontraron datos para el producto');
+      return null;
+    }
+
+    console.log('[getProductViewsData] ✅ Datos encontrados:', {
+      productId: data.product_id,
+      totalViews: data.total_views
+    });
+
+    return {
+      id: data.product_id ?? data.id,
+      productId: data.product_id ?? data.id,
+      productName: data.product_name ?? '',
+      totalViews: data.total_views ?? 0,
+      lastViewed: data.last_viewed ? new Date(data.last_viewed) : new Date(),
+      viewsByDay: data.views_by_day ?? {},
+      firstViewed: data.first_viewed ? new Date(data.first_viewed) : undefined
+    } as ProductAnalytics;
+  } catch (error: any) {
+    console.error('[getProductViewsData] ❌ Error crítico:', error?.message || error);
     return null;
   }
 };
 
-// Obtiene datos para gráficos de tendencia (últimos 30 días)
+// Obtiene datos para gráficos de tendencia (últimos 30 días) (SOLO Supabase)
 export const getProductViewsTrend = async (productId?: string) => {
   try {
+    console.log('[getProductViewsTrend] 📈 Obteniendo tendencia de vistas', productId ? `para producto: ${productId}` : 'para todos los productos');
+
     // Generamos un array de los últimos 30 días (formato YYYY-MM-DD)
     const last30Days: string[] = [];
     for (let i = 29; i >= 0; i--) {
@@ -421,7 +625,13 @@ export const getProductViewsTrend = async (productId?: string) => {
       date.setDate(date.getDate() - i);
       last30Days.push(date.toISOString().split('T')[0]);
     }
-    
+
+    const isSupabase = typeof (db as any)?.from === 'function';
+    if (!isSupabase) {
+      console.warn('[getProductViewsTrend] ⚠️ Supabase no está disponible');
+      return last30Days.map(day => ({ date: day, views: 0 }));
+    }
+
     // Si se especifica un producto, obtenemos solo sus datos
     if (productId) {
       const productData = await getProductViewsData(productId);
@@ -432,165 +642,220 @@ export const getProductViewsTrend = async (productId?: string) => {
           views: viewsByDay[day] || 0
         }));
       }
-      return [];
-    } 
-    
-    // Si no se especifica producto, obtenemos datos agregados de todos los productos
-    else {
-      const snapshot = await getDocs(collection(db, "productAnalytics"));
-      const aggregated: Record<string, number> = {};
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const viewsByDay = data.viewsByDay || {};
-        
-        for (const day in viewsByDay) {
-          aggregated[day] = (aggregated[day] || 0) + viewsByDay[day];
-        }
-      });
-      
-      return last30Days.map(day => ({
-        date: day,
-        views: aggregated[day] || 0
-      }));
+      return last30Days.map(day => ({ date: day, views: 0 }));
     }
-  } catch (error) {
-    console.error("Error al obtener tendencia de vistas:", error);
+
+    // Si no se especifica producto, obtenemos datos agregados de todos los productos
+    const { data, error } = await (db as any)
+      .from('product_analytics')
+      .select('views_by_day');
+
+    if (error) {
+      console.error('[getProductViewsTrend] ❌ Error:', error);
+      return last30Days.map(day => ({ date: day, views: 0 }));
+    }
+
+    const aggregated: Record<string, number> = {};
+    (data || []).forEach((row: any) => {
+      const viewsByDay = row.views_by_day || {};
+      for (const day in viewsByDay) {
+        aggregated[day] = (aggregated[day] || 0) + (viewsByDay[day] || 0);
+      }
+    });
+
+    console.log('[getProductViewsTrend] ✅ Tendencias calculadas');
+
+    return last30Days.map(day => ({
+      date: day,
+      views: aggregated[day] || 0
+    }));
+  } catch (error: any) {
+    console.error('[getProductViewsTrend] ❌ Error crítico:', error?.message || error);
     return [];
   }
 };
 
-// Exporta datos para Excel (todos los productos con su análisis)
+// Exporta datos para Excel (todos los productos con su análisis) (SOLO Supabase)
 export const getProductsViewsForExport = async () => {
   try {
-    const snapshot = await getDocs(collection(db, "productAnalytics"));
-    return snapshot.docs.map(doc => {
-      const data = doc.data();
-      const viewsByDay = data.viewsByDay || {};
-      
-      // Calculamos algunas métricas adicionales
+    console.log('[getProductsViewsForExport] 📊 Preparando datos para exportación...');
+
+    const isSupabase = typeof (db as any)?.from === 'function';
+    if (!isSupabase) {
+      console.warn('[getProductsViewsForExport] ⚠️ Supabase no está disponible');
+      return [];
+    }
+
+    const { data, error } = await (db as any)
+      .from('product_analytics')
+      .select('*');
+
+    if (error) {
+      console.error('[getProductsViewsForExport] ❌ Error:', error);
+      return [];
+    }
+
+    console.log('[getProductsViewsForExport] ✅ Encontrados', data?.length || 0, 'productos para exportar');
+
+    return (data || []).map((row: any) => {
+      const viewsByDay = row.views_by_day || {};
       const dates = Object.keys(viewsByDay);
       const totalDays = dates.length;
-      const totalViews = data.totalViews || 0;
+      const totalViews = row.total_views || 0;
       const averageViewsPerDay = totalDays > 0 ? totalViews / totalDays : 0;
-      
+
       // Encontramos el día con más vistas
       let peakDay = "";
       let peakViews = 0;
-      
+
       for (const day in viewsByDay) {
         if (viewsByDay[day] > peakViews) {
           peakDay = day;
           peakViews = viewsByDay[day];
         }
       }
-      
+
       return {
-        id: doc.id,
-        productName: data.productName || "Producto sin nombre",
+        id: row.product_id ?? row.id,
+        productName: row.product_name || "Producto sin nombre",
         totalViews,
         averageViewsPerDay: averageViewsPerDay.toFixed(2),
         firstViewed: dates.length > 0 ? dates.sort()[0] : "Sin datos",
-        lastViewed: data.lastViewed ? new Date(data.lastViewed.seconds * 1000).toLocaleDateString() : "Sin datos",
+        lastViewed: row.last_viewed ? new Date(row.last_viewed).toLocaleDateString() : "Sin datos",
         peakDay,
         peakViews,
         viewsByDay
       };
     });
-  } catch (error) {
-    console.error("Error al preparar datos para exportación:", error);
+  } catch (error: any) {
+    console.error('[getProductsViewsForExport] ❌ Error crítico:', error?.message || error);
     return [];
   }
 };
 
-// Obtiene los eventos detallados de visualización de un producto
+// Obtiene los eventos detallados de visualización de un producto (SOLO Supabase)
 export const getDetailedViewEvents = async (productId: string, startDate?: string, endDate?: string): Promise<ViewEvent[]> => {
   try {
-    // Verificar que tenemos un ID de producto válido
-    if (!productId) {
-      console.log("Error: No se proporcionó un ID de producto válido");
+    console.log('[getDetailedViewEvents] 🔍 Buscando eventos detallados para producto:', productId);
+
+    const isSupabase = typeof (db as any)?.from === 'function';
+    if (!isSupabase) {
+      console.warn('[getDetailedViewEvents] ⚠️ Supabase no está disponible');
       return [];
     }
-    
-    // DIAGNÓSTICO: Primero verificar si hay registros sin filtros de fecha
-    console.log(`DIAGNÓSTICO getDetailedViewEvents: Verificando existencia de registros para producto ${productId}`);
-    const diagnosticQuery = query(
-      collection(db, "productViews"),
-      where("productId", "==", productId),
-      limit(5)
-    );
-    const diagnosticSnapshot = await getDocs(diagnosticQuery);
-    
-    console.log(`DIAGNÓSTICO getDetailedViewEvents: Encontrados ${diagnosticSnapshot.size} registros`);
-    diagnosticSnapshot.forEach(doc => {
-      const data = doc.data();
-      console.log(`Registro: ID=${doc.id}, timestamp=${data.timestamp instanceof Timestamp ? 
-        `Timestamp(${data.timestamp.seconds}, ${data.timestamp.nanoseconds})` : 
-        'No es Timestamp'}, fecha=${data.date}, hora=${data.time}`);
-    });
-    
-    // Mejorar el manejo de fechas para Firestore
-    let startDateObj, endDateObj;
-    let startTimestamp, endTimestamp;
-    
-    if (startDate) {
-      startDateObj = new Date(startDate);
-      startDateObj.setHours(0, 0, 0, 0); // Inicio del día
-      startTimestamp = Timestamp.fromDate(startDateObj);
-      console.log(`Fecha de inicio convertida: ${startDateObj.toISOString()}, Timestamp: ${startTimestamp.seconds}.${startTimestamp.nanoseconds}`);
+
+    if (!productId) {
+      console.error('[getDetailedViewEvents] ❌ No se proporcionó un ID de producto válido');
+      return [];
     }
-    
-    if (endDate) {
-      endDateObj = new Date(endDate);
-      // Asegurar que la fecha final sea el final del día
-      endDateObj.setHours(23, 59, 59, 999);
-      endTimestamp = Timestamp.fromDate(endDateObj);
-      console.log(`Fecha de fin convertida: ${endDateObj.toISOString()}, Timestamp: ${endTimestamp.seconds}.${endTimestamp.nanoseconds}`);
+
+    let query = (db as any).from('product_views').select('*').eq('product_id', productId);
+
+    if (startDate && endDate) {
+      const startISO = new Date(startDate).toISOString();
+      const endISO = new Date(endDate);
+      endISO.setHours(23, 59, 59, 999);
+      query = query.gte('timestamp', startISO).lte('timestamp', endISO.toISOString());
+      console.log('[getDetailedViewEvents] 📅 Filtrando por fechas:', { startISO, endISO: endISO.toISOString() });
     }
-    
-    let q;
-    
-    if (startTimestamp && endTimestamp) {
-      console.log(`Buscando eventos para producto ${productId} entre timestamps de Firestore`);
-      q = query(
-        collection(db, "productViews"),
-        where("productId", "==", productId),
-        where("timestamp", ">=", startTimestamp),
-        where("timestamp", "<=", endTimestamp),
-        orderBy("timestamp", "desc")
-      );
-    } else {
-      console.log(`Buscando todos los eventos para producto ${productId}`);
-      q = query(
-        collection(db, "productViews"),
-        where("productId", "==", productId),
-        orderBy("timestamp", "desc")
-      );
+
+    query = query.order('timestamp', { ascending: false });
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('[getDetailedViewEvents] ❌ Error:', error);
+      return [];
     }
-    
-    const snapshot = await getDocs(q);
-    const events: ViewEvent[] = [];
-    
-    snapshot.forEach(doc => {
-      const data = doc.data() as any;
-      const timestamp = data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date();
-      
-      events.push({
-        id: doc.id,
-        timestamp: timestamp,
-        userId: data.userId || data.sessionId || 'unknown',
-        displayName: data.userName || (data.isAnonymous ? 'Usuario anónimo' : 'Usuario'),
-        email: data.userEmail || null,
-        deviceType: data.deviceInfo?.device || 'Desconocido',
-        source: data.source || 'Directo',
-        duration: data.duration || null,
-        location: data.location?.country || 'Desconocido'
-      });
-    });
-    
-    return events;
-  } catch (error) {
-    console.error("Error al obtener eventos de vistas:", error);
+
+    console.log('[getDetailedViewEvents] ✅ Encontrados', data?.length || 0, 'eventos');
+
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      timestamp: new Date(row.timestamp),
+      userId: row.user_id || row.session_id || 'unknown',
+      displayName: row.user_name || (row.is_anonymous ? 'Usuario anónimo' : 'Usuario'),
+      email: row.user_email || null,
+      deviceType: row.device_info?.device || 'Desconocido',
+      source: row.referrer || 'Directo',
+      duration: null,
+      location: row.device_info?.location?.country || 'Desconocido'
+    })) as ViewEvent[];
+  } catch (error: any) {
+    console.error('[getDetailedViewEvents] ❌ Error crítico:', error?.message || error);
     return [];
   }
 };
+
+// Obtiene la tendencia de visitas generales al sitio web
+export const getWebsiteVisitsTrend = async (days = 30) => {
+  try {
+    const isSupabase = typeof (db as any)?.from === 'function';
+    if (!isSupabase) return [];
+
+    const lastDays = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      lastDays.push(d.toISOString().split('T')[0]);
+    }
+
+    const startISO = new Date();
+    startISO.setDate(startISO.getDate() - days);
+    startISO.setHours(0, 0, 0, 0);
+
+    const { data, error } = await (db as any)
+      .from('website_visits')
+      .select('date, session_id')
+      .gte('timestamp', startISO.toISOString());
+
+    if (error) throw error;
+
+    // Agrupar sesiones únicas por día
+    const sessionsPerDay: Record<string, Set<string>> = {};
+    (data || []).forEach((row: any) => {
+      if (!sessionsPerDay[row.date]) {
+        sessionsPerDay[row.date] = new Set();
+      }
+      sessionsPerDay[row.date].add(row.session_id);
+    });
+
+    return lastDays.map(day => ({
+      date: day,
+      visits: sessionsPerDay[day]?.size || 0
+    }));
+  } catch (error) {
+    console.error('[getWebsiteVisitsTrend] Error:', error);
+    return [];
+  }
+};
+
+// Obtiene el total de visitas (sesiones únicas) al sitio web en un período
+export const getTotalWebsiteVisits = async (startDate?: Date, endDate?: Date) => {
+  try {
+    const isSupabase = typeof (db as any)?.from === 'function';
+    if (!isSupabase) return 0;
+
+    // Para obtener un conteo real de visitas (sesiones únicas), 
+    // obtenemos los session_ids y contamos cuántos hay únicos.
+    let query = (db as any).from('website_visits').select('session_id');
+
+    if (startDate) {
+      query = query.gte('timestamp', startDate.toISOString());
+    }
+    if (endDate) {
+      query = query.lte('timestamp', endDate.toISOString());
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Contar sesiones únicas
+    const uniqueSessions = new Set((data || []).map((v: any) => v.session_id)).size;
+    return uniqueSessions;
+  } catch (error) {
+    console.error('[getTotalWebsiteVisits] Error:', error);
+    return 0;
+  }
+};
+

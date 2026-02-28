@@ -3,14 +3,17 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription }
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { AdvancedHeader } from "@/components/layout/AdvancedHeader";
+import { Footer } from "@/components/layout/Footer";
+import { TopPromoBar } from "@/components/layout/TopPromoBar";
+import { useCategories } from "@/hooks/use-categories";
 import { db } from "@/firebase";
-import { doc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, limit, addDoc, deleteDoc, writeBatch, Timestamp } from "firebase/firestore";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  User as UserIcon, Mail, Phone, MapPin, Gift, Package, Heart, 
-  Edit, Save, AlertCircle, CheckCircle2, Home as HomeIcon, Truck, ChevronRight, 
-  Calendar as CalendarIcon, ShoppingBag, BadgeCheck, History, 
+import {
+  User as UserIcon, Mail, Phone, MapPin, Gift, Package, Heart,
+  Edit, Save, AlertCircle, CheckCircle2, Home as HomeIcon, Truck, ChevronRight,
+  Calendar as CalendarIcon, ShoppingBag, BadgeCheck, History,
   Trash2, Star, Plus, Check, X, CreditCard, MapPinned
 } from "lucide-react";
 import { CustomClock } from '@/components/ui/CustomClock';
@@ -22,14 +25,34 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
+import { useFavorites } from "@/contexts/FavoritesContext";
+import { Product } from "@/contexts/CartContext";
+import { slugify, parseFormattedPrice } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from "@/components/ui/dialog";
 
 // Tipo para las órdenes recientes
+interface OrderItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image: string;
+}
+
 interface Order {
   id: string;
   date: Date;
   total: number;
-  status: 'processing' | 'shipped' | 'delivered' | 'cancelled';
-  items: number;
+  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  items: OrderItem[] | number;
   trackingNumber?: string;
 }
 
@@ -52,9 +75,22 @@ interface SavedAddress {
   isDefault: boolean;
 }
 
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api';
+
 export const UserProfile: React.FC = () => {
-  const { user, updateUser } = useAuth();
-  const [activeTab, setActiveTab] = useState("profile");
+  const isSupabase = typeof (db as any)?.from === 'function';
+  const { user, updateUser, logout } = useAuth();
+  const navigate = useNavigate();
+  const [promoVisible, setPromoVisible] = useState(true);
+  const {
+    categories,
+    mainCategories,
+    subcategoriesByParent,
+    thirdLevelBySubcategory,
+  } = useCategories();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") || "profile";
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -71,13 +107,12 @@ export const UserProfile: React.FC = () => {
       promotions: true
     }
   });
-  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [favoriteProducts, setFavoriteProducts] = useState<FavoriteProduct[]>([]);
-  const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [addressLoading, setAddressLoading] = useState(false);
-  const [newAddress, setNewAddress] = useState<Omit<SavedAddress, 'id'>>({
+  const [editing, setEditing] = useState(false);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const { favorites: favoriteProducts, toggleFavorite } = useFavorites();
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [newAddress, setNewAddress] = useState({
     name: "",
     address: "",
     city: "",
@@ -86,104 +121,152 @@ export const UserProfile: React.FC = () => {
     isDefault: false
   });
   const [addingAddress, setAddingAddress] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Carga los datos del usuario desde Firestore
+
   useEffect(() => {
     const fetchUserData = async () => {
-      if (!user?.id) return;
-      
+      if (!user) return;
       setLoading(true);
       try {
-        // Obtener datos principales del usuario
-        const userDoc = await getDoc(doc(db, "users", user.id));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setFormData({
-            name: data.name || "",
-            email: data.email || user.email || "",
-            phone: data.phone || "",
-            city: data.city || "",
-            province: data.province || "",
-            postalCode: data.postalCode || "",
-            address: data.address || "",
-            birthdate: data.birthdate || "",
-            preferences: data.preferences || "",
-            notifications: data.notifications || {
-              email: true,
-              sms: false,
-              promotions: true
-            }
-          });
-          
-          // Cargar direcciones guardadas
-          const addressesQuery = query(
-            collection(db, "userAddresses"),
-            where("userId", "==", user.id)
-          );
-          const addressesSnapshot = await getDocs(addressesQuery);
-          const addressesData: SavedAddress[] = [];
-          addressesSnapshot.forEach(doc => {
-            addressesData.push({
-              id: doc.id,
-              ...doc.data() as Omit<SavedAddress, 'id'>
-            });
-          });
-          setSavedAddresses(addressesData);
-          
-          // Cargar órdenes recientes
-          const ordersQuery = query(
-            collection(db, "orders"),
-            where("userId", "==", user.id),
-            orderBy("date", "desc"),
-            limit(5)
-          );
-          const ordersSnapshot = await getDocs(ordersQuery);
-          const ordersData: Order[] = [];
-          ordersSnapshot.forEach(doc => {
-            const data = doc.data();
-            ordersData.push({
-              id: doc.id,
-              date: data.date.toDate(),
-              total: data.total,
-              status: data.status,
-              items: data.items.length,
-              trackingNumber: data.trackingNumber
-            });
-          });
-          setRecentOrders(ordersData);
-          
-          // Cargar productos favoritos
-          const favoritesQuery = query(
-            collection(db, "favorites"),
-            where("userId", "==", user.id),
-            limit(4)
-          );
-          const favoritesSnapshot = await getDocs(favoritesQuery);
-          const favoritesIds: string[] = [];
-          favoritesSnapshot.forEach(doc => {
-            favoritesIds.push(doc.data().productId);
-          });
-          
-          // Obtener detalles de productos favoritos
-          if (favoritesIds.length > 0) {
-            const productsData: FavoriteProduct[] = [];
-            for (const id of favoritesIds) {
-              const productDoc = await getDoc(doc(db, "products", id));
-              if (productDoc.exists()) {
-                const data = productDoc.data();
-                productsData.push({
-                  id: productDoc.id,
-                  name: data.name,
-                  image: data.images?.[0] || "",
-                  price: data.price
-                });
-              }
-            }
-            setFavoriteProducts(productsData);
+        if (isSupabase) {
+          // Fetch main user data from backend to get extra fields
+          const response = await fetch(`${API_BASE_URL}/users/${user.id}`);
+          let dbData: any = {};
+          if (response.ok) {
+            dbData = await response.json() || {};
           }
-          
+
+          setFormData(prev => ({
+            ...prev,
+            name: dbData.name || user.name || "",
+            email: dbData.email || user.email || "",
+            phone: dbData.phone || user.phone || "",
+            address: dbData.address || user.address || "",
+            city: dbData.city || (user as any).city || "",
+            province: dbData.province || (user as any).province || "",
+            postalCode: dbData.postal_code || dbData.postalCode || (user as any).postalCode || "",
+            birthdate: dbData.birthdate || (user as any).birthdate || "",
+          }));
+
+          // Fetch Orders from backend
+          try {
+            const ordersRes = await fetch(`${API_BASE_URL}/orders?userId=${user.id}`);
+            if (ordersRes.ok) {
+              const ordersData = await ordersRes.json();
+              setRecentOrders(ordersData.map((d: any) => ({
+                id: d.id,
+                date: new Date(d.created_at),
+                total: parseFormattedPrice(d.total ?? 0),
+                status: d.status || 'pending',
+                items: Array.isArray(d.items) ? d.items : [],
+                trackingNumber: d.tracking_number
+              })));
+            }
+          } catch (e) { console.error("Error fetching orders:", e); }
+
+          // Fetch Addresses from Supabase
+          try {
+            const { data: addressesData, error: addrError } = await (db as any)
+              .from('user_addresses')
+              .select('*')
+              .eq('user_id', user.id);
+
+            if (!addrError && addressesData && addressesData.length > 0) {
+              const mapped = addressesData.map((d: any) => ({
+                id: d.id,
+                name: d.name,
+                address: d.address,
+                city: d.city,
+                province: d.province,
+                postalCode: d.postal_code,
+                isDefault: d.is_default
+              }));
+              setSavedAddresses(mapped);
+
+              // Si el perfil no tiene dirección en tabla users, usar la predeterminada de user_addresses
+              const defaultAddr = mapped.find((a: any) => a.isDefault) || mapped[0];
+              if (!dbData.address && defaultAddr) {
+                setFormData(prev => ({
+                  ...prev,
+                  address: defaultAddr.address,
+                  city: defaultAddr.city || prev.city,
+                  province: defaultAddr.province || prev.province,
+                  postalCode: defaultAddr.postalCode || prev.postalCode,
+                }));
+              }
+            } else if (dbData.address && (!addressesData || addressesData.length === 0)) {
+              // Fallback to main address if no separate addresses exist
+              setSavedAddresses([{
+                id: 'primary',
+                name: 'Principal',
+                address: dbData.address,
+                city: dbData.city || '',
+                province: dbData.province || '',
+                postalCode: dbData.postal_code || '',
+                isDefault: true
+              }]);
+            }
+          } catch (e) {
+            console.error("Error fetching addresses:", e);
+          }
+
         } else {
-          console.log("⚠️ No existe documento de usuario en Firestore para este UID");
+          const userDoc = await getDoc(doc(db, "users", user.id));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setFormData(prev => ({
+              ...prev,
+              name: userData.name || userData.nombre || "",
+              email: userData.email || userData.correo || user.email || "",
+              phone: userData.phone || "",
+              address: userData.address || "",
+              birthdate: userData.birthday || userData.birthdate || "",
+              notifications: {
+                email: userData.notifications?.email ?? true,
+                sms: userData.notifications?.sms ?? false,
+                promotions: userData.notifications?.promotions ?? true
+              }
+            }));
+            const addressesSnap = await getDocs(query(
+              collection(db, "userAddresses"),
+              where("userId", "==", user.id)
+            ));
+            const addressesData: SavedAddress[] = addressesSnap.docs.map(d => {
+              const dta = d.data();
+              return {
+                id: d.id,
+                name: dta.name || "",
+                address: dta.address || "",
+                city: dta.city || "",
+                province: dta.province || "",
+                postalCode: dta.postalCode || "",
+                isDefault: !!dta.isDefault
+              };
+            });
+            setSavedAddresses(addressesData);
+            const ordersSnap = await getDocs(query(
+              collection(db, "orders"),
+              where("userId", "==", user.id),
+              orderBy("createdAt", "desc"),
+              limit(5)
+            ));
+            const ordersData: Order[] = ordersSnap.docs.map(d => {
+              const data = d.data();
+              return {
+                id: d.id,
+                date: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+                total: parseFormattedPrice(data.total ?? 0),
+                status: (data.status as Order['status']) || 'processing',
+                items: Array.isArray(data.items) ? data.items : [],
+                trackingNumber: data.trackingNumber
+              };
+            });
+            setRecentOrders(ordersData);
+          }
         }
       } catch (error) {
         console.error("Error al cargar datos del usuario:", error);
@@ -196,14 +279,13 @@ export const UserProfile: React.FC = () => {
         setLoading(false);
       }
     };
-    
     fetchUserData();
   }, [user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
-  
+
   const handleNotificationChange = (type: string, value: boolean) => {
     setFormData({
       ...formData,
@@ -213,57 +295,112 @@ export const UserProfile: React.FC = () => {
       }
     });
   };
-  
+
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewAddress({
-      ...newAddress,
-      [e.target.name]: e.target.value
-    });
+    if (editingAddress) {
+      setEditingAddress({
+        ...editingAddress,
+        [e.target.name]: e.target.value
+      });
+    } else {
+      setNewAddress({
+        ...newAddress,
+        [e.target.name]: e.target.value
+      });
+    }
   };
-  
+
   const toggleDefaultAddress = () => {
-    setNewAddress({
-      ...newAddress,
-      isDefault: !newAddress.isDefault
-    });
+    if (editingAddress) {
+      setEditingAddress({
+        ...editingAddress,
+        isDefault: !editingAddress.isDefault
+      });
+    } else {
+      setNewAddress({
+        ...newAddress,
+        isDefault: !newAddress.isDefault
+      });
+    }
   };
-  
+
   const addNewAddress = async () => {
     if (!user) return;
     setAddressLoading(true);
-    
+
     try {
-      const addressRef = collection(db, "userAddresses");
-      const newAddressData = {
-        ...newAddress,
-        userId: user.id,
-        createdAt: Timestamp.now()
-      };
-      
-      // Si es dirección predeterminada, actualizar las demás
-      if (newAddress.isDefault) {
-        const batch = writeBatch(db);
-        const addressesQuery = query(
-          collection(db, "userAddresses"),
-          where("userId", "==", user.id),
-          where("isDefault", "==", true)
-        );
-        const snapshot = await getDocs(addressesQuery);
-        snapshot.forEach(doc => {
-          batch.update(doc.ref, { isDefault: false });
-        });
-        await batch.commit();
+      if (isSupabase) {
+        // Si es dirección predeterminada, actualizar las demás primero
+        if (newAddress.isDefault) {
+          await (db as any)
+            .from('user_addresses')
+            .update({ is_default: false })
+            .eq('user_id', user.id);
+        }
+
+        const { data, error } = await (db as any)
+          .from('user_addresses')
+          .insert([{
+            user_id: user.id,
+            name: newAddress.name,
+            address: newAddress.address,
+            city: newAddress.city,
+            province: newAddress.province,
+            postal_code: newAddress.postalCode,
+            is_default: newAddress.isDefault
+          }])
+          .select();
+
+        if (error) throw error;
+
+        if (data && data[0]) {
+          const added = data[0];
+          setSavedAddresses([
+            ...savedAddresses,
+            {
+              id: added.id,
+              name: added.name,
+              address: added.address,
+              city: added.city,
+              province: added.province,
+              postalCode: added.postal_code,
+              isDefault: added.is_default
+            }
+          ]);
+        }
+      } else {
+        const addressRef = collection(db, "userAddresses");
+        const newAddressData = {
+          ...newAddress,
+          userId: user.id,
+          createdAt: Timestamp.now()
+        };
+
+        // Si es dirección predeterminada, actualizar las demás
+        if (newAddress.isDefault) {
+          const batch = writeBatch(db);
+          const addressesQuery = query(
+            collection(db, "userAddresses"),
+            where("userId", "==", user.id),
+            where("isDefault", "==", true)
+          );
+          const snapshot = await getDocs(addressesQuery);
+          snapshot.forEach(doc => {
+            batch.update(doc.ref, { isDefault: false });
+          });
+          await batch.commit();
+        }
+
+        // Añadir la nueva dirección
+        const docRef = await addDoc(addressRef, newAddressData);
+
+        // Actualizar la UI
+        setSavedAddresses([
+          ...savedAddresses,
+          { id: docRef.id, ...newAddress }
+        ]);
       }
-      
-      // Añadir la nueva dirección
-      await addDoc(addressRef, newAddressData);
-      
-      // Actualizar la UI
-      setSavedAddresses([
-        ...savedAddresses,
-        { id: "temp-id", ...newAddress } // El ID real se obtendría al recargar
-      ]);
-      
+
       // Limpiar formulario
       setNewAddress({
         name: "",
@@ -273,7 +410,7 @@ export const UserProfile: React.FC = () => {
         postalCode: "",
         isDefault: false
       });
-      
+
       setAddingAddress(false);
       toast({
         title: "Dirección añadida",
@@ -290,31 +427,126 @@ export const UserProfile: React.FC = () => {
       setAddressLoading(false);
     }
   };
-  
+
+  const updateSavedAddress = async () => {
+    if (!user || !editingAddress) return;
+    setAddressLoading(true);
+
+    try {
+      if (isSupabase) {
+        // Si es dirección predeterminada, actualizar las demás primero
+        if (editingAddress.isDefault) {
+          await (db as any)
+            .from('user_addresses')
+            .update({ is_default: false })
+            .eq('user_id', user.id);
+        }
+
+        const { error } = await (db as any)
+          .from('user_addresses')
+          .update({
+            name: editingAddress.name,
+            address: editingAddress.address,
+            city: editingAddress.city,
+            province: editingAddress.province,
+            postal_code: editingAddress.postalCode,
+            is_default: editingAddress.isDefault
+          })
+          .eq('id', editingAddress.id);
+
+        if (error) throw error;
+      } else {
+        const addressRef = doc(db, "userAddresses", editingAddress.id);
+
+        if (editingAddress.isDefault) {
+          const batch = writeBatch(db);
+          const addressesQuery = query(
+            collection(db, "userAddresses"),
+            where("userId", "==", user.id),
+            where("isDefault", "==", true)
+          );
+          const snapshot = await getDocs(addressesQuery);
+          snapshot.forEach(doc => {
+            if (doc.id !== editingAddress.id) {
+              batch.update(doc.ref, { isDefault: false });
+            }
+          });
+          await batch.commit();
+        }
+
+        await updateDoc(addressRef, {
+          name: editingAddress.name,
+          address: editingAddress.address,
+          city: editingAddress.city,
+          province: editingAddress.province,
+          postalCode: editingAddress.postalCode,
+          isDefault: editingAddress.isDefault,
+          updatedAt: Timestamp.now()
+        });
+      }
+
+      // Actualizar UI
+      setSavedAddresses(savedAddresses.map(addr =>
+        addr.id === editingAddress.id ? editingAddress : addr
+      ));
+
+      setEditingAddress(null);
+      toast({
+        title: "Dirección actualizada",
+        description: "Los cambios han sido guardados correctamente."
+      });
+    } catch (error) {
+      console.error("Error al actualizar dirección:", error);
+      toast({
+        title: "Error",
+        description: "No pudimos guardar los cambios de la dirección.",
+        variant: "destructive"
+      });
+    } finally {
+      setAddressLoading(false);
+    }
+  };
+
   const setAddressAsDefault = async (addressId: string) => {
     if (!user) return;
     setAddressLoading(true);
-    
+
     try {
-      // Quitar predeterminado de todas las direcciones
-      const batch = writeBatch(db);
-      const addressesQuery = query(
-        collection(db, "userAddresses"),
-        where("userId", "==", user.id)
-      );
-      const snapshot = await getDocs(addressesQuery);
-      snapshot.forEach(doc => {
-        batch.update(doc.ref, { isDefault: doc.id === addressId });
-      });
-      await batch.commit();
-      
+      if (isSupabase) {
+        // Quitar predeterminado de todas
+        await (db as any)
+          .from('user_addresses')
+          .update({ is_default: false })
+          .eq('user_id', user.id);
+
+        // Poner predeterminado a la elegida
+        const { error } = await (db as any)
+          .from('user_addresses')
+          .update({ is_default: true })
+          .eq('id', addressId);
+
+        if (error) throw error;
+      } else {
+        // Quitar predeterminado de todas las direcciones
+        const batch = writeBatch(db);
+        const addressesQuery = query(
+          collection(db, "userAddresses"),
+          where("userId", "==", user.id)
+        );
+        const snapshot = await getDocs(addressesQuery);
+        snapshot.forEach(doc => {
+          batch.update(doc.ref, { isDefault: doc.id === addressId });
+        });
+        await batch.commit();
+      }
+
       // Actualizar UI
       const updatedAddresses = savedAddresses.map(addr => ({
         ...addr,
         isDefault: addr.id === addressId
       }));
       setSavedAddresses(updatedAddresses);
-      
+
       toast({
         title: "Dirección actualizada",
         description: "Dirección predeterminada actualizada correctamente."
@@ -330,17 +562,26 @@ export const UserProfile: React.FC = () => {
       setAddressLoading(false);
     }
   };
-  
+
   const removeAddress = async (addressId: string) => {
     if (!user) return;
     setAddressLoading(true);
-    
+
     try {
-      await deleteDoc(doc(db, "userAddresses", addressId));
-      
+      if (isSupabase) {
+        const { error } = await (db as any)
+          .from('user_addresses')
+          .delete()
+          .eq('id', addressId);
+
+        if (error) throw error;
+      } else {
+        await deleteDoc(doc(db, "userAddresses", addressId));
+      }
+
       // Actualizar UI
       setSavedAddresses(savedAddresses.filter(addr => addr.id !== addressId));
-      
+
       toast({
         title: "Dirección eliminada",
         description: "La dirección ha sido eliminada correctamente."
@@ -361,19 +602,25 @@ export const UserProfile: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
-      await updateDoc(doc(db, "users", user.id), {
-        name: formData.name,
-        phone: formData.phone,
-        city: formData.city,
-        province: formData.province,
-        postalCode: formData.postalCode,
-        address: formData.address,
-        birthdate: formData.birthdate,
-        preferences: formData.preferences,
-        notifications: formData.notifications,
-        updatedAt: new Date()
-      });
-      updateUser(formData); // Actualiza en el contexto
+      if (isSupabase) {
+        const success = await updateUser(formData);
+        if (!success) throw new Error("Backend update failed");
+      } else {
+        await updateDoc(doc(db, "users", user.id), {
+          name: formData.name,
+          phone: formData.phone,
+          city: formData.city,
+          province: formData.province,
+          postalCode: formData.postalCode,
+          address: formData.address,
+          birthdate: formData.birthdate,
+          preferences: formData.preferences,
+          notifications: formData.notifications,
+          updatedAt: new Date()
+        });
+        updateUser(formData); // Actualiza en el contexto
+      }
+
       toast({
         title: "Perfil actualizado",
         description: "Tus datos han sido guardados correctamente."
@@ -392,6 +639,8 @@ export const UserProfile: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'confirmed': return 'bg-emerald-100 text-emerald-800';
+      case 'pending': return 'bg-amber-100 text-amber-800';
       case 'processing': return 'bg-blue-100 text-blue-800';
       case 'shipped': return 'bg-amber-100 text-amber-800';
       case 'delivered': return 'bg-green-100 text-green-800';
@@ -399,650 +648,513 @@ export const UserProfile: React.FC = () => {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
-  
+
   const getStatusText = (status: string) => {
     switch (status) {
+      case 'confirmed': return 'Confirmado';
+      case 'pending': return 'En espera';
       case 'processing': return 'Procesando';
       case 'shipped': return 'Enviado';
       case 'delivered': return 'Entregado';
       case 'cancelled': return 'Cancelado';
-      default: return 'Desconocido';
+      default: return 'En espera';
     }
   };
-  
+
   const getStatusIcon = (status: string) => {
     switch (status) {
+      case 'confirmed': return <CheckCircle2 className="h-4 w-4" />;
+      case 'pending': return <CustomClock className="h-4 w-4" />;
       case 'processing': return <CustomClock className="h-4 w-4" />;
       case 'shipped': return <Truck className="h-4 w-4" />;
       case 'delivered': return <CheckCircle2 className="h-4 w-4" />;
       case 'cancelled': return <X className="h-4 w-4" />;
-      default: return <AlertCircle className="h-4 w-4" />;
+      default: return <CustomClock className="h-4 w-4" />;
     }
   };
 
+  const sidebarItems = [
+    { id: 'profile', label: 'Perfil', icon: UserIcon },
+    { id: 'addresses', label: 'Direcciones', icon: MapPin },
+    { id: 'orders', label: 'Pedidos', icon: ShoppingBag },
+    { id: 'logout', label: 'Salir', icon: X },
+  ];
+
+  const handleTabChange = async (tabId: string) => {
+    if (tabId === 'logout') {
+      try {
+        await logout();
+      } catch (e) {
+        console.error('Logout error:', e);
+      }
+      navigate('/');
+      return;
+    }
+    setActiveTab(tabId);
+    setSearchParams({ tab: tabId });
+  };
+
+  const tabLabel = sidebarItems.find(i => i.id === activeTab)?.label || '';
+
   if (!user) {
-    return (
-      <div className="w-full max-w-6xl mx-auto px-4 mt-8 sm:px-6">
-        <Card className="border-0 shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-orange-100 to-amber-50 p-12 flex flex-col items-center justify-center">
-            <div className="h-20 w-20 bg-white rounded-full shadow-md flex items-center justify-center mb-6">
-              <UserIcon className="h-10 w-10 text-orange-500" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Perfil de Usuario</h2>
-            <p className="text-gray-600 mb-6">Accede a tu cuenta para ver tu información personal</p>
-            <Button className="gradient-orange">Iniciar sesión</Button>
-          </div>
-        </Card>
-      </div>
-    );
+    navigate('/');
+    return null;
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 mt-8 pb-16 sm:px-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Mi Cuenta</h1>
-        <p className="text-gray-600">Gestiona tus datos personales, direcciones y pedidos</p>
-      </div>
-      
-      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-8 w-full justify-start bg-transparent p-0 gap-x-6 border-b">
-          <TabsTrigger
-            value="profile"
-            className="px-0 py-3 data-[state=active]:border-b-2 data-[state=active]:border-orange-500 rounded-none bg-transparent data-[state=active]:shadow-none"
+    <div className="min-h-screen bg-[#fcfcfc] font-sans flex flex-col">
+      <TopPromoBar setPromoVisible={setPromoVisible} />
+      <AdvancedHeader
+        categories={categories}
+        selectedCategory="Todos"
+        setSelectedCategory={() => { }}
+        promoVisible={promoVisible}
+        mainCategories={mainCategories}
+        subcategoriesByParent={subcategoriesByParent}
+        thirdLevelBySubcategory={thirdLevelBySubcategory}
+      />
+
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-6 py-8 md:py-20">
+
+        {/* Mobile: Back button + section title */}
+        <div className="lg:hidden mb-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-1 text-gray-800 font-bold text-sm mb-3 hover:text-black transition-colors"
           >
-            <UserIcon className="h-4 w-4 mr-2" />
-            Perfil
-          </TabsTrigger>
-          <TabsTrigger
-            value="addresses"
-            className="px-0 py-3 data-[state=active]:border-b-2 data-[state=active]:border-orange-500 rounded-none bg-transparent data-[state=active]:shadow-none"
-          >
-            <MapPin className="h-4 w-4 mr-2" />
-            Direcciones
-          </TabsTrigger>
-          <TabsTrigger
-            value="orders"
-            className="px-0 py-3 data-[state=active]:border-b-2 data-[state=active]:border-orange-500 rounded-none bg-transparent data-[state=active]:shadow-none"
-          >
-            <ShoppingBag className="h-4 w-4 mr-2" />
-            Pedidos
-          </TabsTrigger>
-          <TabsTrigger
-            value="favorites"
-            className="px-0 py-3 data-[state=active]:border-b-2 data-[state=active]:border-orange-500 rounded-none bg-transparent data-[state=active]:shadow-none"
-          >
-            <Heart className="h-4 w-4 mr-2" />
-            Favoritos
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="profile" className="mt-0">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-8">
-              <Card className="overflow-hidden border-0 shadow-md">
-                <CardHeader className="bg-gradient-to-r from-orange-50 to-red-50 py-6">
-                  <CardTitle className="flex items-center gap-3 text-xl">
-                    <UserIcon className="h-5 w-5 text-orange-600" />
-                    <span className="text-gray-800">Información Personal</span>
-                  </CardTitle>
-                  <CardDescription>
-                    Actualiza tu información personal
-                  </CardDescription>
-                </CardHeader>
-                
-                <CardContent className="p-6 space-y-6">
-                  {loading ? (
-                    <div className="flex justify-center items-center py-10">
-                      <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-500 border-t-transparent"></div>
-                    </div>
-                  ) : (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.4 }}
-                      className="space-y-4"
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium flex items-center gap-2 text-gray-700">
-                            <UserIcon className="h-4 w-4 text-gray-500" />
-                            Nombre completo
-                          </label>
-                          <Input
-                            name="name"
-                            value={formData.name}
-                            onChange={handleChange}
-                            disabled={!editing}
-                            placeholder="Tu nombre completo"
-                            className={`h-11 ${!editing ? 'bg-gray-50' : 'bg-white'}`}
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium flex items-center gap-2 text-gray-700">
-                            <Mail className="h-4 w-4 text-gray-500" />
-                            Email
-                          </label>
-                          <div className="relative">
-                            <Input
-                              name="email"
-                              value={formData.email}
-                              disabled
-                              className="h-11 bg-gray-50 text-gray-700 pr-10"
-                            />
-                            <BadgeCheck className="absolute right-3 top-3 h-5 w-5 text-green-500" />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium flex items-center gap-2 text-gray-700">
-                            <Phone className="h-4 w-4 text-gray-500" />
-                            Teléfono
-                          </label>
-                          <Input
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            disabled={!editing}
-                            placeholder="Tu número de teléfono"
-                            className={`h-11 ${!editing ? 'bg-gray-50' : 'bg-white'}`}
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium flex items-center gap-2 text-gray-700">
-                            <CalendarIcon className="h-4 w-4 text-gray-500" />
-                            Fecha de nacimiento
-                          </label>
-                          <Input
-                            type="date"
-                            name="birthdate"
-                            value={formData.birthdate}
-                            onChange={handleChange}
-                            disabled={!editing}
-                            placeholder="DD/MM/AAAA"
-                            className={`h-11 ${!editing ? 'bg-gray-50' : 'bg-white'}`}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium flex items-center gap-2 text-gray-700">
-                          <Gift className="h-4 w-4 text-gray-500" />
-                          Preferencias de regalo
-                        </label>
-                        <Textarea
-                          name="preferences"
-                          value={formData.preferences}
-                          onChange={handleChange}
-                          disabled={!editing}
-                          placeholder="¿Qué tipo de regalos te gusta recibir? Esto nos ayuda a recomendarte productos"
-                          className={`min-h-[100px] ${!editing ? 'bg-gray-50' : 'bg-white'}`}
-                        />
-                      </div>
-                      
-                      <div className="space-y-4 pt-4">
-                        <h3 className="font-medium text-gray-900">Notificaciones</h3>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-0.5">
-                              <label className="text-sm font-medium text-gray-700">Correo electrónico</label>
-                              <p className="text-xs text-gray-500">Recibe notificaciones sobre tus pedidos por email</p>
-                            </div>
-                            <Switch
-                              checked={formData.notifications.email}
-                              disabled={!editing}
-                              onCheckedChange={(checked) => handleNotificationChange('email', checked)}
-                            />
-                          </div>
-                          <Separator />
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-0.5">
-                              <label className="text-sm font-medium text-gray-700">SMS</label>
-                              <p className="text-xs text-gray-500">Recibe notificaciones sobre tus pedidos por SMS</p>
-                            </div>
-                            <Switch
-                              checked={formData.notifications.sms}
-                              disabled={!editing}
-                              onCheckedChange={(checked) => handleNotificationChange('sms', checked)}
-                            />
-                          </div>
-                          <Separator />
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-0.5">
-                              <label className="text-sm font-medium text-gray-700">Promociones</label>
-                              <p className="text-xs text-gray-500">Recibe ofertas especiales y descuentos</p>
-                            </div>
-                            <Switch
-                              checked={formData.notifications.promotions}
-                              disabled={!editing}
-                              onCheckedChange={(checked) => handleNotificationChange('promotions', checked)}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="pt-4 flex justify-end gap-3">
-                        {editing ? (
-                          <>
-                            <Button
-                              onClick={() => setEditing(false)}
-                              variant="outline"
-                              className="h-10"
-                            >
-                              <X className="h-4 w-4 mr-2" />
-                              Cancelar
-                            </Button>
-                            <Button
-                              onClick={handleSave}
-                              className="gradient-orange h-10"
-                              disabled={loading}
-                            >
-                              {loading ? (
-                                <>
-                                  <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
-                                  Guardando...
-                                </>
-                              ) : (
-                                <>
-                                  <Save className="h-4 w-4 mr-2" />
-                                  Guardar cambios
-                                </>
-                              )}
-                            </Button>
-                          </>
-                        ) : (
-                          <Button
-                            onClick={() => setEditing(true)}
-                            className="gradient-orange h-10"
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Editar información
-                          </Button>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-            
-            <div className="lg:col-span-4">
-              <Card className="shadow-md border-0 overflow-hidden mb-6">
-                <CardContent className="p-0">
-                  <div className="bg-gradient-to-br from-orange-500 to-amber-600 p-6 text-white text-center">
-                    <Avatar className="h-20 w-20 mx-auto mb-4 ring-4 ring-white/30">
-                      <AvatarFallback className="bg-orange-700 text-white text-xl">
-                        {formData.name ? formData.name.substring(0, 2).toUpperCase() : (user.email?.substring(0, 2) || "").toUpperCase()}
-                      </AvatarFallback>
-                      <AvatarImage src={''} />
-                    </Avatar>
-                    <h3 className="font-bold text-xl mb-1">{formData.name || 'Usuario'}</h3>
-                    <p className="text-orange-100 text-sm">{user.email}</p>
-                  </div>
-                  
-                  <div className="p-6 bg-white">
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1">Cliente desde</p>
-                        <p className="font-medium">{format(new Date(), 'MMMM yyyy')}</p>
-                      </div>
-                      
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1">Última actividad</p>
-                        <p className="font-medium">{format(new Date(), 'dd/MM/yyyy')}</p>
-                      </div>
-                      
-                      <div className="pt-2">
-                        <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Cliente Verificado
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              {/* Se eliminó la sección de beneficios del cliente a petición del usuario */}
-            </div>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="addresses" className="mt-0">
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl font-semibold">Mis Direcciones</CardTitle>
-                {!addingAddress && (
-                  <Button 
-                    onClick={() => setAddingAddress(true)}
-                    className="gradient-orange"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Añadir dirección
-                  </Button>
-                )}
+            <ChevronRight className="h-4 w-4 rotate-180" />
+            <span className="underline underline-offset-2">Volver</span>
+          </button>
+          <h2 className="text-base font-black uppercase tracking-widest text-gray-900">{tabLabel}</h2>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+
+          {/* Sidebar - Desktop only */}
+          <aside className="hidden lg:block w-72 flex-shrink-0">
+            <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden sticky top-24">
+              <div className="bg-[#1a1a1a] p-5 text-center">
+                <h3 className="text-white font-black text-lg uppercase tracking-[0.2em]">Hola!</h3>
               </div>
-              <CardDescription>Administra tus direcciones de envío</CardDescription>
-            </CardHeader>
-            
-            <CardContent className="p-6">
-              {addressLoading ? (
-                <div className="flex justify-center items-center py-10">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-500 border-t-transparent"></div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {addingAddress && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="bg-orange-50 p-4 rounded-lg border border-orange-100 mb-6"
+
+              <nav className="flex flex-col">
+                {sidebarItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleTabChange(item.id)}
+                      className={`flex items-center gap-4 px-6 py-4 text-sm font-bold border-l-4 transition-all uppercase tracking-wider ${isActive
+                        ? 'bg-gray-50 border-gray-900 text-gray-900'
+                        : 'bg-white border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                        }`}
                     >
-                      <h3 className="text-lg font-medium mb-4 text-orange-800">Nueva dirección</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700">Nombre de la dirección</label>
-                          <Input
-                            name="name"
-                            value={newAddress.name}
-                            onChange={handleAddressChange}
-                            placeholder="Casa, Trabajo, etc."
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700">Dirección completa</label>
-                          <Input
-                            name="address"
-                            value={newAddress.address}
-                            onChange={handleAddressChange}
-                            placeholder="Calle, número, etc."
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700">Ciudad</label>
-                          <Input
-                            name="city"
-                            value={newAddress.city}
-                            onChange={handleAddressChange}
-                            placeholder="Ciudad"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700">Provincia</label>
-                          <Input
-                            name="province"
-                            value={newAddress.province}
-                            onChange={handleAddressChange}
-                            placeholder="Provincia"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700">Código postal</label>
-                          <Input
-                            name="postalCode"
-                            value={newAddress.postalCode}
-                            onChange={handleAddressChange}
-                            placeholder="CP"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center mb-4">
-                        <Switch
-                          checked={newAddress.isDefault}
-                          onCheckedChange={toggleDefaultAddress}
-                          id="default-address"
-                        />
-                        <label htmlFor="default-address" className="ml-2 text-sm text-gray-700">
-                          Establecer como dirección predeterminada
-                        </label>
-                      </div>
-                      
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={addNewAddress}
-                          className="gradient-orange"
-                          disabled={addressLoading}
-                        >
-                          Guardar dirección
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => setAddingAddress(false)}
-                        >
-                          Cancelar
-                        </Button>
-                      </div>
-                    </motion.div>
-                  )}
-                  
-                  <div className="space-y-4">
-                    {savedAddresses.length === 0 ? (
-                      <div className="text-center py-8">
-                        <div className="h-16 w-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                          <MapPin className="h-8 w-8 text-gray-400" />
-                        </div>
-                        <h3 className="text-lg font-medium text-gray-700 mb-2">No tienes direcciones guardadas</h3>
-                        <p className="text-gray-500 mb-4">Añade una dirección para agilizar tus futuros pedidos</p>
-                        <Button
-                          onClick={() => setAddingAddress(true)}
-                          className="gradient-orange"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Añadir mi primera dirección
-                        </Button>
-                      </div>
-                    ) : (
-                      savedAddresses.map((address) => (
-                        <div
-                          key={address.id}
-                          className={`border rounded-lg p-4 ${address.isDefault ? 'border-orange-300 bg-orange-50' : 'border-gray-200'}`}
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-center">
-                              <MapPinned className="h-5 w-5 mr-2 text-orange-500" />
-                              <h3 className="font-medium text-gray-800">
-                                {address.name}
-                                {address.isDefault && (
-                                  <Badge className="ml-2 bg-orange-100 text-orange-800 hover:bg-orange-200">
-                                    Predeterminada
-                                  </Badge>
-                                )}
-                              </h3>
+                      <Icon className={`h-4 w-4 ${isActive ? 'text-gray-900' : 'text-gray-400'}`} />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+          </aside>
+
+          {/* Main Content Area */}
+          <div className="flex-1">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              {activeTab === 'profile' && (
+                <div className="space-y-8">
+                  <h2 className="hidden lg:block text-xl font-black text-gray-900 uppercase tracking-widest border-b-2 border-gray-100 pb-4">Perfil</h2>
+
+                  <Card className="border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl overflow-hidden">
+                    <CardContent className="p-8 md:p-10">
+                      <div className="relative group">
+                        {editing ? (
+                          <div className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Nombre Completo</label>
+                                <Input
+                                  name="name"
+                                  value={formData.name}
+                                  onChange={handleChange}
+                                  className="h-12 border-gray-100 focus:ring-black rounded-xl font-bold"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Email (No editable)</label>
+                                <Input
+                                  value={user.email}
+                                  disabled
+                                  className="h-12 bg-gray-50 border-gray-100 rounded-xl font-bold text-gray-400"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Teléfono</label>
+                                <Input
+                                  name="phone"
+                                  value={formData.phone}
+                                  onChange={handleChange}
+                                  className="h-12 border-gray-100 focus:ring-black rounded-xl font-bold"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Fecha de Nacimiento</label>
+                                <Input
+                                  type="date"
+                                  name="birthdate"
+                                  value={formData.birthdate}
+                                  onChange={handleChange}
+                                  className="h-12 border-gray-100 focus:ring-black rounded-xl font-bold"
+                                />
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              {!address.isDefault && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setAddressAsDefault(address.id)}
-                                  className="h-8 text-xs"
-                                >
-                                  Predeterminada
-                                </Button>
-                              )}
+
+                            <div className="pt-6 flex justify-end gap-4 border-t border-gray-50">
                               <Button
+                                onClick={() => setEditing(false)}
                                 variant="ghost"
-                                size="sm"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8"
-                                onClick={() => removeAddress(address.id)}
+                                className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-900"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                Cancelar
+                              </Button>
+                              <Button
+                                onClick={handleSave}
+                                disabled={loading}
+                                className="bg-black text-white hover:bg-gray-800 px-8 h-12 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                              >
+                                {loading ? 'Guardando...' : 'Guardar Cambios'}
                               </Button>
                             </div>
                           </div>
-                          
-                          <div className="text-gray-600 text-sm mt-2">
-                            <p>{address.address}</p>
-                            <p>{address.city}, {address.province}</p>
-                            <p>{address.postalCode}</p>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="orders" className="mt-0">
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold">Mis Pedidos</CardTitle>
-              <CardDescription>Historial de tus compras recientes</CardDescription>
-            </CardHeader>
-            
-            <CardContent className="p-6">
-              {recentOrders.length === 0 ? (
-                <div className="text-center py-10">
-                  <div className="h-16 w-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                    <ShoppingBag className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-700 mb-2">No tienes pedidos recientes</h3>
-                  <p className="text-gray-500 mb-4">Cuando realices una compra, aparecerá aquí</p>
-                  <Button className="gradient-orange">
-                    Ver productos
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {recentOrders.map((order) => (
-                    <div key={order.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                      <div className="bg-gray-50 p-4 flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-500">Pedido #{order.id.substring(0, 6)}</p>
-                          <p className="font-medium">{format(order.date, 'dd/MM/yyyy')}</p>
-                        </div>
-                        <div className={`px-3 py-1 rounded-full flex items-center ${getStatusColor(order.status)}`}>
-                          {getStatusIcon(order.status)}
-                          <span className="ml-1 text-sm font-medium">{getStatusText(order.status)}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="p-4">
-                        <div className="flex justify-between items-center mb-4">
-                          <div>
-                            <p className="text-sm text-gray-500">Total del pedido</p>
-                            <p className="font-semibold text-lg">${order.total.toLocaleString()}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500 text-right">Productos</p>
-                            <p className="font-medium text-right">{order.items} {order.items === 1 ? 'producto' : 'productos'}</p>
-                          </div>
-                        </div>
-                        
-                        {order.status === 'shipped' && order.trackingNumber && (
-                          <div className="bg-blue-50 p-3 rounded-lg flex items-center">
-                            <Truck className="h-5 w-5 text-blue-600 mr-3" />
-                            <div>
-                              <p className="text-sm font-medium text-blue-800">En camino</p>
-                              <p className="text-xs text-blue-600">Seguimiento: {order.trackingNumber}</p>
+                        ) : (
+                          <>
+                            <div className="space-y-4 text-gray-600">
+                              <div className="flex flex-col sm:flex-row sm:items-baseline gap-2">
+                                <span className="text-sm font-bold uppercase tracking-wider text-gray-400 min-w-[150px]">Email:</span>
+                                <span className="text-sm font-black text-gray-900">{user.email}</span>
+                              </div>
+                              <div className="flex flex-col sm:flex-row sm:items-baseline gap-2">
+                                <span className="text-sm font-bold uppercase tracking-wider text-gray-400 min-w-[150px]">Nombre:</span>
+                                <span className="text-sm font-black text-gray-900">{formData.name || '-'}</span>
+                              </div>
+                              <div className="flex flex-col sm:flex-row sm:items-baseline gap-2">
+                                <span className="text-sm font-bold uppercase tracking-wider text-gray-400 min-w-[150px]">Teléfono:</span>
+                                <span className="text-sm font-black text-gray-900">{formData.phone || '-'}</span>
+                              </div>
+                              <div className="flex flex-col sm:flex-row sm:items-baseline gap-2">
+                                <span className="text-sm font-bold uppercase tracking-wider text-gray-400 min-w-[150px]">Dirección:</span>
+                                <span className="text-sm font-black text-gray-900">{formData.address || '-'}</span>
+                              </div>
                             </div>
-                          </div>
+
+                            <button
+                              onClick={() => setEditing(true)}
+                              className="absolute top-0 right-0 text-[10px] font-black uppercase tracking-widest text-gray-900 border-b-2 border-gray-900 hover:text-gray-500 hover:border-gray-500 transition-all pb-0.5"
+                            >
+                              Editar
+                            </button>
+                          </>
                         )}
-                        
-                        <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
-                          <Button variant="outline" size="sm" className="text-sm">
-                            Ver detalles
-                          </Button>
-                          {order.status === 'delivered' && (
-                            <Button size="sm" variant="ghost" className="text-sm">
-                              <Star className="h-4 w-4 mr-1" /> Valorar productos
-                            </Button>
-                          )}
-                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-            
-            {recentOrders.length > 0 && (
-              <CardFooter className="px-6 pb-6 pt-0">
-                <Button variant="link" className="mx-auto flex items-center">
-                  <History className="h-4 w-4 mr-1" />
-                  Ver historial completo
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </CardFooter>
-            )}
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="favorites" className="mt-0">
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold">Mis Favoritos</CardTitle>
-              <CardDescription>Productos que te han gustado</CardDescription>
-            </CardHeader>
-            
-            <CardContent className="p-6">
-              {favoriteProducts.length === 0 ? (
-                <div className="text-center py-10">
-                  <div className="h-16 w-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                    <Heart className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-700 mb-2">No tienes favoritos guardados</h3>
-                  <p className="text-gray-500 mb-4">Guarda productos que te gusten para verlos después</p>
-                  <Button className="gradient-orange">
-                    Explorar productos
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {favoriteProducts.map((product) => (
-                    <Card key={product.id} className="overflow-hidden border">
-                      <div className="aspect-square relative">
-                        <img 
-                          src={product.image || '/placeholder-product.png'} 
-                          alt={product.name}
-                          className="h-full w-full object-cover"
-                        />
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="absolute top-2 right-2 h-8 w-8 rounded-full bg-white/80 hover:bg-white shadow-sm"
+                    </CardContent>
+                  </Card>
+
+                  <div className="space-y-6">
+                    <h3 className="text-sm font-black text-gray-900 uppercase tracking-[0.2em] border-b border-gray-100 pb-3">Boletín Informativo</h3>
+
+                    <Card className="border border-gray-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] rounded-2xl">
+                      <CardContent className="p-8">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6 leading-relaxed">¿Quiere recibir boletines informativos promocionales?</p>
+                        <div
+                          className="flex items-center gap-4 group cursor-pointer"
+                          onClick={() => handleNotificationChange('promotions', !formData.notifications.promotions)}
                         >
-                          <Heart className="h-4 w-4 text-red-500 fill-red-500" />
-                        </Button>
-                      </div>
-                      <CardContent className="p-3">
-                        <h3 className="font-medium text-sm line-clamp-2 h-10">{product.name}</h3>
-                        <p className="font-bold text-orange-600 mt-1">${product.price?.toLocaleString()}</p>
-                        <Button className="w-full mt-2 gradient-orange text-xs h-8">
-                          Añadir al carrito
-                        </Button>
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${formData.notifications.promotions ? 'bg-gray-900 border-gray-900' : 'border-gray-300 group-hover:border-gray-900'}`}>
+                            {formData.notifications.promotions && <Check className="h-3 w-3 text-white" />}
+                          </div>
+                          <span className="text-xs font-black text-gray-900 uppercase tracking-tight">Quiero recibir el boletín informativo con promociones.</span>
+                        </div>
                       </CardContent>
                     </Card>
-                  ))}
+                  </div>
                 </div>
               )}
-            </CardContent>
-            
-            {favoriteProducts.length > 0 && (
-              <CardFooter className="px-6 pb-6 pt-0">
-                <Button variant="link" className="mx-auto flex items-center">
-                  Ver todos mis favoritos
-                  <ChevronRight className="h-4 w-4 ml-1" />
+
+              {activeTab === 'addresses' && (
+                <div className="space-y-8">
+                  <div className="flex items-center justify-between border-b-2 border-gray-100 pb-4">
+                    <h2 className="hidden lg:block text-xl font-black text-gray-900 uppercase tracking-widest">Direcciones</h2>
+                    {!addingAddress && (
+                      <Button onClick={() => setAddingAddress(true)} className="bg-black text-white uppercase text-[10px] font-black tracking-widest px-6 h-9">Nueva Dirección</Button>
+                    )}
+                  </div>
+
+                  {(addingAddress || editingAddress) && (
+                    <Card className="border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl overflow-hidden mb-8">
+                      <CardHeader className="bg-gray-50/50 py-4 border-b border-gray-100">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-900">
+                          {editingAddress ? 'Editar Dirección' : 'Añadir Nueva Dirección'}
+                        </span>
+                      </CardHeader>
+                      <CardContent className="p-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Alias (Ej: Casa, Oficina)</label>
+                            <Input
+                              name="name"
+                              value={editingAddress ? editingAddress.name : newAddress.name}
+                              onChange={handleAddressChange}
+                              className="h-12 border-gray-100 focus:ring-black rounded-xl font-bold"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Dirección</label>
+                            <Input
+                              name="address"
+                              value={editingAddress ? editingAddress.address : newAddress.address}
+                              onChange={handleAddressChange}
+                              className="h-12 border-gray-100 focus:ring-black rounded-xl font-bold"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Ciudad</label>
+                            <Input
+                              name="city"
+                              value={editingAddress ? editingAddress.city : newAddress.city}
+                              onChange={handleAddressChange}
+                              className="h-12 border-gray-100 focus:ring-black rounded-xl font-bold"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Provincia</label>
+                            <Input
+                              name="province"
+                              value={editingAddress ? editingAddress.province : newAddress.province}
+                              onChange={handleAddressChange}
+                              className="h-12 border-gray-100 focus:ring-black rounded-xl font-bold"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 mb-8">
+                          <Switch
+                            checked={editingAddress ? editingAddress.isDefault : newAddress.isDefault}
+                            onCheckedChange={toggleDefaultAddress}
+                          />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-gray-900">Establecer como predeterminada</span>
+                        </div>
+                        <div className="flex justify-end gap-4">
+                          <Button
+                            onClick={() => { setAddingAddress(false); setEditingAddress(null); }}
+                            variant="ghost"
+                            className="text-[10px] font-black uppercase tracking-widest text-gray-400"
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            onClick={editingAddress ? updateSavedAddress : addNewAddress}
+                            disabled={addressLoading}
+                            className="bg-black text-white px-8 h-12 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                          >
+                            {addressLoading ? 'Guardando...' : (editingAddress ? 'Guardar Cambios' : 'Guardar Dirección')}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {savedAddresses.map(addr => (
+                      <Card key={addr.id} className="border border-gray-100 shadow-sm rounded-xl overflow-hidden hover:shadow-md transition-shadow relative group">
+                        <CardHeader className="bg-gray-50 py-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{addr.name}</span>
+                            {addr.isDefault && <Badge className="bg-green-100 text-green-700 text-[8px] font-black uppercase tracking-widest">Predeterminada</Badge>}
+                          </div>
+                        </CardHeader>
+                        <CardContent className="pt-6 pb-6 px-6">
+                          <p className="text-sm font-bold text-gray-800 leading-relaxed mb-1">{addr.address}</p>
+                          <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">{addr.city}, {addr.province}</p>
+
+                          <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => { setEditingAddress(addr); setAddingAddress(false); }}
+                              className="text-gray-300 hover:text-gray-900 transition-colors"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => removeAddress(addr.id)}
+                              className="text-gray-300 hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {savedAddresses.length === 0 && (
+                    <div className="bg-white border-2 border-dashed border-gray-100 rounded-3xl p-20 text-center">
+                      <MapPin className="h-12 w-12 text-gray-100 mx-auto mb-4" />
+                      <p className="text-xs font-bold text-gray-300 uppercase tracking-widest">No tienes direcciones guardadas</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'orders' && (
+                <div className="space-y-8">
+                  <h2 className="hidden lg:block text-xl font-black text-gray-900 uppercase tracking-widest border-b-2 border-gray-100 pb-4">Pedidos</h2>
+
+                  {recentOrders.length === 0 ? (
+                    <div className="bg-white border-2 border-dashed border-gray-100 rounded-3xl p-20 text-center">
+                      <ShoppingBag className="h-12 w-12 text-gray-100 mx-auto mb-4" />
+                      <p className="text-xs font-bold text-gray-300 uppercase tracking-widest">No tienes pedidos aún</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {recentOrders.map((order) => (
+                        <Card key={order.id} className="border border-gray-100 shadow-sm rounded-2xl overflow-hidden group hover:shadow-md transition-all">
+                          <div className="flex flex-col md:flex-row">
+                            <div className="p-6 md:p-8 flex-1">
+                              <div className="flex items-center justify-between mb-6">
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Pedido #{order.id.substring(0, 8)}</span>
+                                <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${getStatusColor(order.status)}`}>
+                                  {getStatusIcon(order.status)}
+                                  {getStatusText(order.status)}
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-8">
+                                <div>
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Fecha</p>
+                                  <p className="text-sm font-black text-gray-900 uppercase tracking-tight">{format(order.date, 'dd/MM/yyyy')}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total</p>
+                                  <p className="text-sm font-black text-gray-900 uppercase tracking-tight">${order.total.toLocaleString('es-AR')}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="bg-gray-50 px-6 py-4 md:w-48 flex items-center justify-center border-t md:border-t-0 md:border-l border-gray-100">
+                              <Button
+                                variant="ghost"
+                                onClick={() => { setViewingOrder(order); setIsDialogOpen(true); }}
+                                className="text-[10px] font-black uppercase tracking-widest text-gray-900 hover:bg-white w-full"
+                              >
+                                Ver Detalles
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </motion.div>
+          </div>
+        </div>
+      </main>
+
+      <Footer />
+
+      {/* Modal de Detalles del Pedido */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border-0 shadow-2xl p-0">
+          {viewingOrder && (
+            <div className="flex flex-col">
+              <div className="bg-[#1a1a1a] p-8 text-white relative">
+                <Button
+                  variant="ghost"
+                  onClick={() => setIsDialogOpen(false)}
+                  className="absolute top-4 right-4 text-white/50 hover:text-white hover:bg-white/10 p-0 h-8 w-8 rounded-full"
+                >
+                  <X className="h-4 w-4" />
                 </Button>
-              </CardFooter>
-            )}
-          </Card>
-        </TabsContent>
-      </Tabs>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${getStatusColor(viewingOrder.status)}`}>
+                    {getStatusText(viewingOrder.status)}
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Pedido #{viewingOrder.id.substring(0, 8)}</span>
+                </div>
+                <h2 className="text-2xl font-black uppercase tracking-tighter">Detalles del Pedido</h2>
+                <p className="text-white/40 text-xs font-bold uppercase tracking-widest mt-2">Realizado el {format(viewingOrder.date, 'dd/MM/yyyy HH:mm')}</p>
+              </div>
+
+              <div className="p-8">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 border-b border-gray-100 pb-2">Productos ({Array.isArray(viewingOrder.items) ? viewingOrder.items.length : 0})</h3>
+                    <div className="space-y-4">
+                      {Array.isArray(viewingOrder.items) && viewingOrder.items.map((item: any, idx: number) => (
+                        <div key={idx} className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100/50 hover:bg-gray-50 transition-colors">
+                          <div className="h-16 w-16 bg-white rounded-lg border border-gray-100 overflow-hidden flex-shrink-0">
+                            {item.image ? (
+                              <img src={item.image} alt={item.name} className="h-full w-full object-contain" />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center bg-gray-50 p-4">
+                                <Package className="text-gray-200" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-sm font-black text-gray-900 line-clamp-1">{item.name}</h4>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Cantidad: {item.quantity}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-black text-gray-900">${(parseFormattedPrice(item.price) * item.quantity).toLocaleString('es-CO')}</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">${parseFormattedPrice(item.price).toLocaleString('es-CO')} c/u</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {viewingOrder.trackingNumber && (
+                    <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100/50">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Truck className="h-4 w-4 text-blue-600" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Información de Envío</span>
+                      </div>
+                      <p className="text-sm font-bold text-blue-900">Número de seguimiento: <span className="font-black selection:bg-blue-200">{viewingOrder.trackingNumber}</span></p>
+                    </div>
+                  )}
+
+                  <div className="bg-gray-50 p-6 rounded-2xl space-y-3">
+                    <div className="flex justify-between items-center text-gray-500">
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Resumen</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest">{Array.isArray(viewingOrder.items) ? viewingOrder.items.length : 0} Items</span>
+                    </div>
+                    <Separator className="bg-gray-200/50" />
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-black text-gray-900 uppercase tracking-tighter">Total Pagado</span>
+                      <span className="text-xl font-black text-gray-900">${viewingOrder.total.toLocaleString('es-CO')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 flex gap-3">
+                  <Button
+                    onClick={() => setIsDialogOpen(false)}
+                    className="flex-1 bg-black text-white hover:bg-gray-800 h-14 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                  >
+                    Cerrar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

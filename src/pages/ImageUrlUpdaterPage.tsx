@@ -6,7 +6,7 @@ import { useCategories } from '@/hooks/use-categories';
 import { AlertOctagon } from 'lucide-react';
 
 const ImageUrlUpdaterPage: React.FC = () => {
-  const { categories, setCategories } = useCategories();
+  const { categories, setCategories, mainCategories, subcategoriesByParent, thirdLevelBySubcategory } = useCategories();
   const [selectedCategory, setSelectedCategory] = React.useState("Todos");
   const [promoVisible, setPromoVisible] = useState(true);
 
@@ -19,6 +19,9 @@ const ImageUrlUpdaterPage: React.FC = () => {
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         promoVisible={promoVisible}
+        mainCategories={mainCategories}
+        subcategoriesByParent={subcategoriesByParent}
+        thirdLevelBySubcategory={thirdLevelBySubcategory}
       />
       
       <div className="pt-40 pb-20">

@@ -7,13 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
-import { 
-  User, Mail, Lock, Phone, Eye, EyeOff, AlertCircle, 
+import {
+  User, Mail, Lock, Phone, Eye, EyeOff, AlertCircle,
   ArrowLeft, ArrowRight, CheckCircle2, Loader2, Home
 } from 'lucide-react';
 import { auth, db } from "@/firebase";
-import { 
-  createUserWithEmailAndPassword, 
+import {
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   sendEmailVerification
@@ -34,7 +34,7 @@ export const AuthPage: React.FC = () => {
   );
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [registerStep, setRegisterStep] = useState<RegisterStep>('personal');
-  
+
   // Form validation states
   const [errors, setErrors] = useState({
     loginEmail: '',
@@ -45,7 +45,7 @@ export const AuthPage: React.FC = () => {
     registerPassword: '',
     resetEmail: ''
   });
-  
+
   const [loginData, setLoginData] = useState({
     email: '',
     password: ''
@@ -60,7 +60,7 @@ export const AuthPage: React.FC = () => {
     address: '',
     acceptTerms: false
   });
-  
+
   const [resetPasswordEmail, setResetPasswordEmail] = useState('');
 
   const handleQuickAdminLogin = async () => {
@@ -90,52 +90,52 @@ export const AuthPage: React.FC = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
-  
+
   const validatePassword = (password: string) => {
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
     return passwordRegex.test(password);
   };
-  
+
   const validatePhoneNumber = (phone: string) => {
-    const phoneRegex = /^[0-9]{10}$/;
-    return phoneRegex.test(phone);
+    const digits = phone.replace(/\D/g, '');
+    return digits.length >= 8 && digits.length <= 15;
   };
-  
+
   // Handle login with email and password
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     setErrors({
       ...errors,
       loginEmail: '',
       loginPassword: ''
     });
-    
+
     let hasErrors = false;
-    
+
     if (!validateEmail(loginData.email)) {
-      setErrors(prev => ({...prev, loginEmail: 'Ingresa un email válido'}));
+      setErrors(prev => ({ ...prev, loginEmail: 'Ingresa un email válido' }));
       hasErrors = true;
     }
-    
+
     if (!loginData.password) {
-      setErrors(prev => ({...prev, loginPassword: 'La contraseña es obligatoria'}));
+      setErrors(prev => ({ ...prev, loginPassword: 'La contraseña es obligatoria' }));
       hasErrors = true;
     }
-    
+
     if (hasErrors) return;
-    
+
     setIsLoading(true);
 
     try {
       await signInWithEmailAndPassword(auth, loginData.email, loginData.password);
-      
+
       if (rememberMe) {
         localStorage.setItem('rememberedEmail', loginData.email);
       } else {
         localStorage.removeItem('rememberedEmail');
       }
-      
+
       toast({
         title: "¡Bienvenido!",
         description: "Has iniciado sesión correctamente",
@@ -143,9 +143,9 @@ export const AuthPage: React.FC = () => {
       navigate('/');
     } catch (error: any) {
       if (error.code === 'auth/user-not-found') {
-        setErrors(prev => ({...prev, loginEmail: 'No existe una cuenta con este email'}));
+        setErrors(prev => ({ ...prev, loginEmail: 'No existe una cuenta con este email' }));
       } else if (error.code === 'auth/wrong-password') {
-        setErrors(prev => ({...prev, loginPassword: 'Contraseña incorrecta'}));
+        setErrors(prev => ({ ...prev, loginPassword: 'Contraseña incorrecta' }));
       } else if (error.code === 'auth/too-many-requests') {
         toast({
           title: "Demasiados intentos",
@@ -167,19 +167,19 @@ export const AuthPage: React.FC = () => {
   // Handle password reset
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     setErrors({
       ...errors,
       resetEmail: ''
     });
-    
+
     if (!validateEmail(resetPasswordEmail)) {
-      setErrors(prev => ({...prev, resetEmail: 'Ingresa un email válido'}));
+      setErrors(prev => ({ ...prev, resetEmail: 'Ingresa un email válido' }));
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       await sendPasswordResetEmail(auth, resetPasswordEmail);
       toast({
@@ -189,7 +189,7 @@ export const AuthPage: React.FC = () => {
       setShowForgotPassword(false);
     } catch (error: any) {
       if (error.code === 'auth/user-not-found') {
-        setErrors(prev => ({...prev, resetEmail: 'No existe una cuenta con este email'}));
+        setErrors(prev => ({ ...prev, resetEmail: 'No existe una cuenta con este email' }));
       } else {
         toast({
           title: "Error",
@@ -205,8 +205,8 @@ export const AuthPage: React.FC = () => {
   // Handle register
   const validateRegisterForm = () => {
     let isValid = true;
-    const newErrors = {...errors};
-    
+    const newErrors = { ...errors };
+
     if (registerStep === 'personal') {
       if (!registerData.name.trim()) {
         newErrors.registerName = 'El nombre es obligatorio';
@@ -215,19 +215,19 @@ export const AuthPage: React.FC = () => {
         newErrors.registerName = 'El nombre debe tener al menos 3 caracteres';
         isValid = false;
       }
-      
+
       if (!validatePhoneNumber(registerData.phone)) {
-        newErrors.registerPhone = 'Ingresa un número de teléfono válido (10 dígitos)';
+        newErrors.registerPhone = 'Teléfono debe tener entre 8 y 15 dígitos';
         isValid = false;
       }
     }
-    
+
     if (registerStep === 'account') {
       if (!validateEmail(registerData.email)) {
         newErrors.registerEmail = 'Ingresa un email válido';
         isValid = false;
       }
-      
+
       if (!validatePassword(registerData.password)) {
         newErrors.registerPassword = 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número';
         isValid = false;
@@ -235,7 +235,7 @@ export const AuthPage: React.FC = () => {
         newErrors.registerPassword = 'Las contraseñas no coinciden';
         isValid = false;
       }
-      
+
       if (!registerData.acceptTerms) {
         toast({
           title: "Términos y condiciones",
@@ -245,30 +245,30 @@ export const AuthPage: React.FC = () => {
         isValid = false;
       }
     }
-    
-    setErrors({...newErrors});
+
+    setErrors({ ...newErrors });
     return isValid;
   };
-  
+
   const advanceRegisterStep = () => {
     if (!validateRegisterForm()) return;
-    
+
     if (registerStep === 'personal') {
       setRegisterStep('account');
     } else if (registerStep === 'account') {
       handleRegisterSubmit();
     }
   };
-  
+
   const handleRegisterSubmit = async () => {
     setIsLoading(true);
-    
+
     const { email, password, name, phone, address } = registerData;
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await sendEmailVerification(userCredential.user);
-      
+
       await setDoc(doc(db, "users", userCredential.user.uid), {
         uid: userCredential.user.uid,
         name,
@@ -283,11 +283,11 @@ export const AuthPage: React.FC = () => {
         title: "¡Cuenta creada!",
         description: "¡Bienvenido a nuestra tienda!",
       });
-      
+
       setRegisterStep('verification');
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
-        setErrors(prev => ({...prev, registerEmail: 'Este email ya está en uso'}));
+        setErrors(prev => ({ ...prev, registerEmail: 'Este email ya está en uso' }));
         setRegisterStep('account');
       } else {
         toast({
@@ -300,7 +300,7 @@ export const AuthPage: React.FC = () => {
       setIsLoading(false);
     }
   };
-  
+
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     advanceRegisterStep();
@@ -322,14 +322,14 @@ export const AuthPage: React.FC = () => {
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative z-10 flex flex-col items-center justify-center p-12 text-white w-full">
           <div className="mb-8 text-center">
-            <h1 className="text-6xl font-black mb-4 drop-shadow-lg">REGALA ALGO</h1>
+            <h1 className="text-6xl font-black mb-4 drop-shadow-lg">TIENDA 24-7</h1>
             <p className="text-2xl text-orange-100 font-medium">Tu tienda online de confianza</p>
           </div>
           <div className="w-full max-w-lg mb-8 flex items-center justify-center">
             <div className="relative w-full aspect-square max-w-md">
-              <img 
-                src="/logo-nuevo.png" 
-                alt="REGALA ALGO Logo" 
+              <img
+                src="/logo-nuevo.png"
+                alt="TIENDA 24-7 Logo"
                 className="w-full h-full object-contain drop-shadow-2xl"
                 onError={(e) => {
                   // Si no hay imagen, ocultar y mostrar texto alternativo
@@ -371,19 +371,19 @@ export const AuthPage: React.FC = () => {
           {/* Card principal */}
           <Card className="shadow-2xl border-0 overflow-hidden">
             <div className="gradient-orange h-2"></div>
-            
+
             <CardHeader className="bg-gradient-to-r from-orange-50 to-white pb-4">
               <CardTitle className="text-3xl md:text-4xl font-bold text-center gradient-text-orange">
-                Bienvenido a REGALA ALGO
+                Bienvenido a TIENDA 24-7
               </CardTitle>
               <p className="text-center text-gray-600 mt-2">
-                {showForgotPassword 
+                {showForgotPassword
                   ? 'Recupera tu contraseña'
                   : registerStep === 'verification'
-                  ? '¡Cuenta creada exitosamente!'
-                  : activeTab === 'login' 
-                  ? 'Accede a tu cuenta para comprar' 
-                  : 'Crea una cuenta para empezar a comprar'}
+                    ? '¡Cuenta creada exitosamente!'
+                    : activeTab === 'login'
+                      ? 'Accede a tu cuenta para comprar'
+                      : 'Crea una cuenta para empezar a comprar'}
               </p>
             </CardHeader>
 
@@ -391,15 +391,15 @@ export const AuthPage: React.FC = () => {
               {/* Forgot password form */}
               {showForgotPassword ? (
                 <div className="space-y-6">
-                  <Button 
-                    variant="ghost" 
-                    className="mb-4" 
+                  <Button
+                    variant="ghost"
+                    className="mb-4"
                     onClick={() => setShowForgotPassword(false)}
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Volver
                   </Button>
-                  
+
                   <form onSubmit={handleResetPassword} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="reset-email">Email</Label>
@@ -421,9 +421,9 @@ export const AuthPage: React.FC = () => {
                         )}
                       </div>
                     </div>
-                    
-                    <Button 
-                      type="submit" 
+
+                    <Button
+                      type="submit"
                       className="w-full gradient-orange hover:opacity-90 transition-opacity h-12 text-lg"
                       disabled={isLoading}
                     >
@@ -447,7 +447,7 @@ export const AuthPage: React.FC = () => {
                     Hemos enviado un correo de bienvenida a <span className="font-semibold">{registerData.email}</span>.
                     Tu cuenta ya está activa y puedes comenzar a comprar de inmediato.
                   </p>
-                  <Button 
+                  <Button
                     className="w-full gradient-orange hover:opacity-90 transition-opacity h-12 text-lg"
                     onClick={() => {
                       navigate('/');
@@ -483,13 +483,12 @@ export const AuthPage: React.FC = () => {
                             id="login-email"
                             type="email"
                             placeholder="tu@email.com"
-                            className={`pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12 ${
-                              errors.loginEmail ? 'border-red-500' : ''
-                            }`}
+                            className={`pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12 ${errors.loginEmail ? 'border-red-500' : ''
+                              }`}
                             value={loginData.email}
                             onChange={(e) => {
-                              setLoginData({...loginData, email: e.target.value});
-                              setErrors({...errors, loginEmail: ''});
+                              setLoginData({ ...loginData, email: e.target.value });
+                              setErrors({ ...errors, loginEmail: '' });
                             }}
                           />
                           {errors.loginEmail && (
@@ -500,15 +499,15 @@ export const AuthPage: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      
+
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <Label htmlFor="login-password" className="text-base font-medium">
                             Contraseña
                           </Label>
-                          <Button 
+                          <Button
                             type="button"
-                            variant="link" 
+                            variant="link"
                             className="p-0 text-orange-500 h-auto text-sm"
                             onClick={() => setShowForgotPassword(true)}
                           >
@@ -521,13 +520,12 @@ export const AuthPage: React.FC = () => {
                             id="login-password"
                             type={showPassword ? "text" : "password"}
                             placeholder="••••••••"
-                            className={`pl-10 pr-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12 ${
-                              errors.loginPassword ? 'border-red-500' : ''
-                            }`}
+                            className={`pl-10 pr-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12 ${errors.loginPassword ? 'border-red-500' : ''
+                              }`}
                             value={loginData.password}
                             onChange={(e) => {
-                              setLoginData({...loginData, password: e.target.value});
-                              setErrors({...errors, loginPassword: ''});
+                              setLoginData({ ...loginData, password: e.target.value });
+                              setErrors({ ...errors, loginPassword: '' });
                             }}
                           />
                           <button
@@ -547,18 +545,18 @@ export const AuthPage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="remember-me" 
-                          checked={rememberMe} 
-                          onCheckedChange={(checked) => setRememberMe(checked === true)} 
+                        <Checkbox
+                          id="remember-me"
+                          checked={rememberMe}
+                          onCheckedChange={(checked) => setRememberMe(checked === true)}
                         />
                         <Label htmlFor="remember-me" className="text-sm text-gray-600">
                           Recordar mi correo
                         </Label>
                       </div>
 
-                      <Button 
-                        type="submit" 
+                      <Button
+                        type="submit"
                         className="w-full gradient-orange hover:opacity-90 transition-opacity h-12 text-lg font-semibold"
                         disabled={isLoading}
                       >
@@ -596,13 +594,12 @@ export const AuthPage: React.FC = () => {
                               <Input
                                 id="register-name"
                                 placeholder="Juan Pérez"
-                                className={`pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12 ${
-                                  errors.registerName ? 'border-red-500' : ''
-                                }`}
+                                className={`pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12 ${errors.registerName ? 'border-red-500' : ''
+                                  }`}
                                 value={registerData.name}
                                 onChange={(e) => {
                                   setRegisterData({ ...registerData, name: e.target.value });
-                                  setErrors({...errors, registerName: ''});
+                                  setErrors({ ...errors, registerName: '' });
                                 }}
                               />
                               {errors.registerName && (
@@ -613,7 +610,7 @@ export const AuthPage: React.FC = () => {
                               )}
                             </div>
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="register-phone" className="text-base font-medium">
                               Teléfono
@@ -624,14 +621,13 @@ export const AuthPage: React.FC = () => {
                                 id="register-phone"
                                 type="tel"
                                 placeholder="Ej: 3001234567"
-                                className={`pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12 ${
-                                  errors.registerPhone ? 'border-red-500' : ''
-                                }`}
+                                className={`pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12 ${errors.registerPhone ? 'border-red-500' : ''
+                                  }`}
                                 value={registerData.phone}
                                 onChange={(e) => {
                                   const value = e.target.value.replace(/[^0-9]/g, '');
                                   setRegisterData({ ...registerData, phone: value });
-                                  setErrors({...errors, registerPhone: ''});
+                                  setErrors({ ...errors, registerPhone: '' });
                                 }}
                               />
                               {errors.registerPhone && (
@@ -642,7 +638,7 @@ export const AuthPage: React.FC = () => {
                               )}
                             </div>
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="register-address" className="text-base font-medium">
                               Dirección <span className="text-sm text-gray-500">(opcional)</span>
@@ -668,13 +664,12 @@ export const AuthPage: React.FC = () => {
                                 id="register-email"
                                 type="email"
                                 placeholder="tu@email.com"
-                                className={`pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12 ${
-                                  errors.registerEmail ? 'border-red-500' : ''
-                                }`}
+                                className={`pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12 ${errors.registerEmail ? 'border-red-500' : ''
+                                  }`}
                                 value={registerData.email}
                                 onChange={(e) => {
                                   setRegisterData({ ...registerData, email: e.target.value });
-                                  setErrors({...errors, registerEmail: ''});
+                                  setErrors({ ...errors, registerEmail: '' });
                                 }}
                               />
                               {errors.registerEmail && (
@@ -685,7 +680,7 @@ export const AuthPage: React.FC = () => {
                               )}
                             </div>
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="register-password" className="text-base font-medium">
                               Contraseña
@@ -696,13 +691,12 @@ export const AuthPage: React.FC = () => {
                                 id="register-password"
                                 type={showRegisterPassword ? "text" : "password"}
                                 placeholder="••••••••"
-                                className={`pl-10 pr-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12 ${
-                                  errors.registerPassword ? 'border-red-500' : ''
-                                }`}
+                                className={`pl-10 pr-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12 ${errors.registerPassword ? 'border-red-500' : ''
+                                  }`}
                                 value={registerData.password}
                                 onChange={(e) => {
                                   setRegisterData({ ...registerData, password: e.target.value });
-                                  setErrors({...errors, registerPassword: ''});
+                                  setErrors({ ...errors, registerPassword: '' });
                                 }}
                               />
                               <button
@@ -724,7 +718,7 @@ export const AuthPage: React.FC = () => {
                               </p>
                             )}
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="register-confirm-password" className="text-base font-medium">
                               Confirmar Contraseña
@@ -738,14 +732,14 @@ export const AuthPage: React.FC = () => {
                               onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
                             />
                           </div>
-                          
+
                           <div className="flex items-center space-x-2">
-                            <Checkbox 
-                              id="accept-terms" 
-                              checked={registerData.acceptTerms} 
-                              onCheckedChange={(checked) => 
+                            <Checkbox
+                              id="accept-terms"
+                              checked={registerData.acceptTerms}
+                              onCheckedChange={(checked) =>
                                 setRegisterData({ ...registerData, acceptTerms: checked === true })
-                              } 
+                              }
                             />
                             <Label htmlFor="accept-terms" className="text-sm text-gray-600">
                               Acepto los <a href="#" className="text-orange-500 hover:underline">términos y condiciones</a>
@@ -756,8 +750,8 @@ export const AuthPage: React.FC = () => {
 
                       <div className="flex gap-3 pt-2">
                         {registerStep === 'account' && (
-                          <Button 
-                            type="button" 
+                          <Button
+                            type="button"
                             variant="outline"
                             className="flex-1 h-12"
                             onClick={() => setRegisterStep('personal')}
@@ -765,9 +759,9 @@ export const AuthPage: React.FC = () => {
                             <ArrowLeft className="h-4 w-4 mr-1" /> Atrás
                           </Button>
                         )}
-                        
-                        <Button 
-                          type="submit" 
+
+                        <Button
+                          type="submit"
                           className="flex-1 gradient-orange hover:opacity-90 transition-opacity h-12 text-lg font-semibold"
                           disabled={isLoading}
                         >

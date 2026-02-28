@@ -1,42 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import './scrollbar.css';
-import { GlassmorphismCard } from '@/components/ui/glassmorphism-card';
-import { MagneticButton } from '@/components/ui/magnetic-button';
+import React, { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ShoppingCart, User, HelpCircle, Search, Menu, X, ChevronDown, ChevronRight, SlidersHorizontal, ChevronLeft, Heart, Bike } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
-import { CartSidebar } from '@/components/cart/CartSidebar';
-import { UserMenu } from '@/components/user/UserMenu';
-import { 
-  ShoppingCart, 
-  LogIn, 
-  Search, 
-  Sparkles, 
-  Bell, 
-  User, 
-  MessageCircle, 
-  Package, 
-  Menu, 
-  X, 
-  ChevronDown 
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { toast } from '@/hooks/use-toast';
-import { auth, db } from "@/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { collection, getDocs } from "firebase/firestore";
-import { useIsMobile } from '@/hooks/use-mobile';
-import { useCategories } from '@/hooks/use-categories';
+import { useFavorites } from '@/contexts/FavoritesContext';
+import { Badge } from '@/components/ui/badge';
+import type { Category } from '@/hooks/use-categories';
+import { FilterSidebar } from '@/components/products/FilterSidebar';
+import { slugify } from '@/lib/utils';
 
 interface AdvancedHeaderProps {
   categories: string[];
   selectedCategory: string;
   setSelectedCategory: (cat: string) => void;
   promoVisible?: boolean;
-  setCategories?: (cats: string[]) => void;
+  mainCategories?: Category[];
+  subcategoriesByParent?: Record<string, Category[]>;
+  thirdLevelBySubcategory?: Record<string, Category[]>;
+  searchTerm?: string;
+  onSearch?: (val: string) => void;
+  allCategoriesData?: Category[];
 }
 
 export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
@@ -44,514 +27,861 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
   selectedCategory,
   setSelectedCategory,
   promoVisible,
+  mainCategories = [],
+  subcategoriesByParent = {},
+  thirdLevelBySubcategory = {},
+  searchTerm = '',
+  onSearch,
+  allCategoriesData = [],
 }) => {
-  // Mover el hook useCategories al inicio del componente
-  const { mainCategories, subcategoriesByParent } = useCategories();
-  const { user, isAuthenticated, login } = useAuth();
-  const { getItemCount } = useCart();
   const navigate = useNavigate();
-  const [showCart, setShowCart] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [userName, setUserName] = useState<string>('');
-  const [apto, setApto] = useState<string>('');
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [showMobileSearch, setShowMobileSearch] = useState(false);
-  const isMobile = useIsMobile();
-  const dropdownTimeout = useRef<NodeJS.Timeout | null>(null);
-  
-  // Refs and state for scrollbar indicators
-  const desktopScrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const mobileScrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const [desktopScrollPosition, setDesktopScrollPosition] = useState({ top: "0%", height: "20%" });
-  const [mobileScrollPosition, setMobileScrollPosition] = useState({ top: "0%", height: "20%" });
-
+  const { user, logout } = useAuth();
+  const { getItemCount } = useCart();
   const itemCount = getItemCount();
+  const { favorites, toggleFavorite } = useFavorites();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuView, setMenuView] = useState<'main' | 'sub'>('main');
+  const [activeMainCat, setActiveMainCat] = useState<string | null>(null);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showFavoritesMenu, setShowFavoritesMenu] = useState(false);
+  const [showHelpMenu, setShowHelpMenu] = useState(false);
+  const [openCategoryDropdown, setOpenCategoryDropdown] = useState<string | null>(null);
+  const [openAyudaDropdown, setOpenAyudaDropdown] = useState(false);
+  const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm || '');
+  const [activeSub, setActiveSub] = useState<Category | null>(null);
+  const [activeThird, setActiveThird] = useState<Category | null>(null);
+  const accountMenuTimer = useRef<NodeJS.Timeout | null>(null);
+  const favoritesMenuTimer = useRef<NodeJS.Timeout | null>(null);
+  const categoryDropdownTimer = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+  // State to sync filters with ProductsSection
+  const [filterState, setFilterState] = useState<any>(null);
+
+  React.useEffect(() => {
+    const handleFilterState = (e: any) => {
+      setFilterState(e.detail);
     };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('app:filter-state', handleFilterState);
+    return () => window.removeEventListener('app:filter-state', handleFilterState);
   }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Solo proceder si hay un término de búsqueda
-    if (searchQuery.trim()) {
-      // Cerrar el modal de búsqueda móvil si está abierto
-      setShowMobileSearch(false);
-      
-      // Redirigir a la página principal con el parámetro de búsqueda
-      navigate(`/?search=${encodeURIComponent(searchQuery.trim())}`);
-      
-      // Desplazarse a la sección de productos
-      setTimeout(() => {
-        const productsSection = document.getElementById('productos');
-        if (productsSection) {
-          productsSection.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 300);
-    }
-  };
-
-  const handleWhatsAppContact = () => {
-    const phoneNumber = '543873439775'; // Número de WhatsApp de la tienda
-    const message = encodeURIComponent('¡Hola! Me gustaría hacer un pedido desde REGALA ALGO. Estoy interesado en conocer más sobre sus productos.');
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
-    window.open(whatsappUrl, '_blank');
-  };
-
-  const scrollToProducts = () => {
-    const productsSection = document.getElementById('productos');
-    if (productsSection) {
-      productsSection.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Busca el usuario en Firestore por su UID
-        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-        if (userDoc.exists()) {
-          setUserName(userDoc.data().name || '');
-          setApto(userDoc.data().departmentNumber || '');
-        } else {
-          setUserName(firebaseUser.email || '');
-          setApto('');
-        }
+  // Update theme-color meta tag when menu opens/closes on mobile
+  React.useEffect(() => {
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      if (isMenuOpen) {
+        metaThemeColor.setAttribute('content', '#000000');
       } else {
-        setUserName('');
-        setApto('');
+        // Original color from index.html or preferred default
+        metaThemeColor.setAttribute('content', '#1e40af');
       }
-    });
-    return () => unsubscribe();
-  }, []);
+    }
+  }, [isMenuOpen]);
 
-  const handleCategoryFilter = (category: string) => {
-    setSelectedCategory(category);
+  // No longer auto-select first sub on open
+  React.useEffect(() => {
+    if (!openCategoryDropdown) {
+      setActiveSub(null);
+      setActiveThird(null);
+    }
+  }, [openCategoryDropdown]);
+
+  const getFourthLevel = (parentId: string) => {
+    if (!allCategoriesData) return [];
+    return allCategoriesData.filter(c => c.parentId === parentId);
   };
-  
-  // Handle scroll position for scrollbar indicators
-  const handleDesktopScroll = () => {
-    if (desktopScrollContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = desktopScrollContainerRef.current;
-      const scrollPercentage = scrollTop / (scrollHeight - clientHeight);
-      const thumbHeight = Math.max(20, (clientHeight / scrollHeight) * 100);
-      const thumbPosition = scrollPercentage * (100 - thumbHeight);
-      setDesktopScrollPosition({
-        top: `${thumbPosition}%`,
-        height: `${thumbHeight}%`
-      });
+
+  const dispatchFilterAction = (type: string, payload: any) => {
+    window.dispatchEvent(new CustomEvent('app:filter-change', {
+      detail: { type, payload }
+    }));
+  };
+
+  // Sincronizar local con prop cuando esta cambie externamente
+  React.useEffect(() => {
+    setLocalSearchTerm(searchTerm || '');
+  }, [searchTerm]);
+
+  // Solo categorías desde la BD (sin "Todos"). Sin fallback estático.
+  const mainCategoriesForNav = categories.filter((c) => c !== "Todos");
+
+  const goToCategory = (name: string) => {
+    setIsMenuOpen(false);
+    setOpenCategoryDropdown(null);
+    setOpenAyudaDropdown(false);
+    navigate(`/categoria/${encodeURIComponent(name)}`);
+  };
+
+  const getSubsForMain = (mainName: string) =>
+    subcategoriesByParent[mainName] ?? [];
+  const getThirdsForSub = (subId: string) =>
+    thirdLevelBySubcategory[subId] ?? [];
+
+  const handleSearchChange = (val: string) => {
+    setLocalSearchTerm(val);
+    if (onSearch) {
+      onSearch(val);
+    }
+
+    // Si no estamos en la home y hay texto, ir a la home
+    if (window.location.pathname !== '/' && val.length > 0) {
+      navigate(`/?search=${encodeURIComponent(val)}`);
+    } else if (window.location.pathname === '/') {
+      // Si estamos en la home, actualizamos la URL para que sea persistente
+      const params = new URLSearchParams(window.location.search);
+      if (val) {
+        params.set('search', val);
+      } else {
+        params.delete('search');
+      }
+      const newUrl = params.toString() ? `?${params.toString()}` : '/';
+      window.history.replaceState({}, '', newUrl);
     }
   };
-  
-  const handleMobileScroll = () => {
-    if (mobileScrollContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = mobileScrollContainerRef.current;
-      const scrollPercentage = scrollTop / (scrollHeight - clientHeight);
-      const thumbHeight = Math.max(20, (clientHeight / scrollHeight) * 100);
-      const thumbPosition = scrollPercentage * (100 - thumbHeight);
-      setMobileScrollPosition({
-        top: `${thumbPosition}%`,
-        height: `${thumbHeight}%`
-      });
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (localSearchTerm) {
+      navigate(`/?search=${encodeURIComponent(localSearchTerm)}`);
+      setIsMenuOpen(false);
     }
   };
 
   return (
-    <>
-      <header className={`fixed z-50 w-full bg-white border-b border-slate-200 shadow-lg transition-all duration-300 sticky-header ${promoVisible ? "top-14" : "top-0"}`} style={{ transform: 'translateZ(0)', willChange: 'transform', backfaceVisibility: 'hidden' }}>
-        <div className="container mx-auto px-2 md:px-4">
-          {/* Main header */}
-          <div className="flex h-16 md:h-20 items-center justify-between w-full">
-            {/* Mobile Menu Button - Solo visible en móvil */}
-            <button 
-              className="block sm:hidden p-2" 
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-              aria-label="Menú"
-            >
-              {showMobileMenu ? (
-                <X className="h-6 w-6 text-neutral-800" />
-              ) : (
-                <Menu className="h-6 w-6 text-neutral-800" />
-              )}
-            </button>
-            
-            {/* Logo */}
-            <div className="flex items-center space-x-3 flex-shrink-0">
-              <div className="relative group">
-                <img src="/logo-nuevo.png" alt="Regala Algo" className="h-10 md:h-14 w-auto transform group-hover:scale-105 transition-all duration-300" />
-              </div>
-            </div>
-
-            {/* Mobile search button - Solo visible en móvil */}
-            <button 
-              className="block sm:hidden p-2" 
-              onClick={() => setShowMobileSearch(!showMobileSearch)}
-              aria-label="Buscar"
-            >
-              <Search className="h-6 w-6 text-neutral-800" />
-            </button>
-
-            {/* Centered Search Bar - Oculto en móvil por defecto */}
-            <div className={`${showMobileSearch ? 'flex absolute top-16 left-0 right-0 px-2 bg-white z-50 border-b border-slate-200 py-2' : 'hidden'} sm:relative sm:flex-1 sm:flex sm:top-0 sm:border-0 sm:py-0 sm:justify-center`}>
-              <form
-                onSubmit={handleSearch}
-                className="w-full max-w-xl"
-              >
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Buscar productos, marcas..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 sm:pl-12 pr-4 py-2 sm:py-3 rounded-xl border-2 border-slate-300 focus:border-blue-500 focus:ring-blue-400 transition-all bg-white text-neutral-900 shadow-md text-base sm:text-lg"
-                  />
-                  <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 sm:h-6 sm:w-6 text-slate-400" />
-                </div>
-              </form>
-              {showMobileSearch && (
-                <button className="absolute top-3 right-4" onClick={() => setShowMobileSearch(false)}>
-                  <X className="h-5 w-5 text-neutral-500" />
-                </button>
-              )}
-            </div>
-
-            {/* Actions + Argentina Flag */}
-            <div className="flex items-center space-x-2 md:space-x-3 flex-shrink-0">
-              {/* Argentina Flag */}
-              <div className="hidden md:flex items-center mr-2">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/1/1a/Flag_of_Argentina.svg" alt="Argentina" className="h-6 w-10 object-cover rounded shadow" style={{border: '1px solid #e5e7eb'}} />
-              </div>
-              {/* Cart Button */}
-              <div className="relative">
-                <MagneticButton
-                  variant="ghost"
-                  onClick={() => setShowCart(true)}
-                  className="relative p-2 md:p-3 border-slate-300 hover:bg-slate-50"
-                >
-                  <ShoppingCart className="h-5 w-5 text-blue-600" />
-                  {itemCount > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-5 w-5 md:h-6 md:w-6 flex items-center justify-center p-0 bg-gradient-to-r from-blue-500 to-slate-700 text-white text-xs font-bold animate-pulse">
-                      {itemCount}
-                    </Badge>
-                  )}
-                </MagneticButton>
-              </div>
-
-              {/* User Actions */}
-              {isAuthenticated ? (
-                <div className="flex items-center space-x-2 md:space-x-3">
-                  <div className="px-2 py-1 md:px-4 md:py-2 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="flex items-center space-x-2 md:space-x-3">
-                      <div className="hidden lg:block text-right">
-                        <div className="text-xs md:text-sm font-semibold text-slate-800">
-                          {userName ? userName.split(' ')[0] : ''}
-                        </div>
-                        <div className="text-xs text-slate-600">
-                          {apto ? `Apto ${apto}` : ''}
-                        </div>
-                      </div>
-                      <UserMenu user={user} />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <MagneticButton
-                  onClick={() => navigate('/auth')}
-                  className="flex items-center justify-center p-2 md:p-3 rounded-full hover:bg-slate-200 transition-colors"
-                  aria-label="Iniciar sesión"
-                >
-                  <User className="h-6 w-6 text-neutral-900" />
-                </MagneticButton>
-              )}
+    <div className="w-full font-sans selection:bg-blue-800 selection:text-white" >
+      {/* Top Header - Black Theme */}
+      <header className="bg-black text-white w-full border-b border-zinc-800 overflow-visible relative z-[60]">
+        <div className="w-full max-w-[1400px] mx-auto px-4 md:px-8 py-3 flex items-center justify-between overflow-visible">
+          {/* Logo */}
+          <div
+            className="flex-shrink-0 cursor-pointer flex items-center gap-3 overflow-visible"
+            onClick={() => navigate('/')}
+            role="banner"
+            aria-label="Ir a inicio de 24/7"
+          >
+            <div className="h-10 md:h-12 flex items-center overflow-visible">
+              <img
+                src="/logo.webp"
+                alt="24/7"
+                width="140"
+                height="70"
+                className="h-[50px] md:h-[70px] w-auto object-contain"
+              />
             </div>
           </div>
 
-          {/* Navigation - Categorías */}
-          {/* Sub barra de navegación - Visible solo en desktop por defecto */}
-  <div className={`fixed left-0 right-0 border-b-2 border-slate-200 shadow-sm ${showMobileMenu ? 'block' : 'hidden sm:block'}`} style={{ background: '#1ab8e8', width: '100vw', zIndex: 49 }}>
-          <nav className="container mx-auto px-4 py-4 text-base font-bold text-neutral-800 tracking-wide" style={{ fontWeight: 'bold' }}>
-          {/* Navegación para móvil - lista vertical */}
-          <div className={`sm:hidden ${showMobileMenu ? 'block' : 'hidden'} space-y-4`}>
-            {/* Sección de productos en móvil */}
-            <div>
+          {/* Search Bar - Minimal & White */}
+          <form
+            className="hidden md:flex flex-1 max-w-2xl mx-12 relative group"
+            onSubmit={handleSearchSubmit}
+            role="search"
+          >
+            <input
+              id="search-input"
+              type="text"
+              placeholder="¿Qué estás buscando?"
+              value={localSearchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full py-2.5 px-5 pr-12 text-sm text-gray-800 bg-white border-2 border-transparent rounded-lg focus:outline-none focus:border-white/50 transition-all placeholder:text-gray-500"
+              aria-label="Buscador de productos"
+            />
+            <button
+              type="submit"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 group-hover:text-blue-600 transition-colors p-2"
+              aria-label="Ejecutar búsqueda"
+            >
+              <Search className="w-5 h-5" />
+            </button>
+          </form>
+
+          {/* Icons - Clean & Minimal */}
+          <div className="flex items-center space-x-6">
+            {/* Help */}
+            <div className="relative group/help hidden sm:block">
               <button
-                className="flex w-full justify-between items-center py-2 border-b border-slate-200"
-                onClick={() => setShowDropdown(!showDropdown)}
+                className="flex flex-col items-center gap-1 group transition-opacity hover:opacity-80 p-1"
+                onMouseEnter={() => setShowHelpMenu(true)}
+                onMouseLeave={() => setShowHelpMenu(false)}
+                aria-label="Menú de Ayuda y Contacto"
               >
-                <span>Productos</span>
-                <ChevronDown className={`w-5 h-5 transition-transform ${showDropdown ? 'transform rotate-180' : ''}`} />
+                <HelpCircle className="w-6 h-6 stroke-[1.5px]" />
+                <span className="text-[10px] uppercase font-bold tracking-wider">Ayuda</span>
               </button>
-              {showDropdown && (
-                <div 
-                  ref={mobileScrollContainerRef}
-                  onScroll={handleMobileScroll}
-                  className="pl-4 mt-2 space-y-2 max-h-80 overflow-y-auto relative pr-6 scrollbar-container">
-                  {/* Botones de navegación simplificados */}
-                  <div className="absolute right-1 top-0 bottom-0 flex flex-col items-center justify-between py-2">
-                    {/* Botón hacia arriba */}
-                    <button 
-                      className="p-1 bg-orange-100 hover:bg-orange-200 rounded-full shadow-sm"
-                      onClick={() => {
-                        if (mobileScrollContainerRef.current) {
-                          mobileScrollContainerRef.current.scrollTop -= 100;
-                        }
-                      }}
-                      aria-label="Desplazar hacia arriba"
-                    >
-                      <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
-                    </button>
-                    
-                    {/* Botón hacia abajo */}
-                    <button 
-                      className="p-1 bg-orange-100 hover:bg-orange-200 rounded-full shadow-sm"
-                      onClick={() => {
-                        if (mobileScrollContainerRef.current) {
-                          mobileScrollContainerRef.current.scrollTop += 100;
-                        }
-                      }}
-                      aria-label="Desplazar hacia abajo"
-                    >
-                      <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
+
+              {showHelpMenu && (
+                <div
+                  className="absolute top-full right-0 mt-4 w-56 bg-white text-gray-900 shadow-[0_10px_40px_rgba(0,0,0,0.2)] border border-gray-100 z-[70] overflow-hidden rounded-lg"
+                  onMouseEnter={() => setShowHelpMenu(true)}
+                  onMouseLeave={() => setShowHelpMenu(false)}
+                >
+                  <a
+                    href="https://wa.me/573212619434"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
+                  >
+                    <span className="text-green-500 text-xl">📱</span>
+                    <div className="text-left">
+                      <div className="text-sm font-bold text-gray-900">WhatsApp</div>
+                      <div className="text-[11px] text-gray-700 font-medium">+57 321 2619434</div>
+                    </div>
+                  </a>
+                  <a
+                    href="mailto:tienda247@gmail.com"
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="text-xl">📧</span>
+                    <div className="text-left">
+                      <div className="text-sm font-bold text-gray-900">Email</div>
+                      <div className="text-[11px] text-gray-700 font-medium">tienda247@gmail.com</div>
+                    </div>
+                  </a>
+                </div>
+              )}
+            </div>
+
+            {/* Favorites Dropdown Container */}
+            <div
+              className="relative hidden md:block"
+              onMouseEnter={() => {
+                if (favoritesMenuTimer.current) clearTimeout(favoritesMenuTimer.current);
+                setShowFavoritesMenu(true);
+              }}
+              onMouseLeave={() => {
+                if (favoritesMenuTimer.current) clearTimeout(favoritesMenuTimer.current);
+                favoritesMenuTimer.current = setTimeout(() => setShowFavoritesMenu(false), 200);
+              }}
+            >
+              <button
+                className="flex flex-col items-center gap-1 hover:opacity-80 transition-opacity relative"
+                onClick={() => navigate('/favoritos')}
+                aria-label={`Mis Favoritos, ${favorites.length} productos`}
+              >
+                <div className="relative">
+                  <Heart className="w-6 h-6 stroke-[1.5px]" />
+                  {favorites.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-md">
+                      {favorites.length}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] uppercase font-bold tracking-wider">Favoritos</span>
+              </button>
+
+              {/* Favorites Dropdown Overlay */}
+              {showFavoritesMenu && (
+                <div
+                  className="absolute top-full right-0 mt-4 w-80 bg-white text-gray-900 shadow-[0_10px_40px_rgba(0,0,0,0.2)] border border-gray-100 z-[70] rounded-xl overflow-hidden p-4"
+                  onMouseEnter={() => {
+                    if (favoritesMenuTimer.current) clearTimeout(favoritesMenuTimer.current);
+                    setShowFavoritesMenu(true);
+                  }}
+                  onMouseLeave={() => {
+                    if (favoritesMenuTimer.current) clearTimeout(favoritesMenuTimer.current);
+                    favoritesMenuTimer.current = setTimeout(() => setShowFavoritesMenu(false), 200);
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-4 px-1">
+                    <h3 className="text-sm font-black text-gray-900">Favoritos</h3>
+                    <Badge variant="secondary" className="text-[10px] font-black bg-gray-100 text-gray-600 rounded-full h-5">{favorites.length}</Badge>
                   </div>
-                  
-                  {/* Indicador simplificado */}
-                  <div className="w-full flex justify-between items-center mb-2">
-                    <span className="text-xs text-gray-500 font-medium">Categorías</span>
-                    <span className="text-xs text-orange-600 font-medium">Usa los botones →</span>
-                  </div>
-                  {/* Categorías principales */}
-                  <div className="mb-3 pr-3">
-                    <h4 className="font-semibold text-sm text-gray-500 mb-2 pb-1 border-b">Categorías principales</h4>
-                    {mainCategories.map((cat) => (
+
+                  {favorites.length === 0 ? (
+                    <div className="py-10 text-center">
+                      <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Heart className="w-6 h-6 text-gray-300" />
+                      </div>
+                      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Tu lista está vacía</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                        {favorites.slice(0, 5).map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-xl group/fav transition-all duration-200 border border-transparent hover:border-gray-100 cursor-pointer"
+                            onClick={() => {
+                              navigate(`/producto/${slugify(item.name)}`);
+                              setShowFavoritesMenu(false);
+                            }}
+                          >
+                            <div className="w-16 h-16 bg-white rounded-lg overflow-hidden flex-shrink-0 border border-gray-100 p-1">
+                              <img
+                                src={item.image || '/placeholder.png'}
+                                alt={item.name}
+                                className="w-full h-full object-contain group-hover/fav:scale-105 transition-transform duration-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-bold text-gray-900 line-clamp-2 leading-tight group-hover/fav:text-blue-600 transition-colors">
+                                {item.name}
+                              </p>
+                              <p className="text-xs font-black text-gray-900 mt-1">${item.price?.toLocaleString('es-CO')}</p>
+                            </div>
+                            <button
+                              className="w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFavorite(item);
+                              }}
+                            >
+                              <Heart className="w-4 h-4 fill-current transition-colors" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      {favorites.length > 5 && (
+                        <div className="py-2 text-center border-t border-gray-50 mt-2">
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                            + {favorites.length - 5} artículos más
+                          </p>
+                        </div>
+                      )}
+
                       <button
-                        key={cat.name}
-                        onClick={() => {
-                          setSelectedCategory(cat.name);
-                          setShowDropdown(false);
-                          setShowMobileMenu(false);
-                          // Redirigir a la página principal con la categoría seleccionada
-                          navigate(`/?category=${cat.name}`);
-                        }}
-                        className={`block w-full text-left py-2.5 px-2 rounded-md mb-1 ${
-                          selectedCategory === cat.name ? "font-bold text-orange-600 bg-orange-50 border-l-2 border-orange-500" : "text-neutral-700 hover:bg-gray-50"
-                        }`}
+                        onClick={() => { navigate('/favoritos'); setShowFavoritesMenu(false); }}
+                        className="w-full mt-4 bg-white border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white py-3 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 transform active:scale-[0.98]"
                       >
-                        {cat.name}
+                        Ver todos los favoritos
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Mobile Favorites Button (Always navigates) */}
+            <div className="md:hidden">
+              <button
+                className="flex flex-col items-center gap-1 hover:opacity-80 transition-opacity relative"
+                onClick={() => navigate('/favoritos')}
+                aria-label={`Mis Favoritos, ${favorites.length} productos`}
+              >
+                <div className="relative">
+                  <Heart className="w-6 h-6 stroke-[1.5px]" />
+                  {favorites.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-md">
+                      {favorites.length}
+                    </span>
+                  )}
+                </div>
+              </button>
+            </div>
+
+            {/* Account */}
+            <div
+              className="relative"
+              onMouseEnter={() => {
+                if (accountMenuTimer.current) clearTimeout(accountMenuTimer.current);
+                setShowAccountMenu(true);
+              }}
+              onMouseLeave={() => {
+                if (accountMenuTimer.current) clearTimeout(accountMenuTimer.current);
+                accountMenuTimer.current = setTimeout(() => setShowAccountMenu(false), 150);
+              }}
+            >
+              <button
+                className="flex flex-col items-center gap-1 hover:opacity-80 transition-opacity"
+                onClick={() => setShowAccountMenu(prev => !prev)}
+                aria-label="Menú de Cuenta"
+              >
+                <User className="w-6 h-6 stroke-[1.5px]" />
+                <span className="text-[10px] uppercase font-bold tracking-wider hidden md:block">Mi cuenta</span>
+              </button>
+
+              {showAccountMenu && (
+                <div
+                  className="absolute top-full right-[-70px] md:right-0 mt-3 w-[260px] max-w-[calc(100vw-32px)] bg-white text-gray-900 shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-50 z-[100] rounded-[28px] overflow-hidden p-6"
+                  onMouseEnter={() => {
+                    if (accountMenuTimer.current) clearTimeout(accountMenuTimer.current);
+                    setShowAccountMenu(true);
+                  }}
+                  onMouseLeave={() => {
+                    if (accountMenuTimer.current) clearTimeout(accountMenuTimer.current);
+                    accountMenuTimer.current = setTimeout(() => setShowAccountMenu(false), 150);
+                  }}
+                >
+                  {user ? (
+                    <div className="flex flex-col">
+                      <div className="mb-4">
+                        <p className="text-[17px] font-black text-gray-900">Hola,</p>
+                      </div>
+
+                      <div className="flex flex-col space-y-1">
+                        <button
+                          onClick={() => { navigate('/perfil'); setShowAccountMenu(false); }}
+                          className="w-full text-left px-4 py-3 bg-[#f2f2f2] rounded-2xl text-[15px] font-bold text-gray-800 transition-colors"
+                        >
+                          Perfil
+                        </button>
+                        <button
+                          onClick={() => { navigate('/perfil?tab=addresses'); setShowAccountMenu(false); }}
+                          className="w-full text-left px-4 py-3 rounded-2xl text-[15px] font-bold text-gray-800 hover:bg-gray-50 transition-colors"
+                        >
+                          Mis direcciones
+                        </button>
+                        <button
+                          onClick={() => { navigate('/perfil?tab=orders'); setShowAccountMenu(false); }}
+                          className="w-full text-left px-4 py-3 rounded-2xl text-[15px] font-bold text-gray-800 hover:bg-gray-50 transition-colors"
+                        >
+                          Mis pedidos
+                        </button>
+
+                        {(user.isAdmin || user.subCuenta === "si") && (
+                          <button
+                            onClick={() => { navigate('/admin'); setShowAccountMenu(false); }}
+                            className="w-full text-left px-4 py-3 rounded-2xl text-[15px] font-bold text-gray-800 hover:bg-gray-50 transition-colors"
+                          >
+                            Panel Administrador
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="mt-6">
+                        <button
+                          onClick={async () => { await logout(); setShowAccountMenu(false); }}
+                          className="w-full py-3 px-4 border border-gray-900 text-gray-900 rounded-[12px] font-black text-[13px] uppercase tracking-widest transition-all"
+                        >
+                          CERRAR SESIÓN
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col space-y-4">
+                      <div className="mb-2">
+                        <p className="text-base font-black text-gray-900 uppercase tracking-tight">Bienvenido</p>
+                        <p className="text-xs font-medium text-gray-400">Accede a tu cuenta Yamaha</p>
+                      </div>
+                      <button
+                        onClick={() => { navigate('/login'); setShowAccountMenu(false); }}
+                        className="w-full py-3.5 bg-gray-900 text-white rounded-xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-black transition-all"
+                      >
+                        Ingresar
+                      </button>
+                      <button
+                        onClick={() => { navigate('/register'); setShowAccountMenu(false); }}
+                        className="w-full py-3.5 border-2 border-gray-900 text-gray-900 rounded-xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-gray-900 hover:text-white transition-all"
+                      >
+                        Registrarme
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Cart */}
+            <button
+              className="flex flex-col items-center gap-1 hover:opacity-80 transition-opacity relative"
+              onClick={() => navigate('/cart')}
+              aria-label={`Ver carrito de compras, ${itemCount} productos`}
+            >
+              <div className="relative">
+                <ShoppingCart className="w-6 h-6 stroke-[1.5px]" />
+                {itemCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-md">
+                    {itemCount}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] uppercase font-bold tracking-wider hidden md:block">Mi carrito</span>
+            </button>
+
+            {/* Mobile Toggle */}
+            <button
+              className="md:hidden text-white p-3 -mr-2 min-w-[48px] min-h-[48px] flex items-center justify-center"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-label={isMenuOpen ? "Cerrar menú principal" : "Abrir menú principal"}
+            >
+              {isMenuOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Persistent Mobile Search Bar (Mobile only) */}
+        <div className="md:hidden px-4 pb-3 pt-1" >
+          <form className="relative" onSubmit={handleSearchSubmit}>
+            <input
+              type="text"
+              placeholder="¿Qué estás buscando?"
+              value={localSearchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full py-2 px-4 pr-10 text-sm text-white bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-white/40 placeholder:text-gray-400"
+            />
+            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70">
+              <Search className="w-5 h-5" />
+            </button>
+          </form>
+        </div >
+      </header >
+
+      {/* Mobile Drawer Overlay */}
+      {
+        isMenuOpen && (
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] md:hidden transition-opacity duration-300"
+            onClick={() => setIsMenuOpen(false)}
+            aria-hidden="true"
+          />
+        )
+      }
+
+      {/* Mobile Drawer Content */}
+      <div
+        className={`fixed inset-y-0 left-0 w-[85%] max-w-[320px] bg-white z-[110] md:hidden transform transition-transform duration-300 ease-out shadow-2xl flex flex-col ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+      >
+        {/* Drawer Header - Black Theme for continuity */}
+        <div className="flex items-center justify-between p-6 bg-black text-white border-b border-zinc-800">
+          <img
+            src="/logo.webp"
+            alt="24/7"
+            className="h-8 w-auto object-contain"
+          />
+          <button
+            onClick={() => setIsMenuOpen(false)}
+            className="p-2 -mr-2 text-white/70 hover:text-white transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Drawer Scrollable Content */}
+        <div className="flex-1 overflow-y-auto pb-10">
+          {menuView === 'main' ? (
+            <>
+              <div className="px-6 space-y-1 pt-4">
+                {mainCategoriesForNav.map((name) => {
+                  const catObj = mainCategories.find(c => c.name === name);
+                  const subs = getSubsForMain(name);
+                  const hasSubs = subs.length > 0;
+
+                  return (
+                    <button
+                      key={name}
+                      onClick={() => {
+                        if (hasSubs) {
+                          setActiveMainCat(name);
+                          setMenuView('sub');
+                        } else {
+                          goToCategory(name);
+                        }
+                      }}
+                      className="w-full flex items-center justify-between py-4 group hover:bg-gray-50 -mx-2 px-2 rounded-xl transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden flex-shrink-0 border border-gray-100">
+                          {catObj?.image ? (
+                            <img
+                              src={catObj.image}
+                              alt={name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-300 uppercase font-black text-[10px]">
+                              {name.slice(0, 2)}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-sm font-black text-gray-900 uppercase tracking-tight">
+                          {name}
+                        </span>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-black transition-colors" />
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-8 px-6 border-t border-gray-100 pt-8">
+                {filterState && (
+                  <FilterSidebar
+                    isMobile
+                    filters={filterState.filters}
+                    filtersLoading={filterState.filtersLoading}
+                    selectedFilterOptions={filterState.selectedFilterOptions}
+                    toggleFilterOption={(fId, oId) => dispatchFilterAction('toggleOption', { fId, oId })}
+                    filterOptionCounts={filterState.filterOptionCounts}
+                    priceFrom={filterState.priceFrom}
+                    setPriceFrom={(v) => dispatchFilterAction('updatePriceState', { from: v, to: filterState.priceTo })}
+                    priceTo={filterState.priceTo}
+                    setPriceTo={(v) => dispatchFilterAction('updatePriceState', { from: filterState.priceFrom, to: v })}
+                    applyPrice={() => {
+                      const pFrom = (document.querySelector('input[placeholder="Min"]') as HTMLInputElement)?.value;
+                      const pTo = (document.querySelector('input[placeholder="Max"]') as HTMLInputElement)?.value;
+                      dispatchFilterAction('applyPrice', { from: pFrom, to: pTo });
+                    }}
+                    className="w-full"
+                  />
+                )}
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-100 px-6 space-y-6">
+                <button
+                  onClick={() => { navigate('/preguntas-frecuentes'); setIsMenuOpen(false); }}
+                  className="flex items-center gap-3 w-full text-left"
+                >
+                  <div className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-600 rounded-full">
+                    <HelpCircle className="w-5 h-5" />
+                  </div>
+                  <div className="text-sm font-black text-gray-900 uppercase tracking-tight">Ayuda rápida</div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 ml-auto" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    const productsSection = document.getElementById('products-section');
+                    if (productsSection) {
+                      productsSection.scrollIntoView({ behavior: 'smooth' });
+                    }
+                    setIsMenuOpen(false);
+                  }}
+                  className="mt-4 w-full bg-black text-white py-4 rounded-xl text-sm font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all text-center"
+                >
+                  Cerrar y ver resultados
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="pt-2">
+              {/* Submenu Header */}
+              <div className="px-4 mb-6">
+                <button
+                  onClick={() => setMenuView('main')}
+                  className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-gray-900 hover:text-blue-600 transition-colors py-2"
+                >
+                  <ChevronLeft className="w-4 h-4 text-black" />
+                  Regresar
+                </button>
+              </div>
+
+              {/* Active Category Info */}
+              <div className="px-6 flex items-center gap-4 mb-8">
+                <div className="w-14 h-14 rounded-full bg-gray-100 overflow-hidden border border-gray-100">
+                  {mainCategories.find(c => c.name === activeMainCat)?.image ? (
+                    <img
+                      src={mainCategories.find(c => c.name === activeMainCat)?.image}
+                      alt={activeMainCat || ''}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-300 uppercase font-black text-xs">
+                      {activeMainCat?.slice(0, 2)}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight leading-none">
+                    {activeMainCat}
+                  </h3>
+                  <button
+                    onClick={() => activeMainCat && goToCategory(activeMainCat)}
+                    className="text-[10px] font-bold text-gray-400 uppercase tracking-widest underline mt-1 block"
+                  >
+                    Ver todo
+                  </button>
+                </div>
+              </div>
+
+              {/* Subcategories List */}
+              <div className="px-6 space-y-2">
+                {activeMainCat && getSubsForMain(activeMainCat).map((sub) => (
+                  <button
+                    key={sub.id}
+                    onClick={() => goToCategory(sub.name)}
+                    className="w-full flex items-center justify-between py-4 border-b border-gray-50 text-left group"
+                  >
+                    <span className="text-sm font-medium text-gray-700 group-hover:text-black transition-colors">
+                      {sub.name}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-gray-300" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* WhatsApp Link at bottom of menu */}
+        <div className="p-6 border-t border-gray-100">
+          <a
+            href="https://wa.me/573212619434"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 text-green-600 font-bold text-sm"
+          >
+            <span className="text-xl">📱</span>
+            WhatsApp +57 321 2619434
+          </a>
+        </div>
+      </div>
+
+      {/* Desktop Navigation Bar - Black & Clean */}
+      <nav
+        className="relative hidden md:block bg-black border-t border-white/10 border-b border-zinc-800 z-50"
+        onMouseLeave={() => {
+          categoryDropdownTimer.current = setTimeout(() => setOpenCategoryDropdown(null), 100);
+        }}
+      >
+        <div className="w-full max-w-[1400px] mx-auto px-4 md:px-8">
+          <ul className="flex flex-col items-center md:flex-row md:items-center md:justify-center md:space-x-12 text-white md:py-4">
+            {mainCategoriesForNav.map((category) => {
+              const isActive = selectedCategory === category;
+              const subs = getSubsForMain(category);
+              const hasDropdown = subs.length > 0;
+              const isDropdownOpen = openCategoryDropdown === category;
+
+              return (
+                <li
+                  key={category}
+                  className="relative group/nav"
+                  onMouseEnter={() => {
+                    if (categoryDropdownTimer.current) clearTimeout(categoryDropdownTimer.current);
+                    if (hasDropdown) setOpenCategoryDropdown(category);
+                  }}
+                  onMouseLeave={() => {
+                    categoryDropdownTimer.current = setTimeout(() => setOpenCategoryDropdown(null), 150);
+                  }}
+                >
+                  <button
+                    type="button"
+                    className={`flex items-center justify-center gap-1 w-full md:w-auto text-center py-2 md:py-0 text-[13px] font-bold tracking-widest transition-all uppercase relative ${isActive || isDropdownOpen
+                      ? "text-white opacity-100"
+                      : "text-white/70 hover:text-white"
+                      }`}
+                    onClick={() => {
+                      goToCategory(category);
+                    }}
+                  >
+                    {category}
+                    {(isActive || isDropdownOpen) && (
+                      <span className="absolute -bottom-4 left-0 right-0 h-0.5 bg-white animate-in fade-in slide-in-from-bottom-1" />
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+            {/* Ayuda rápida */}
+            <li className="relative">
+              <button
+                type="button"
+                className="flex items-center justify-center gap-1 w-full md:w-auto text-center py-2 md:py-0 text-[13px] font-bold uppercase tracking-widest text-white/70 hover:text-white transition-colors"
+                onClick={() => {
+                  navigate('/preguntas-frecuentes');
+                  setIsMenuOpen(false);
+                }}
+              >
+                Ayuda rápida
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        {/* Dropdown Categorías (Mega-Menu) - Blue Minimal Style */}
+        {openCategoryDropdown && (() => {
+          const subs = getSubsForMain(openCategoryDropdown);
+          if (subs.length === 0) return null;
+
+          return (
+            <div
+              className="absolute left-1/2 -translate-x-1/2 top-full w-full max-w-4xl bg-white shadow-[0_40px_80px_-15px_rgba(0,0,0,0.15)] z-50 border border-gray-100 rounded-b-[2rem] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300"
+              onMouseEnter={() => {
+                if (categoryDropdownTimer.current) clearTimeout(categoryDropdownTimer.current);
+                setOpenCategoryDropdown(openCategoryDropdown);
+              }}
+            >
+              <div className="flex h-auto max-h-[75vh]">
+                {/* Col 1: Level 1 Subcategories & Promo */}
+                <div className="w-[320px] bg-[#f8f9fa] p-5 flex flex-col overflow-y-auto scrollbar-hide min-h-0 shrink-0">
+                  <div className="flex flex-col gap-1 mb-10">
+                    {subs.map((s) => (
+                      <button
+                        key={s.id}
+                        onMouseEnter={() => {
+                          setActiveSub(s);
+                          setActiveThird(null);
+                        }}
+                        onClick={() => goToCategory(s.name)}
+                        className={`flex items-center justify-between px-6 py-4 rounded-xl transition-all text-left group ${activeSub?.id === s.id ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)] text-black' : 'text-gray-500 hover:text-black hover:bg-white/50'}`}
+                      >
+                        <span className="text-[14px] font-bold tracking-tight">{s.name}</span>
+                        {(thirdLevelBySubcategory[s.id || ''] || []).length > 0 && (
+                          <ChevronRight className={`w-4 h-4 transition-all ${activeSub?.id === s.id ? 'translate-x-1 opacity-100' : 'opacity-100 text-gray-300'}`} />
+                        )}
                       </button>
                     ))}
                   </div>
-                  {/* Subcategorías agrupadas por categoría principal */}
-                  {Object.entries(subcategoriesByParent).map(([parentName, subs]) => (
-                    <div key={parentName} className="mb-3">
-                      <h4 className="font-semibold text-sm text-gray-500 mt-2 mb-1 border-t pt-2">{parentName}</h4>
-                      {subs.map((subcat) => (
+
+                  {/* Promo Box */}
+                  <div className="mt-auto bg-[#eaebed] p-5 rounded-[1.5rem] border border-gray-200/30">
+                    <p className="text-[14px] font-bold text-gray-700 mb-4 leading-tight">
+                      Encuentra el repuesto ideal <span className="font-medium text-gray-400 lowercase">{openCategoryDropdown}</span>
+                    </p>
+                    <button className="w-full bg-[#2a2a2a] text-white py-2.5 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] flex items-center justify-center gap-2 hover:bg-black transition-all shadow-md active:scale-[0.98] group">
+                      <Bike className="w-4 h-4 text-white/80 group-hover:scale-110 transition-transform" />
+                      <span>Búsqueda Por Modelo</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Col 2: Level 2 Subcategories */}
+                <div className="w-[300px] border-l border-gray-100 p-5 flex flex-col bg-white overflow-y-auto scrollbar-hide min-h-0 shrink-0">
+                  {activeSub && (
+                    <div className="flex flex-col gap-1">
+                      <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 px-4">Categorías</h4>
+                      {(thirdLevelBySubcategory[activeSub.id || ''] || []).map((t) => (
                         <button
-                          key={subcat.name}
-                          onClick={() => {
-                            setSelectedCategory(parentName);
-                            setShowDropdown(false);
-                            setShowMobileMenu(false);
-                            // Redirigir con ambos parámetros
-                            navigate(`/?category=${parentName}&subcategory=${subcat.name}`);
-                          }}
-                          className="block w-full text-left py-2 pl-3 text-neutral-600 text-sm rounded hover:bg-gray-50 mb-0.5"
+                          key={t.id}
+                          onMouseEnter={() => setActiveThird(t)}
+                          onClick={() => goToCategory(t.name)}
+                          className={`flex items-center justify-between px-5 py-3.5 rounded-xl transition-all text-left group ${activeThird?.id === t.id ? 'bg-[#f8f9fa] text-black shadow-sm' : 'text-gray-500 hover:text-black hover:bg-[#f8f9fa]/50'}`}
                         >
-                          {subcat.name}
+                          <span className="text-[14px] font-bold tracking-tight">{t.name}</span>
+                          {getFourthLevel(t.id || '').length > 0 && (
+                            <ChevronRight className={`w-4 h-4 transition-all ${activeThird?.id === t.id ? 'translate-x-1 opacity-100' : 'opacity-100 text-gray-300'}`} />
+                          )}
                         </button>
                       ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
-                
-                {/* Otros enlaces en móvil */}
-                <a 
-                  href="#novedades" 
-                  className="block py-2 border-b border-slate-200" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowMobileMenu(false);
-                    const element = document.getElementById('novedades');
-                    if (element) {
-                      element.scrollIntoView({ behavior: 'smooth' });
-                    } else {
-                      // If not on home page, navigate to home page with anchor
-                      navigate('/#novedades');
-                    }
-                  }}
-                >
-                  Novedades
-                </a>
-                <button type="button" className="block w-full text-left py-2 border-b border-slate-200" onClick={() => { setShowMobileMenu(false); navigate('/sobre-nosotros'); }}>Sobre nosotros</button>
-                <button type="button" className="block w-full text-left py-2 border-b border-slate-200" onClick={() => { setShowMobileMenu(false); navigate('/envios'); }}>Envíos</button>
-                <button type="button" className="block w-full text-left py-2 border-b border-slate-200" onClick={() => { setShowMobileMenu(false); navigate('/testimonios'); }}>Testimonios</button>
-                <button type="button" className="block w-full text-left py-2" onClick={() => { setShowMobileMenu(false); navigate('/retiros'); }}>Retiros</button>
-              </div>
 
-              {/* Navegación para desktop - horizontal */}
-              <div className="hidden sm:flex justify-between">
-                <div className="flex gap-3 md:gap-8 items-center font-bold">
-                  {/* Dropdown Productos */}
-                  <div
-                    className="relative"
-                    onMouseEnter={() => {
-                      if (dropdownTimeout.current) clearTimeout(dropdownTimeout.current);
-                      setShowDropdown(true);
-                    }}
-                    onMouseLeave={() => {
-                      dropdownTimeout.current = setTimeout(() => setShowDropdown(false), 250);
-                    }}
-                  >
-                    <button
-                      className="hover:text-blue-600 transition-colors flex items-center gap-1"
-                      aria-haspopup="true"
-                      aria-expanded={showDropdown}
-                    >
-                      Productos
-                      <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
-                    </button>
-                    {showDropdown && (
-                      <div className="absolute left-0 mt-2 w-80 bg-white border border-neutral-200 rounded-lg shadow-lg z-50">
-                        <div className="py-2 relative">
-                          {/* Botones de navegación simplificados */}
-                          <div className="absolute right-1 top-2 bottom-2 flex flex-col items-center justify-between">
-                            {/* Botón hacia arriba */}
-                            <button 
-                              className="p-1 bg-blue-100 hover:bg-blue-200 rounded-full shadow-sm"
-                              onClick={() => {
-                                if (desktopScrollContainerRef.current) {
-                                  desktopScrollContainerRef.current.scrollTop -= 100;
-                                }
-                              }}
-                              aria-label="Desplazar hacia arriba"
+                {/* Col 3: Level 3 Items */}
+                <div className="flex-1 p-10 bg-white overflow-y-auto scrollbar-hide border-l border-gray-100 min-h-0">
+                  {activeThird ? (
+                    <div className="flex flex-col gap-1">
+                      <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 px-4">Productos</h4>
+                      <div className="grid grid-cols-1 gap-y-1">
+                        {getFourthLevel(activeThird.id || '').map((f) => (
+                          <button
+                            key={f.id}
+                            onClick={() => goToCategory(f.name)}
+                            className="text-left py-3 px-5 text-[14px] font-medium text-gray-500 hover:text-black hover:bg-[#f8f9fa] rounded-xl transition-all"
+                          >
+                            {f.name}
+                          </button>
+                        ))}
+                        {getFourthLevel(activeThird.id || '').length === 0 && (
+                          <div className="px-5 py-10 text-center border-2 border-dashed border-gray-50 rounded-2xl">
+                            <p className="text-gray-400 text-sm">Explora toda la sección de <br /><span className="font-bold text-black">{activeThird.name}</span></p>
+                            <button
+                              onClick={() => goToCategory(activeThird.name)}
+                              className="mt-4 text-xs font-black uppercase underline decoration-2 underline-offset-4"
                             >
-                              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                              </svg>
-                            </button>
-                            
-                            {/* Botón hacia abajo */}
-                            <button 
-                              className="p-1 bg-blue-100 hover:bg-blue-200 rounded-full shadow-sm"
-                              onClick={() => {
-                                if (desktopScrollContainerRef.current) {
-                                  desktopScrollContainerRef.current.scrollTop += 100;
-                                }
-                              }}
-                              aria-label="Desplazar hacia abajo"
-                            >
-                              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                              </svg>
+                              Ver catálogo completo
                             </button>
                           </div>
-                          
-                          {/* Contenedor scrollable */}
-                          <div 
-                            ref={desktopScrollContainerRef}
-                            onScroll={handleDesktopScroll}
-                            className="max-h-96 overflow-y-auto pr-6 scrollbar-container">
-                            {/* Sección de categorías principales */}
-                            <div className="mb-4 px-4">
-                              <h4 className="font-semibold text-sm text-gray-500 mb-2 pb-1 border-b border-gray-100">Categorías principales</h4>
-                              <ul className="grid grid-cols-2 gap-1">
-                                {mainCategories.map((cat) => (
-                                  <li key={cat.name} className="flex">
-                                    <button
-                                      onClick={() => {
-                                        setSelectedCategory(cat.name);
-                                        setShowDropdown(false);
-                                        // Redirigir a la página principal con la categoría seleccionada
-                                        navigate(`/?category=${cat.name}`);
-                                      }}
-                                      className={`w-full text-left px-3 py-2 text-base hover:bg-orange-50 hover:text-orange-600 transition-colors rounded-md shadow-sm ${
-                                        selectedCategory === cat.name ? "font-bold text-orange-600 bg-orange-50 border-l-2 border-orange-500" : "text-neutral-800 border-l border-transparent"
-                                      }`}
-                                    >
-                                      {cat.name}
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-
-                            {/* Mostrar subcategorías agrupadas */}
-                            {Object.entries(subcategoriesByParent).map(([parentName, subs]) => (
-                              <div key={parentName} className="mb-4 px-4">
-                                <h4 className="font-semibold text-sm text-gray-500 mt-3 mb-2 border-t pt-2 pb-1 border-b border-gray-100">
-                                  {parentName}
-                                </h4>
-                                <ul className="grid grid-cols-2 gap-1">
-                                  {subs.map((subcat) => (
-                                    <li key={subcat.name} className="flex">
-                                      <button
-                                        onClick={() => {
-                                          // Primero seleccionar la categoría padre
-                                          setSelectedCategory(parentName);
-                                          setShowDropdown(false);
-                                          // Redirigir con ambos parámetros
-                                          navigate(`/?category=${parentName}&subcategory=${subcat.name}`);
-                                        }}
-                                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-orange-50 hover:text-orange-600 transition-colors rounded-md text-neutral-700 border-l border-transparent hover:border-l-orange-400"
-                                      >
-                                        {subcat.name}
-                                      </button>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <a 
-                    href="#novedades" 
-                    className="hover:text-blue-600 transition-colors text-sm md:text-base"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const element = document.getElementById('novedades');
-                      if (element) {
-                        element.scrollIntoView({ behavior: 'smooth' });
-                      } else {
-                        // If not on home page, navigate to home page with anchor
-                        navigate('/#novedades');
-                      }
-                    }}
-                  >
-                    Novedades
-                  </a>
-                  <button type="button" className="hover:text-blue-600 transition-colors text-sm md:text-base bg-transparent" style={{outline: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer'}} onClick={() => navigate('/sobre-nosotros')}>Sobre nosotros</button>
-                </div>
-                <div className="flex gap-3 md:gap-8 font-bold">
-                      <button type="button" className="hover:text-blue-600 transition-colors text-sm md:text-base bg-transparent" style={{outline: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer'}} onClick={() => navigate('/envios')}>Envíos</button>
-                  <button type="button" className="hover:text-blue-600 transition-colors text-sm md:text-base bg-transparent" style={{outline: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer'}} onClick={() => navigate('/testimonios')}>Testimonios</button>
-                  <button type="button" className="hover:text-blue-600 transition-colors text-sm md:text-base bg-transparent" style={{outline: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer'}} onClick={() => navigate('/retiros')}>Retiros</button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
-            </nav>
-          </div>
-        </div>
-      </header>
-
-      {/* Modals */}
-      <CartSidebar isOpen={showCart} onClose={() => setShowCart(false)} />
-     
-    </>
+            </div>
+          );
+        })()}
+      </nav>
+    </div >
   );
 };

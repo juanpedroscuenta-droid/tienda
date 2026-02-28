@@ -1,569 +1,440 @@
-import React, { useEffect, useState, memo, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Package, ShoppingCart, TrendingUp, TrendingDown, DollarSign, Clock, RefreshCw, Calendar, Filter, ChevronDown, ArrowUpRight, Activity, FileText, FilePenLine } from 'lucide-react';
-import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
-import { db } from "@/firebase";
-import { cn } from "@/lib/utils";
-import { toast } from "@/hooks/use-toast";
+import {
+  ChevronDown,
+  MoreVertical,
+  Layout,
+  Calendar as CalendarIcon,
+  Sparkles,
+  SlidersHorizontal
+} from 'lucide-react';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip
+} from 'recharts';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
-const DashboardStatsComponent: React.FC = () => {
-  const [userCount, setUserCount] = useState(0);
-  const [productCount, setProductCount] = useState(0);
-  const [orderCount, setOrderCount] = useState(0);
-  const [monthSales, setMonthSales] = useState(0);
-  const [pendingOrders, setPendingOrders] = useState(0);
-  const [dailySales, setDailySales] = useState(0);
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedPeriod, setSelectedPeriod] = useState('monthly');
-  const [trendPercentages, setTrendPercentages] = useState({
-    users: 12.5,
-    products: -2.4,
-    orders: 8.2,
-    sales: 15.3
-  });
-  
-  const loadData = () => {
-    setIsLoading(true);
-    
-    // Optimización: Cargar solo para contar, pero limitar si hay muchos
-    // Usuarios - cargar solo metadata (solo IDs, no todos los datos)
-    const usersQuery = query(collection(db, "users"));
-    getDocs(usersQuery).then(snapshot => {
-      setUserCount(snapshot.size);
-    });
-    
-    // Productos - similar
-    const productsQuery = query(collection(db, "products"));
-    getDocs(productsQuery).then(snapshot => {
-      setProductCount(snapshot.size);
-    });
-    
-    // Cargar actividades recientes (productos)
-    const loadRecentProductActivities = async () => {
-      const activity: any[] = [];
-      
-      // Consultar productos ordenados por fecha de modificación
-      const productsQuery = query(
-        collection(db, "products"), 
-        orderBy("lastModified", "desc"),
-        limit(10)
-      );
-      
-      const productsSnapshot = await getDocs(productsQuery);
-      
-      productsSnapshot.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data.lastModified) {
-          activity.push({
-            user: data.lastModifiedBy || data.createdBy || "Admin",
-            action: `Producto ${data.name || "sin nombre"} ${data.createdAt ? "creado" : "modificado"}`,
-            time: data.lastModified?.toDate?.() 
-              ? data.lastModified.toDate().toLocaleString("es-AR") 
-              : new Date(data.lastModified).toLocaleString("es-AR"),
-            type: "product",
-            icon: "package"
-          });
+const WON_STATUSES = ['confirmed', 'delivered', 'shipped', 'processing'];
+const DAYS_OPTIONS = [
+  { label: 'Últimos 7 días', days: 7 },
+  { label: 'Últimos 31 días', days: 31 },
+  { label: 'Últimos 90 días', days: 90 },
+];
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+  }).format(value).replace('ARS', '$');
+}
+
+function formatShortCurrency(value: number): string {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
+  return formatCurrency(value);
+}
+
+function getOrderDate(o: any): number {
+  const raw = o?.created_at ?? o?.createdAt;
+  if (!raw) return 0;
+  return new Date(raw).getTime();
+}
+
+interface DashboardStatsProps {
+  orders?: any[];
+}
+
+export const DashboardStats: React.FC<DashboardStatsProps> = ({ orders = [], onRefresh }) => {
+  const [daysRange, setDaysRange] = useState(31);
+  const [dateRangeLabel, setDateRangeLabel] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const { metrics, dateLabel } = useMemo(() => {
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    const start = new Date(end);
+    start.setDate(start.getDate() - daysRange);
+    start.setHours(0, 0, 0, 0);
+    const prevEnd = new Date(start);
+    prevEnd.setMilliseconds(-1);
+    const prevStart = new Date(prevEnd);
+    prevStart.setDate(prevStart.getDate() - daysRange);
+
+    const startMs = start.getTime();
+    const endMs = end.getTime();
+    const prevStartMs = prevStart.getTime();
+    const prevEndMs = prevEnd.getTime();
+
+    const filterByDate = (list: any[], s: number, e: number) =>
+      list.filter((o) => {
+        const t = getOrderDate(o);
+        return t >= s && t <= e;
+      });
+
+    const currOrders = filterByDate(orders, startMs, endMs);
+    const prevOrders = filterByDate(orders, prevStartMs, prevEndMs);
+
+    const process = (list: any[]) => {
+      let wonCount = 0;
+      let abandonedCount = 0;
+      let wonRevenue = 0;
+      let abandonedRevenue = 0;
+      list.forEach((o: any) => {
+        const total = Number(o.total || 0);
+        const status = String(o.status || 'pending').toLowerCase();
+        const isWon = WON_STATUSES.some((s) => status === s);
+        if (isWon) {
+          wonCount++;
+          wonRevenue += total;
+        } else {
+          abandonedCount++;
+          abandonedRevenue += total;
         }
       });
-      
-      // Consultar revisiones para ver actividad de edición
-      const revisionQuery = query(
-        collection(db, "revision"),
-        orderBy("timestamp", "desc"),
-        limit(5)
-      );
-      
-      const revisionSnapshot = await getDocs(revisionQuery);
-      
-      revisionSnapshot.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        let actionText = "Acción desconocida";
-        
-        if (data.type === "add") {
-          actionText = `Producto ${data.data?.name || ""} enviado para aprobación`;
-        } else if (data.type === "edit") {
-          actionText = `Edición de producto ${data.data?.name || ""} pendiente`;
-        } else if (data.type === "delete") {
-          actionText = `Eliminación de producto solicitada`;
-        }
-        
-        activity.push({
-          user: data.userName || data.editorEmail || "Usuario",
-          action: actionText,
-          time: data.timestamp?.toDate?.()
-            ? data.timestamp.toDate().toLocaleString("es-AR")
-            : new Date(data.timestamp).toLocaleString("es-AR"),
-          type: "revision",
-          status: data.status || "pendiente"
-        });
-      });
-      
-      return activity;
+      return {
+        wonCount,
+        abandonedCount,
+        totalCount: wonCount + abandonedCount,
+        wonRevenue,
+        abandonedRevenue,
+        totalRevenue: wonRevenue + abandonedRevenue,
+      };
     };
-    
-    // Pedidos y ventas del mes - Optimizado con límite
-    getDocs(query(collection(db, "orders"), orderBy("createdAt", "desc"))).then(async snapshot => {
-      // Contar solo los pedidos confirmados de los últimos 1000
-      const confirmedCount = snapshot.docs.filter(doc => doc.data().status === "confirmed").length;
-      setOrderCount(confirmedCount);
 
-      // Ventas del mes
-      const now = new Date();
-      const thisMonth = now.getMonth();
-      const thisYear = now.getFullYear();
-      const today = now.getDate();
-      
-      let sales = 0;
-      let dailySales = 0;
-      let pendingOrders = 0;
-      const orderActivity: any[] = [];
-      
-      snapshot.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        const orderDate = data.createdAt?.toDate ? data.createdAt.toDate() : 
-                          data.createdAt?.seconds ? new Date(data.createdAt.seconds * 1000) :
-                          new Date();
-        
-        // Contar pedidos pendientes
-        if (data.status !== "confirmed") {
-          pendingOrders++;
-        }
-        
-        // Ventas del mes (solo pedidos confirmados)
-        if (data.status === "confirmed") {
-          // Si es del mes actual
-          if (orderDate.getMonth() === thisMonth && orderDate.getFullYear() === thisYear) {
-            sales += Number(data.total || 0);
-            
-            // Si es de hoy
-            if (orderDate.getDate() === today && 
-                orderDate.getMonth() === thisMonth && 
-                orderDate.getFullYear() === thisYear) {
-              dailySales += Number(data.total || 0);
-            }
-          }
-        }
-        
-        // Actividad de pedidos
-        orderActivity.push({
-          user: data.userName || "Cliente",
-          action: data.status === "confirmed" ? (data.physicalSale ? "Venta física registrada" : "Pedido confirmado") : "Pedido en espera",
-          time: orderDate.toLocaleString("es-AR"),
-          amount: data.total ? `$${Number(data.total).toLocaleString()}` : null,
-          type: "order"
-        });
-      });
-      
-      // Actualizar estados
-      setMonthSales(sales);
-      setPendingOrders(pendingOrders);
-      setDailySales(dailySales);
-      
-      // Actualizar tendencias (simular por ahora)
-      setTrendPercentages({
-        users: Math.round(Math.random() * 20) - 5,
-        products: Math.round(Math.random() * 10) - 2,
-        orders: Math.round((pendingOrders / (snapshot.size || 1)) * 100),
-        sales: Math.round(dailySales / (sales || 1) * 100)
-      });
-      
-      // Combinar actividades de productos y pedidos
-      const productActivities = await loadRecentProductActivities();
-      const allActivities = [...productActivities, ...orderActivity];
-      
-      // Ordenar por fecha descendente y tomar los primeros 8
-      const sortedActivities = allActivities.sort((a, b) => {
-        // Convertir string de fecha a objeto Date para comparación
-        const dateA = new Date(a.time);
-        const dateB = new Date(b.time);
-        return dateB.getTime() - dateA.getTime();
-      }).slice(0, 8);
-      
-      setRecentActivity(sortedActivities);
-      setIsLoading(false);
-    });
-  };
-  
+    const curr = process(currOrders);
+    const prev = process(prevOrders);
+    const conversionRate =
+      curr.totalRevenue > 0 ? (curr.wonRevenue / curr.totalRevenue) * 100 : 0;
+
+    return {
+      dateLabel: `${start.toISOString().slice(0, 10)} → ${end.toISOString().slice(0, 10)}`,
+      metrics: {
+        ...curr,
+        conversionRate,
+        prevWonCount: prev.wonCount,
+        prevAbandonedCount: prev.abandonedCount,
+        prevTotalCount: prev.totalCount,
+        prevWonRevenue: prev.wonRevenue,
+        prevTotalRevenue: prev.totalRevenue,
+      },
+    };
+  }, [orders, daysRange]);
+
   useEffect(() => {
-    loadData();
-    
-    // Escuchar eventos de actualización del dashboard
-    const handleDashboardUpdate = (event: CustomEvent) => {
-      if (event.detail?.type === 'orderConfirmed') {
-        // Actualizar ventas diarias y mensuales
-        setDailySales(prev => prev + Number(event.detail.orderTotal));
-        setMonthSales(prev => prev + Number(event.detail.orderTotal));
-        // Actualizar contador de pedidos pendientes
-        setPendingOrders(prev => prev > 0 ? prev - 1 : 0);
-        
-        // Actualizar las tendencias
-        setTrendPercentages(prev => ({
-          ...prev,
-          orders: Math.max(0, prev.orders - 1), // Reducir porcentaje de pendientes
-          sales: Math.min(100, prev.sales + 1) // Incrementar porcentaje de ventas
-        }));
-        
-        // Notificar al usuario
-        toast({
-          title: "Dashboard actualizado",
-          description: "Las estadísticas han sido actualizadas con el pedido confirmado.",
-          variant: "default"
-        });
-      }
-    };
-    
-    // Registrar el event listener
-    document.addEventListener('dashboardUpdate', handleDashboardUpdate as EventListener);
-    
-    // Limpiar el event listener cuando el componente se desmonte
-    return () => {
-      document.removeEventListener('dashboardUpdate', handleDashboardUpdate as EventListener);
-    };
-  }, []);
-  
-  // Función para renderizar el estado de tendencia
-  const renderTrend = (value: number) => {
-    const isPositive = value >= 0;
-    return (
-      <div className={`flex items-center space-x-1 text-sm ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
-        {isPositive ? (
-          <TrendingUp className="h-4 w-4" />
-        ) : (
-          <TrendingDown className="h-4 w-4" />
-        )}
-        <span className="font-medium">{isPositive ? '+' : ''}{value}%</span>
-      </div>
-    );
-  };
+    setDateRangeLabel(dateLabel);
+  }, [dateLabel]);
 
-  // Componente de filtro de período
-  const PeriodFilter = () => (
-    <div className="flex items-center space-x-2 p-1 bg-white rounded-xl shadow-sm border border-slate-100">
-      {['daily', 'weekly', 'monthly', 'yearly'].map((period) => (
-        <button
-          key={period}
-          onClick={() => setSelectedPeriod(period)}
-          className={`px-4 py-2 text-sm rounded-lg transition-all ${
-            selectedPeriod === period 
-              ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white shadow-md' 
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          {period.charAt(0).toUpperCase() + period.slice(1)}
-        </button>
-      ))}
-    </div>
-  );
+  const opportunityStatusData = [
+    { name: 'Won', value: metrics.wonCount || 0, color: '#3b82f6' },
+    { name: 'Abandoned', value: metrics.abandonedCount || 0, color: '#06b6d4' },
+  ].filter((d) => d.value > 0);
 
-  const stats = [
-    {
-      title: 'Total Usuarios',
-      value: userCount,
-      icon: Users,
-      color: 'from-blue-500 to-blue-700',
-      trend: trendPercentages.users
-    },
-    {
-      title: 'Productos Activos',
-      value: productCount,
-      icon: Package,
-      color: 'from-emerald-500 to-emerald-700',
-      trend: trendPercentages.products
-    },
-    {
-      title: 'Pedidos Pendientes',
-      value: pendingOrders,
-      icon: Clock, 
-      color: 'from-amber-500 to-amber-700',
-      trend: trendPercentages.orders
-    },
-    {
-      title: 'Ventas del Mes',
-      value: `$${monthSales.toLocaleString()}`,
-      icon: DollarSign,
-      color: 'from-purple-500 to-purple-700',
-      trend: trendPercentages.sales
-    }
+  const opportunityValueData = [
+    { name: 'Abandoned', value: metrics.abandonedRevenue || 0, fill: '#93c5fd' },
+    { name: 'Won', value: metrics.wonRevenue || 0, fill: '#3b82f6' },
+  ].filter((d) => d.value > 0);
+
+  const conversionData = [
+    { name: 'Won', value: metrics.conversionRate || 0, fill: '#3b82f6' },
+    { name: 'Lost', value: 100 - (metrics.conversionRate || 0), fill: '#f1f5f9' },
   ];
 
+  const countChange =
+    metrics.prevTotalCount > 0
+      ? ((metrics.totalCount - metrics.prevTotalCount) / metrics.prevTotalCount) * 100
+      : metrics.totalCount > 0 ? 100 : 0;
+  const revenueChange =
+    metrics.prevTotalRevenue > 0
+      ? ((metrics.totalRevenue - metrics.prevTotalRevenue) / metrics.prevTotalRevenue) * 100
+      : metrics.totalRevenue > 0 ? 100 : 0;
+  const wonRevenueChange =
+    metrics.prevWonRevenue > 0
+      ? ((metrics.wonRevenue - metrics.prevWonRevenue) / metrics.prevWonRevenue) * 100
+      : metrics.wonRevenue > 0 ? 100 : 0;
+
+  const maxBarValue = Math.max(
+    metrics.wonRevenue || 0,
+    metrics.abandonedRevenue || 0,
+    1000
+  );
+  const tick1 = Math.max(1000, Math.round((maxBarValue * 0.25) / 1000) * 1000);
+  const tick2 = Math.max(tick1, Math.round((maxBarValue * 0.5) / 1000) * 1000);
+  const tick3 = Math.max(tick2, Math.round((maxBarValue * 0.75) / 1000) * 1000);
+
   return (
-    <div className="space-y-6">
-      {/* Header con filtros */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
-          <p className="text-slate-500">Bienvenido al panel de control</p>
-        </div>
-        
+    <div className="space-y-6 animate-in fade-in duration-500 min-h-[400px]">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
-          <button
-            onClick={() => loadData()}
-            className="flex items-center space-x-2 px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
-          >
-            <RefreshCw className={cn("h-4 w-4 text-slate-500", isLoading && "animate-spin")} />
-            <span className="text-sm text-slate-600">Actualizar</span>
-          </button>
-          
-          <div className="relative">
-            <button className="flex items-center space-x-2 px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
-              <Calendar className="h-4 w-4 text-slate-500" />
-              <span className="text-sm text-slate-600">Este mes</span>
-              <ChevronDown className="h-4 w-4 text-slate-400" />
-            </button>
+          <div className="p-2 bg-white border border-slate-200 rounded-md shadow-sm">
+            <Layout className="h-5 w-5 text-slate-500" />
           </div>
+          <h1 className="text-3xl font-normal text-slate-800">Dashboard</h1>
         </div>
-      </div>
-      
-      {/* Período de filtro */}
-      <div className="flex justify-end">
-        <PeriodFilter />
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="flex items-center space-x-2 bg-white border border-slate-200 px-3 py-2 rounded-md text-sm text-slate-600 shadow-sm hover:bg-slate-50">
+                <span>{dateRangeLabel || dateLabel}</span>
+                <CalendarIcon className="h-4 w-4 text-slate-400" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <div className="p-2 space-y-1">
+                {DAYS_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.days}
+                    onClick={() => setDaysRange(opt.days)}
+                    className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-slate-100 ${
+                      daysRange === opt.days ? 'bg-blue-50 text-blue-700' : ''
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <button className="p-2 bg-white border border-slate-200 rounded-md text-slate-500 hover:text-slate-700 shadow-sm">
+            <Sparkles className="h-4 w-4" />
+          </button>
+
+          <button className="p-2 text-slate-400 hover:text-slate-600">
+            <MoreVertical className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
-      {/* Estadísticas Principales con diseño mejorado */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <Card key={index} className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <div className={`absolute inset-0 bg-gradient-to-r ${stat.color} opacity-5`}></div>
-            <CardContent className="p-6">
-              {isLoading ? (
-                <div>
-                  <div className="h-5 w-1/3 bg-slate-200 rounded mb-3"></div>
-                  <div className="h-8 w-1/2 bg-slate-200 rounded mb-2"></div>
-                  <div className="h-4 w-1/4 bg-slate-200 rounded"></div>
-                </div>
-              ) : (
-                <div className="flex flex-col h-full">
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-sm font-medium text-slate-500">{stat.title}</p>
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${stat.color} flex items-center justify-center shadow-lg`}>
-                      {stat.icon && <stat.icon className="h-6 w-6 text-white" />}
-                    </div>
-                  </div>
-                  <div className="flex items-end space-x-2 mb-1">
-                    <p className="text-3xl font-bold text-slate-800">{stat.value}</p>
-                  </div>
-                  <div className="flex items-center justify-between mt-2">
-                    {typeof stat.trend === 'number' && renderTrend(stat.trend)}
-                    <span className="text-xs text-slate-400">vs periodo anterior</span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+      <div className="flex items-center text-blue-500 text-sm font-medium cursor-pointer hover:text-blue-600">
+        <span className="mr-1">+</span> Quick Filters
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Actividad Reciente con diseño mejorado */}
-        <div className="lg:col-span-2">
-          <Card className="shadow-lg border-0 rounded-2xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-              <CardTitle className="flex items-center gap-2 text-slate-800">
-                <Activity className="h-5 w-5 text-blue-600" />
-                Actividad Reciente
-              </CardTitle>
-              <p className="text-sm text-slate-500">Últimos movimientos del sistema</p>
-              <div className="flex flex-wrap gap-2 mt-2">
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                  <Package className="h-3 w-3 mr-1" /> Productos
-                </span>
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                  <FilePenLine className="h-3 w-3 mr-1" /> Revisiones
-                </span>
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  <ShoppingCart className="h-3 w-3 mr-1" /> Pedidos
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                {isLoading ? (
-                  Array.from({ length: 3 }).map((_, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-4 rounded-xl bg-slate-50">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-lg bg-slate-200"></div>
-                        <div>
-                          <div className="h-4 w-24 bg-slate-200 rounded mb-2"></div>
-                          <div className="h-3 w-32 bg-slate-200 rounded"></div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="h-3 w-20 bg-slate-200 rounded mb-2"></div>
-                        <div className="h-4 w-16 bg-slate-200 rounded"></div>
-                      </div>
-                    </div>
-                  ))
-                ) : recentActivity.length === 0 ? (
-                  <div className="text-slate-500 text-center py-12 bg-blue-50 rounded-xl border border-blue-100">
-                    <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-3">
-                      <Clock className="h-8 w-8 text-blue-600" />
-                    </div>
-                    <p className="font-medium">Sin actividad reciente</p>
-                    <p className="text-sm text-slate-400 mt-1">Las actividades aparecerán aquí</p>
+        {/* Card 1: Opportunity Status */}
+        <Card className="shadow-sm border border-slate-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-normal text-slate-700 flex items-center gap-2">
+              Opportunity Status
+              <button className="flex items-center space-x-1 px-2 py-0.5 border border-slate-200 rounded text-xs text-slate-500 font-normal">
+                <span>All Pipelines</span>
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </CardTitle>
+            <SlidersHorizontal className="h-4 w-4 text-slate-400 cursor-pointer" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-semibold text-slate-800 mt-2">
+              {metrics.totalCount}
+            </div>
+            <div className="flex items-center mt-1 space-x-2">
+              <span
+                className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                  countChange >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                }`}
+              >
+                {countChange >= 0 ? '↑' : '↓'} {Math.abs(Math.round(countChange))}%
+              </span>
+              <span className="text-xs text-slate-400">vs Last {daysRange} Days</span>
+            </div>
+
+            <div className="flex items-center justify-center h-64 relative">
+              {opportunityStatusData.length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={opportunityStatusData}
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={0}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {opportunityStatusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="text-3xl font-bold text-slate-700">
+                      {metrics.totalCount}
+                    </span>
                   </div>
-                ) : (
-                  recentActivity.map((activity, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-100">
-                      <div className="flex items-center space-x-3">
-                        {/* Icono según el tipo de actividad */}
-                        {activity.type === 'product' ? (
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-700 flex items-center justify-center shadow-md">
-                            <Package className="h-5 w-5 text-white" />
-                          </div>
-                        ) : activity.type === 'revision' ? (
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-purple-500 to-purple-700 flex items-center justify-center shadow-md">
-                            <FilePenLine className="h-5 w-5 text-white" />
-                          </div>
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-blue-500 to-blue-700 flex items-center justify-center shadow-md">
-                            <span className="text-white text-xs font-bold">
-                              {typeof activity.user === 'string' ? activity.user.split(' ').filter(Boolean).map((n: string) => n[0] || '?').join('') : '?'}
-                            </span>
-                          </div>
-                        )}
-                        
-                        <div>
-                          <div className="flex items-center gap-1">
-                            <p className="text-sm font-medium text-slate-800">{activity.user || 'Usuario'}</p>
-                            
-                            {/* Badge para estado de revisión */}
-                            {activity.type === 'revision' && (
-                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                                activity.status === 'pendiente' 
-                                  ? 'bg-amber-100 text-amber-800' 
-                                  : activity.status === 'aprobado' 
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {activity.status}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-500">{activity.action || 'Acción'}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-slate-500">{activity.time || '-'}</p>
-                        {activity.amount && (
-                          <p className="text-sm font-semibold text-emerald-600">{activity.amount}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
+                </>
+              ) : (
+                <div className="text-slate-400 text-sm">Sin datos en este período</div>
+              )}
+            </div>
+
+            <div className="flex flex-col space-y-2 mt-2 pl-4 border-l-2 border-slate-100">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-blue-500 rounded-sm"></div>
+                <span className="text-sm text-slate-600">Won - {metrics.wonCount}</span>
               </div>
-              
-              {recentActivity.length > 0 && !isLoading && (
-                <div className="flex justify-center mt-6">
-                  <button 
-                    onClick={() => {
-                      toast({
-                        title: "Actividad Reciente",
-                        description: "Mostrando las actividades más recientes en el dashboard. Pronto tendrás disponible el historial completo."
-                      });
-                    }}
-                    className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-cyan-500 rounded-sm"></div>
+                <span className="text-sm text-slate-600">Abandoned - {metrics.abandonedCount}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Card 2: Opportunity Value */}
+        <Card className="shadow-sm border border-slate-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-normal text-slate-700 flex items-center gap-2">
+              Opportunity Value
+              <button className="flex items-center space-x-1 px-2 py-0.5 border border-slate-200 rounded text-xs text-slate-500 font-normal">
+                <span>All Pipelines</span>
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </CardTitle>
+            <SlidersHorizontal className="h-4 w-4 text-slate-400 cursor-pointer" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-semibold text-slate-800 mt-2">
+              {formatShortCurrency(metrics.totalRevenue)}
+            </div>
+            <div className="flex items-center mt-1 space-x-2">
+              <span
+                className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                  revenueChange >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                }`}
+              >
+                {revenueChange >= 0 ? '↑' : '↓'} {Math.abs(Math.round(revenueChange))}%
+              </span>
+              <span className="text-xs text-slate-400">vs Last {daysRange} Days</span>
+            </div>
+
+            <div className="h-64 mt-4 w-full">
+              {opportunityValueData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    layout="vertical"
+                    data={opportunityValueData}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    barSize={20}
                   >
-                    <span>Ver todas las actividades</span>
-                    <ArrowUpRight className="h-4 w-4" />
-                  </button>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                    <XAxis type="number" hide />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={80}
+                      tick={{ fontSize: 12, fill: '#64748b' }}
+                      interval={0}
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'transparent' }}
+                      formatter={(v: number) => formatCurrency(v)}
+                      labelFormatter={(l) => (l === 'Won' ? 'Ganados' : 'Abandonados')}
+                    />
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                      {opportunityValueData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+                  Sin datos en este período
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Widget de resumen */}
-        <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl shadow-lg h-full">
-          <div className="p-6 flex flex-col h-full">
-            <h3 className="text-lg font-semibold text-white mb-2">Resumen de Desempeño</h3>
-            <p className="text-sm text-sky-100 mb-6">Estadísticas clave del período actual</p>
-            
-            {isLoading ? (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white"></div>
-              </div>
-            ) : (
-              <div className="flex-1 flex flex-col justify-between">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div className="text-sky-100">Ingresos Mensuales</div>
-                    <div className="text-white font-bold">${monthSales.toLocaleString()}</div>
-                  </div>
-                  <div className="h-2 bg-blue-700/40 rounded-full">
-                    <div className="h-full w-3/4 bg-white rounded-full relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-r from-blue-300/30 to-white/50 animate-pulse-slow"></div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="text-sky-100">Objetivo Mensual</div>
-                    <div className="text-white font-bold">${(monthSales * 1.5).toLocaleString()}</div>
-                  </div>
-                  <div className="h-1 bg-blue-700/40 rounded-full">
-                    <div className="h-full w-1/2 bg-white rounded-full relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-r from-blue-300/30 to-white/50 animate-pulse-slow"></div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-between items-center mt-2">
-                    <div className="text-sky-100">Proyección Fin de Mes</div>
-                    <div className="text-white font-bold">${(monthSales * 1.2).toLocaleString()}</div>
-                  </div>
-                  <div className="h-1 bg-blue-700/40 rounded-full">
-                    <div className="h-full w-4/5 bg-white rounded-full relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-r from-blue-300/30 to-white/50 animate-pulse-slow"></div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-8 grid grid-cols-2 gap-4">
-                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
-                    <div className="text-sm text-white mb-1">Órdenes Pendientes</div>
-                    <div className="text-2xl font-bold text-white">{pendingOrders}</div>
-                  </div>
-                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
-                    <div className="text-sm text-white mb-1">Ventas Hoy</div>
-                    <div className="text-2xl font-bold text-white">${dailySales.toLocaleString()}</div>
-                  </div>
-                </div>
-                
-                <button className="mt-6 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white py-3 px-4 rounded-xl font-medium transition-colors">
-                  Ver Reporte Completo
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      
-      {/* Acciones Rápidas */}
-      <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl p-6 border border-blue-100 shadow-md">
-        <h3 className="text-lg font-semibold text-slate-800 mb-4">Acciones Rápidas</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          {[
-            { title: 'Nuevo Producto', icon: <Package className="h-5 w-5" />, bgColor: 'bg-blue-100', textColor: 'text-blue-600' },
-            { title: 'Ver Pedidos', icon: <ShoppingCart className="h-5 w-5" />, bgColor: 'bg-emerald-100', textColor: 'text-emerald-600' },
-            { title: 'Usuarios', icon: <Users className="h-5 w-5" />, bgColor: 'bg-purple-100', textColor: 'text-purple-600' },
-            { title: 'Analítica', icon: <Activity className="h-5 w-5" />, bgColor: 'bg-amber-100', textColor: 'text-amber-600' },
-            { title: 'Configuración', icon: <Clock className="h-5 w-5" />, bgColor: 'bg-slate-100', textColor: 'text-slate-600' }
-          ].map((action, index) => (
-            <div 
-              key={index} 
-              className="bg-white rounded-xl p-4 border border-slate-100 hover:shadow-md transition-all cursor-pointer group hover:border-blue-200"
-            >
-              <div className={`w-10 h-10 rounded-lg ${action.bgColor} flex items-center justify-center ${action.textColor} mb-3 group-hover:scale-110 transition-transform`}>
-                {action.icon}
-              </div>
-              <h3 className="text-sm font-medium text-slate-800">{action.title}</h3>
             </div>
-          ))}
-        </div>
+
+            <div className="flex justify-between text-xs text-slate-400 px-10 mt-2">
+              <span>{formatShortCurrency(tick1)}</span>
+              <span>{formatShortCurrency(tick2)}</span>
+              <span>{formatShortCurrency(tick3)}</span>
+            </div>
+
+            <div className="mt-4 text-center">
+              <p className="text-xs text-slate-500">Total revenue</p>
+              <p className="text-lg font-semibold text-slate-700">
+                {formatCurrency(metrics.totalRevenue)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Card 3: Conversion Rate */}
+        <Card className="shadow-sm border border-slate-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-normal text-slate-700 flex items-center gap-2">
+              Conversion Rate
+              <button className="flex items-center space-x-1 px-2 py-0.5 border border-slate-200 rounded text-xs text-slate-500 font-normal">
+                <span>All Pipelines</span>
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </CardTitle>
+            <SlidersHorizontal className="h-4 w-4 text-slate-400 cursor-pointer" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-semibold text-slate-800 mt-2">
+              {formatShortCurrency(metrics.wonRevenue)}
+            </div>
+            <div className="flex items-center mt-1 space-x-2">
+              <span
+                className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                  wonRevenueChange >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                }`}
+              >
+                {wonRevenueChange >= 0 ? '↑' : '↓'} {Math.abs(Math.round(wonRevenueChange))}%
+              </span>
+              <span className="text-xs text-slate-400">vs Last {daysRange} Days</span>
+            </div>
+
+            <div className="flex items-center justify-center h-64 relative mt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={conversionData}
+                    innerRadius={70}
+                    outerRadius={85}
+                    startAngle={90}
+                    endAngle={-270}
+                    dataKey="value"
+                    stroke="none"
+                    cornerRadius={10}
+                  >
+                    <Cell fill="#3b82f6" />
+                    <Cell fill="#f1f5f9" />
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className="text-3xl font-bold text-slate-700">
+                  {metrics.conversionRate.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-4 text-center">
+              <p className="text-xs text-slate-500">Won revenue</p>
+              <p className="text-lg font-semibold text-slate-700">
+                {formatCurrency(metrics.wonRevenue)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
 };
-
-// Memoizar para evitar re-renders innecesarios
-export const DashboardStats = memo(DashboardStatsComponent);

@@ -6,7 +6,7 @@ import { db } from '@/firebase';
 import { getDoc, doc } from 'firebase/firestore';
 
 const Retiros = () => {
-  const { categories } = useCategories();
+  const { categories, mainCategories, subcategoriesByParent, thirdLevelBySubcategory } = useCategories();
   const [selectedCategory, setSelectedCategory] = React.useState("Todos");
   const [promoVisible, setPromoVisible] = React.useState(true);
   const [info, setInfo] = useState<{ content: string; enabled: boolean } | null>(null);
@@ -38,6 +38,9 @@ const Retiros = () => {
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         promoVisible={promoVisible}
+        mainCategories={mainCategories}
+        subcategoriesByParent={subcategoriesByParent}
+        thirdLevelBySubcategory={thirdLevelBySubcategory}
       />
       <main className="flex-1 flex flex-col">
         <section className="flex-1 min-h-[calc(100vh-8rem)] w-full flex flex-col justify-center items-center bg-white">
@@ -65,8 +68,8 @@ const Retiros = () => {
                     📍 Estamos en Olavarría 610 (esquina San Luis) y te ofrecemos la opción de retiro en local sin costo adicional.
                   </p>
                   <div className="my-6">
-                    <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
-                       className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+                    <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw"
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
                       <span>📍 Ver ubicación en el mapa</span>
                     </a>
                   </div>
@@ -93,7 +96,7 @@ const Retiros = () => {
                 <div className="w-8 h-8 gradient-orange rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">T</span>
                 </div>
-                <span className="text-lg font-bold gradient-text-orange">REGALA ALGO</span>
+                <span className="text-lg font-bold gradient-text-orange">TIENDA 24-7</span>
               </div>
               <p className="text-muted-foreground text-sm">
                 Tu tienda premium con los mejores productos y atención personalizada.
@@ -131,8 +134,8 @@ const Retiros = () => {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>📍 Olavarría 610 (esquina San Luis)</li>
                 <li>
-                  <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
-                     className="text-blue-600 hover:underline">
+                  <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw"
+                    className="text-blue-600 hover:underline">
                     Ver en el mapa
                   </a>
                 </li>

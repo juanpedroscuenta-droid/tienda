@@ -29,7 +29,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
       recordProductView(product.id, product.name, user?.id);
       setViewRecorded(true);
     }
-    
+
     // Resetear el estado cuando el modal se cierra
     if (!isOpen) {
       setViewRecorded(false);
@@ -72,14 +72,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
               className="w-full h-[26rem] md:h-full object-cover transition-transform duration-300 hover:scale-105"
             />
             <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
-              <Badge 
+              <Badge
                 className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-medium py-1.5 px-3"
               >
                 {product.category}
               </Badge>
             </div>
             {product.stock < 5 && (
-              <Badge 
+              <Badge
                 variant="destructive"
                 className="absolute top-4 left-4 z-20 animate-pulse py-1.5 px-3 bg-red-500/90 backdrop-blur-sm"
               >
@@ -91,7 +91,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
           {/* Detalles del producto */}
           <div className="p-8 flex flex-col bg-white dark:bg-slate-800 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 right-0 w-40 h-40 bg-blue-100 dark:bg-blue-900/20 rounded-full filter blur-3xl opacity-20 -mr-20 -mt-20"></div>
-            
+
             <DialogHeader className="mb-6 relative">
               <DialogTitle className="text-2xl font-bold leading-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300">
                 {product.name}
@@ -104,7 +104,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
                 <div className="space-y-1">
                   <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Precio</div>
                   <span className="text-3xl font-bold text-slate-900 dark:text-white">
-                    ${product.price.toLocaleString()}
+                    ${product.price.toLocaleString('es-CO')}
                   </span>
                 </div>
                 <Badge variant="outline" className="text-blue-600 border-blue-600 dark:text-blue-400 dark:border-blue-400 py-1.5 px-3">
@@ -136,7 +136,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
                 <h4 className="font-semibold mb-3 text-slate-800 dark:text-slate-200 flex items-center">
                   <span className="bg-slate-100 dark:bg-slate-700 p-1 rounded-lg mr-2">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-blue-500">
-                      <path d="M8 10.5H16M8 14.5H13.5M10 3.5H14C14.8284 3.5 15.5 4.17157 15.5 5V6.5H8.5V5C8.5 4.17157 9.17157 3.5 10 3.5ZM5.5 6.5H18.5C19.3284 6.5 20 7.17157 20 8V16C20 16.8284 19.3284 17.5 18.5 17.5H5.5C4.67157 17.5 4 16.8284 4 16V8C4 7.17157 4.67157 6.5 5.5 6.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M8 10.5H16M8 14.5H13.5M10 3.5H14C14.8284 3.5 15.5 4.17157 15.5 5V6.5H8.5V5C8.5 4.17157 9.17157 3.5 10 3.5ZM5.5 6.5H18.5C19.3284 6.5 20 7.17157 20 8V16C20 16.8284 19.3284 17.5 18.5 17.5H5.5C4.67157 17.5 4 16.8284 4 16V8C4 7.17157 4.67157 6.5 5.5 6.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </span>
                   Descripción
@@ -153,7 +153,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
                 <h4 className="font-semibold text-slate-800 dark:text-slate-200 flex items-center">
                   <span className="bg-slate-100 dark:bg-slate-700 p-1 rounded-lg mr-2">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-blue-500">
-                      <path d="M9 12L11 14L15.5 9.5M12 3L13.6667 6.82643C13.9082 7.39678 14.0289 7.68196 14.2 7.90787C14.3539 8.10786 14.5446 8.27142 14.7637 8.38658C15.0131 8.52 15.3053 8.56 15.8896 8.64L20 9.5L17.25 13C16.8333 13.5 16.625 13.75 16.5425 14.0559C16.4696 14.3216 16.4696 14.6045 16.5425 14.8702C16.625 15.176 16.8333 15.426 17.25 15.926L20 19.5L15.8896 20.36C15.3053 20.44 15.0131 20.48 14.7637 20.6134C14.5446 20.7286 14.3539 20.8921 14.2 21.0921C14.0289 21.318 13.9082 21.6032 13.6667 22.1736L12 26L10.3333 22.1736C10.0918 21.6032 9.97111 21.318 9.8 21.0921C9.64612 20.8921 9.4554 20.7286 9.23633 20.6134C8.98688 20.48 8.69467 20.44 8.11024 20.36L4 19.5L6.75 15.926C7.16667 15.426 7.375 15.176 7.4575 14.8702C7.53042 14.6045 7.53042 14.3216 7.4575 14.0559C7.375 13.75 7.16667 13.5 6.75 13L4 9.5L8.11024 8.64C8.69467 8.56 8.98688 8.52 9.23633 8.38658C9.4554 8.27142 9.64612 8.10786 9.8 7.90787C9.97111 7.68196 10.0918 7.39678 10.3333 6.82643L12 3Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M9 12L11 14L15.5 9.5M12 3L13.6667 6.82643C13.9082 7.39678 14.0289 7.68196 14.2 7.90787C14.3539 8.10786 14.5446 8.27142 14.7637 8.38658C15.0131 8.52 15.3053 8.56 15.8896 8.64L20 9.5L17.25 13C16.8333 13.5 16.625 13.75 16.5425 14.0559C16.4696 14.3216 16.4696 14.6045 16.5425 14.8702C16.625 15.176 16.8333 15.426 17.25 15.926L20 19.5L15.8896 20.36C15.3053 20.44 15.0131 20.48 14.7637 20.6134C14.5446 20.7286 14.3539 20.8921 14.2 21.0921C14.0289 21.318 13.9082 21.6032 13.6667 22.1736L12 26L10.3333 22.1736C10.0918 21.6032 9.97111 21.318 9.8 21.0921C9.64612 20.8921 9.4554 20.7286 9.23633 20.6134C8.98688 20.48 8.69467 20.44 8.11024 20.36L4 19.5L6.75 15.926C7.16667 15.426 7.375 15.176 7.4575 14.8702C7.53042 14.6045 7.53042 14.3216 7.4575 14.0559C7.375 13.75 7.16667 13.5 6.75 13L4 9.5L8.11024 8.64C8.69467 8.56 8.98688 8.52 9.23633 8.38658C9.4554 8.27142 9.64612 8.10786 9.8 7.90787C9.97111 7.68196 10.0918 7.39678 10.3333 6.82643L12 3Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </span>
                   Beneficios
@@ -170,7 +170,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="bg-white dark:bg-slate-700/30 rounded-lg p-3 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow duration-200">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
@@ -182,7 +182,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="bg-white dark:bg-slate-700/30 rounded-lg p-3 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow duration-200">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
@@ -207,29 +207,27 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
                       <label className="text-sm font-medium mb-2 block text-slate-700 dark:text-slate-300">Cantidad</label>
                       <div className="flex items-center">
                         <button
-                          className={`h-10 w-10 rounded-l-lg border border-slate-300 dark:border-slate-600 flex items-center justify-center transition-colors ${
-                            quantity <= 1 
-                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed' 
+                          className={`h-10 w-10 rounded-l-lg border border-slate-300 dark:border-slate-600 flex items-center justify-center transition-colors ${quantity <= 1
+                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
                               : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                          }`}
+                            }`}
                           onClick={decrementQuantity}
                           disabled={quantity <= 1}
                         >
                           <Minus className="h-4 w-4" />
                         </button>
-                        
+
                         <div className="h-10 w-14 border-t border-b border-slate-300 dark:border-slate-600 flex items-center justify-center">
                           <span className="text-center font-semibold text-lg text-slate-800 dark:text-slate-200">
                             {quantity}
                           </span>
                         </div>
-                        
+
                         <button
-                          className={`h-10 w-10 rounded-r-lg border border-slate-300 dark:border-slate-600 flex items-center justify-center transition-colors ${
-                            quantity >= product.stock 
-                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed' 
+                          className={`h-10 w-10 rounded-r-lg border border-slate-300 dark:border-slate-600 flex items-center justify-center transition-colors ${quantity >= product.stock
+                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
                               : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                          }`}
+                            }`}
                           onClick={incrementQuantity}
                           disabled={quantity >= product.stock}
                         >
@@ -237,7 +235,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
                         </button>
                       </div>
                     </div>
-                    
+
                     <div className="text-right">
                       <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Stock</div>
                       <div className="flex items-center gap-1.5">
@@ -248,13 +246,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Total price calculation */}
                   <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-700">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-600 dark:text-slate-400 font-medium">Total:</span>
                       <span className="text-xl font-bold text-slate-800 dark:text-white">
-                        ${(product.price * quantity).toLocaleString()}
+                        ${(product.price * quantity).toLocaleString('es-CO')}
                       </span>
                     </div>
                   </div>
@@ -263,11 +261,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <Button
                     onClick={handleAddToCart}
-                    className={`relative overflow-hidden h-14 text-white font-medium shadow-lg ${
-                      product.stock === 0 
-                        ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed' 
+                    className={`relative overflow-hidden h-14 text-white font-medium shadow-lg ${product.stock === 0
+                        ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed'
                         : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600'
-                    }`}
+                      }`}
                     disabled={product.stock === 0}
                   >
                     {product.stock === 0 ? (
@@ -282,7 +279,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
                       </>
                     )}
                   </Button>
-                  
+
                   <Button
                     variant="outline"
                     onClick={onClose}

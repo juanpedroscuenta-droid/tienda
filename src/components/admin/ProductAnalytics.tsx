@@ -14,17 +14,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Eye, TrendingUp, TrendingDown, Download, BarChart3, LineChart } from 'lucide-react';
-import { 
-  getMostViewedProducts, 
-  getLeastViewedProducts, 
-  getProductViewsTrend, 
+import { Eye, TrendingUp, TrendingDown, Download, BarChart3, LineChart, DollarSign, ShoppingBag, Calendar, Users } from 'lucide-react';
+import {
+  getMostViewedProducts,
+  getLeastViewedProducts,
+  getProductViewsTrend,
   getProductsViewsForExport,
   getProductVisitors,
   getDetailedViewEvents
 } from '@/lib/product-analytics';
 import { db } from '@/firebase';
-import { collection, getDocs, query, where, limit, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, limit, Timestamp, orderBy } from 'firebase/firestore';
 
 // Interfaz para información del dispositivo
 interface DeviceInfo {
@@ -135,14 +135,14 @@ const pieColors = [
 // Componente para gráfico de barras simple (usando divs) con animaciones y mejor diseño
 const SimpleBarChart = ({ data }: { data: { name: string; value: number }[] }) => {
   const maxValue = Math.max(...data.map(item => item.value));
-  
+
   return (
     <div className="space-y-3">
       {data.map((item, index) => (
         <div key={index} className="space-y-1.5 group hover:bg-slate-50 p-1 -mx-1 rounded-lg transition-colors">
           <div className="flex justify-between text-xs">
             <div className="font-medium truncate w-36 md:w-48 flex items-center gap-2">
-              <div 
+              <div
                 className="h-2 w-2 md:h-3 md:w-3 rounded-full flex-shrink-0"
                 style={{ backgroundColor: index % 2 === 0 ? themeColors.primary : themeColors.secondary }}
               ></div>
@@ -151,11 +151,11 @@ const SimpleBarChart = ({ data }: { data: { name: string; value: number }[] }) =
             <span className="text-muted-foreground group-hover:text-black/70 font-mono md:font-medium">{item.value}</span>
           </div>
           <div className="w-full bg-slate-100 rounded-full h-2 md:h-2.5 overflow-hidden shadow-inner">
-            <div 
+            <div
               className="h-full rounded-full transition-all duration-500 ease-out animate-slide-right"
-              style={{ 
-                width: `${maxValue ? (item.value / maxValue) * 100 : 0}%`, 
-                background: index % 2 === 0 
+              style={{
+                width: `${maxValue ? (item.value / maxValue) * 100 : 0}%`,
+                background: index % 2 === 0
                   ? `linear-gradient(90deg, ${themeColors.primary}, ${themeColors.primaryLight})`
                   : `linear-gradient(90deg, ${themeColors.secondary}, ${themeColors.info})`
               }}
@@ -184,26 +184,26 @@ const SimpleTrendChart = ({ data }: { data: { date: string; views: number }[] })
         <AreaChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.8}/>
-              <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.1}/>
+              <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.8} />
+              <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.1} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis 
-            dataKey="date" 
-            tickFormatter={formatShortDate} 
+          <XAxis
+            dataKey="date"
+            tickFormatter={formatShortDate}
             fontSize={12}
-            axisLine={{ stroke: '#e2e8f0' }} 
+            axisLine={{ stroke: '#e2e8f0' }}
             tickLine={false}
           />
-          <YAxis 
-            fontSize={12} 
+          <YAxis
+            fontSize={12}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(value) => value >= 1000 ? `${value/1000}k` : value}
+            tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : value}
           />
-          <Tooltip 
-            formatter={(value: any) => [value, 'Vistas']} 
+          <Tooltip
+            formatter={(value: any) => [value, 'Vistas']}
             labelFormatter={formatShortDate}
             contentStyle={{
               borderRadius: '8px',
@@ -214,14 +214,14 @@ const SimpleTrendChart = ({ data }: { data: { date: string; views: number }[] })
             itemStyle={{ color: '#4f46e5' }}
             cursor={{ stroke: '#4f46e5', strokeWidth: 1, strokeDasharray: '5 5' }}
           />
-          <Area 
-            type="monotone" 
-            dataKey="views" 
-            stroke="#4f46e5" 
-            fill="url(#colorViews)" 
-            strokeWidth={3} 
+          <Area
+            type="monotone"
+            dataKey="views"
+            stroke="#4f46e5"
+            fill="url(#colorViews)"
+            strokeWidth={3}
             dot={{ r: 0 }}
-            activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, fill: '#4f46e5' }} 
+            activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, fill: '#4f46e5' }}
           />
         </AreaChart>
       </ResponsiveContainer>
@@ -242,56 +242,56 @@ const getVisitorAnalytics = async (productId?: string, startDate?: string, endDa
     console.error("Error: No se proporcionó ID de producto para obtener analíticas");
     return [];
   }
-  
+
   try {
     console.log(`[getVisitorAnalytics] Obteniendo datos para producto: ${productId}`);
     console.log(`[getVisitorAnalytics] Rango de fechas: ${startDate || 'No definido'} hasta ${endDate || 'No definido'}`);
-    
+
     // Verificar formato de producto ID
     if (productId.length < 5) {
       console.error(`[getVisitorAnalytics] ERROR: ID de producto inválido: ${productId}`);
       return [];
     }
-    
+
     // Mejorar la conversión de fechas
     let startDateObj, endDateObj;
-    
+
     if (startDate) {
       startDateObj = new Date(startDate);
       // Asegurar que la fecha de inicio sea el inicio del día
       startDateObj.setHours(0, 0, 0, 0);
       console.log(`[getVisitorAnalytics] Fecha de inicio ajustada: ${startDateObj.toISOString()}`);
     }
-    
+
     if (endDate) {
       endDateObj = new Date(endDate);
       // Asegurar que la fecha final sea el final del día
       endDateObj.setHours(23, 59, 59, 999);
       console.log(`[getVisitorAnalytics] Fecha de fin ajustada: ${endDateObj.toISOString()}`);
     }
-    
+
     // Comprobar si las fechas son válidas
     if (startDateObj && isNaN(startDateObj.getTime())) {
       console.error(`[getVisitorAnalytics] ERROR: Fecha de inicio inválida: ${startDate}`);
       startDateObj = undefined;
     }
-    
+
     if (endDateObj && isNaN(endDateObj.getTime())) {
       console.error(`[getVisitorAnalytics] ERROR: Fecha de fin inválida: ${endDate}`);
       endDateObj = undefined;
     }
-    
+
     // Usar la función real de la biblioteca para obtener visitantes
     console.log(`[getVisitorAnalytics] Llamando a getProductVisitors con fechas procesadas`);
     const visitors = await getProductVisitors(productId, startDateObj, endDateObj);
     console.log(`[getVisitorAnalytics] Visitantes encontrados: ${visitors.length}`);
-    
+
     if (visitors.length === 0) {
       console.log(`[getVisitorAnalytics] No se encontraron visitantes para el producto ${productId} en el rango seleccionado`);
     } else {
       console.log(`[getVisitorAnalytics] Primer visitante: ${JSON.stringify(visitors[0])}`);
     }
-    
+
     return visitors;
   } catch (error) {
     console.error("[getVisitorAnalytics] Error al obtener analíticas de visitantes:", error);
@@ -308,7 +308,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
   const [categoryData, setCategoryData] = useState<{ label: string; value: number }[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [chartDisplayMode, setChartDisplayMode] = useState<'count' | 'percent'>('count');
-  
+
   // Estados para información avanzada de visitantes
   const [selectedProduct, setSelectedProduct] = useState<ProductAnalytics | null>(null);
   const [visitorData, setVisitorData] = useState<Visitor[]>([]);
@@ -317,14 +317,37 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
   const [isLoadingVisitors, setIsLoadingVisitors] = useState(false);
   const [visitorSearchQuery, setVisitorSearchQuery] = useState('');
   const [visitorAnalyticsTab, setVisitorAnalyticsTab] = useState<'overview' | 'visitors' | 'events'>('overview');
-  
+
+  // Estados para tabs principales y métricas de ventas
+  const [mainTab, setMainTab] = useState<'general' | 'bought-together' | 'ranking' | 'audience'>('general');
+  const [dateRange, setDateRange] = useState<{ start: Date; end: Date }>(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 7);
+    return { start, end };
+  });
+  const [salesData, setSalesData] = useState({ online: 0, others: 0, total: 0 });
+  const [visitsData, setVisitsData] = useState(0);
+  const [purchasedData, setPurchasedData] = useState({ online: 0, others: 0 });
+  const [conversionRate, setConversionRate] = useState(0);
+  const [salesTrend, setSalesTrend] = useState<{ date: string; sales: number }[]>([]);
+  const [topCustomersByPrice, setTopCustomersByPrice] = useState<{ name: string; value: number }[]>([]);
+  const [topCustomersByOrders, setTopCustomersByOrders] = useState<{ name: string; value: number }[]>([]);
+  const [loadingMetrics, setLoadingMetrics] = useState(false);
+  const [additionalMetrics, setAdditionalMetrics] = useState({
+    cartAbandonments: 0,
+    productPacks: 0,
+    inShoppingLists: 0,
+    rankingByOrders: 0
+  });
+
   // Función helper para obtener la fecha de inicio según el rango de tiempo seleccionado
   const getDateForTimeRange = (range: string): string => {
     const now = new Date();
     // Establece la hora a las 00:00:00 para incluir todo el día
     now.setHours(0, 0, 0, 0);
-    
-    switch(range) {
+
+    switch (range) {
       case '7d':
         now.setDate(now.getDate() - 7);
         break;
@@ -340,10 +363,269 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
       default:
         now.setDate(now.getDate() - 30);
     }
-    
+
     const isoString = now.toISOString();
     console.log(`Fecha de inicio para rango ${range}: ${isoString}`);
     return isoString;
+  };
+
+  // Función para obtener métricas de ventas
+  const fetchSalesMetrics = async () => {
+    console.log('[fetchSalesMetrics] Iniciando cálculo de métricas...', { dateRange });
+    setLoadingMetrics(true);
+    try {
+      const isSupabase = typeof (db as any)?.from === 'function';
+      const start = new Date(dateRange.start);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(dateRange.end);
+      end.setHours(23, 59, 59, 999);
+
+      console.log('[fetchSalesMetrics] Rango de fechas:', { start: start.toISOString(), end: end.toISOString() });
+
+      let orders: any[] = [];
+
+      if (isSupabase) {
+        const { data, error } = await db
+          .from('orders')
+          .select('*')
+          .gte('created_at', start.toISOString())
+          .lte('created_at', end.toISOString())
+          .eq('status', 'confirmed');
+        if (error) throw error;
+        orders = data || [];
+      } else {
+        const ordersQuery = query(
+          collection(db, "orders"),
+          where("status", "==", "confirmed"),
+          where("createdAt", ">=", Timestamp.fromDate(start)),
+          where("createdAt", "<=", Timestamp.fromDate(end))
+        );
+        const snapshot = await getDocs(ordersQuery);
+        orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      }
+
+      // Calcular ventas
+      let onlineSales = 0;
+      let otherSales = 0;
+      let totalPurchased = 0;
+      const customerSales: Record<string, { price: number; orders: number; name: string }> = {};
+      const dailySales: Record<string, number> = {};
+
+      orders.forEach((order: any) => {
+        const total = Number(order.total || 0);
+        const orderType = order.orderType || 'physical';
+
+        if (orderType === 'online' || orderType === 'physical') {
+          onlineSales += total;
+          totalPurchased++;
+        } else {
+          otherSales += total;
+        }
+
+        // Agregar a ventas diarias
+        const orderDate = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.created_at || order.createdAt);
+        const dateKey = orderDate.toISOString().split('T')[0];
+        dailySales[dateKey] = (dailySales[dateKey] || 0) + total;
+
+        // Agregar a clientes
+        const customerName = order.customerName || order.userName || 'Cliente Anónimo';
+        if (!customerSales[customerName]) {
+          customerSales[customerName] = { price: 0, orders: 0, name: customerName };
+        }
+        customerSales[customerName].price += total;
+        customerSales[customerName].orders += 1;
+      });
+
+      console.log('[fetchSalesMetrics] Ventas calculadas:', { onlineSales, otherSales, totalPurchased, ordersCount: orders.length });
+
+      setSalesData({ online: onlineSales, others: otherSales, total: onlineSales + otherSales });
+      setPurchasedData({ online: totalPurchased, others: 0 });
+
+      // Obtener todas las vistas de productos en el rango de fechas
+      let totalViews = 0;
+      try {
+        const isSupabase = typeof (db as any)?.from === 'function';
+        if (isSupabase) {
+          try {
+            const { data: viewsData, error: viewsError } = await db
+              .from('product_views')
+              .select('id')
+              .gte('timestamp', start.toISOString())
+              .lte('timestamp', end.toISOString());
+            if (!viewsError && viewsData) {
+              totalViews = viewsData.length;
+            }
+          } catch (viewsError) {
+            console.warn("Error al obtener visitas desde product_views, intentando product_analytics:", viewsError);
+            // Fallback: sumar total_views de product_analytics en el rango
+            try {
+              const { data: analyticsData } = await db
+                .from('product_analytics')
+                .select('total_views, views_by_day');
+              if (analyticsData) {
+                // Sumar vistas del rango de fechas desde views_by_day
+                analyticsData.forEach((item: any) => {
+                  const viewsByDay = item.views_by_day || {};
+                  Object.keys(viewsByDay).forEach(day => {
+                    const dayDate = new Date(day);
+                    if (dayDate >= start && dayDate <= end) {
+                      totalViews += viewsByDay[day] || 0;
+                    }
+                  });
+                });
+              }
+            } catch (analyticsError) {
+              console.warn("Error al obtener visitas desde product_analytics:", analyticsError);
+            }
+          }
+        } else {
+          const viewsQuery = query(
+            collection(db, "productViews"),
+            where("timestamp", ">=", Timestamp.fromDate(start)),
+            where("timestamp", "<=", Timestamp.fromDate(end))
+          );
+          const viewsSnapshot = await getDocs(viewsQuery);
+          totalViews = viewsSnapshot.size;
+        }
+      } catch (error) {
+        console.error("Error al obtener visitas:", error);
+        // Fallback: usar suma de vistas de productos más vistos
+        totalViews = mostViewed.reduce((sum, p) => sum + (p.totalViews || 0), 0);
+      }
+
+      console.log('[fetchSalesMetrics] Visitas totales:', totalViews);
+      setVisitsData(totalViews);
+
+      // Calcular ratio de conversión
+      const conversion = totalViews > 0 ? (totalPurchased / totalViews) * 100 : 0;
+      console.log('[fetchSalesMetrics] Ratio de conversión:', conversion);
+      setConversionRate(conversion);
+
+      // Calcular abandonos de cesta (carts que no se convirtieron en pedidos)
+      let cartAbandonments = 0;
+      try {
+        const isSupabase = typeof (db as any)?.from === 'function';
+        if (isSupabase) {
+          // Intentar obtener carritos abandonados
+          const { data: cartsData } = await db
+            .from('carts')
+            .select('*')
+            .gte('updated_at', start.toISOString())
+            .lte('updated_at', end.toISOString());
+
+          if (cartsData) {
+            // Contar carritos que no tienen pedido asociado
+            const cartIds = new Set(cartsData.map((c: any) => c.id));
+            const orderCartIds = new Set(orders.map((o: any) => o.cartId || o.cart_id));
+            cartAbandonments = Array.from(cartIds).filter(id => !orderCartIds.has(id)).length;
+          }
+        } else {
+          try {
+            const cartsQuery = query(
+              collection(db, "carts"),
+              where("updatedAt", ">=", Timestamp.fromDate(start)),
+              where("updatedAt", "<=", Timestamp.fromDate(end))
+            );
+            const cartsSnapshot = await getDocs(cartsQuery);
+            const cartIds = new Set(cartsSnapshot.docs.map(doc => doc.id));
+            const orderCartIds = new Set(orders.map((o: any) => o.cartId));
+            cartAbandonments = Array.from(cartIds).filter(id => !orderCartIds.has(id)).length;
+          } catch {
+            // Si no existe la colección carts, usar 0
+            cartAbandonments = 0;
+          }
+        }
+      } catch (error) {
+        console.error("Error al calcular abandonos de cesta:", error);
+        cartAbandonments = 0;
+      }
+
+      // Calcular packs de productos (pedidos con múltiples productos)
+      const productPacks = orders.filter((order: any) => {
+        const items = order.items || order.products || [];
+        return items.length > 1;
+      }).length;
+
+      // Calcular productos en listas de compra/deseos
+      let inShoppingLists = 0;
+      try {
+        const isSupabase = typeof (db as any)?.from === 'function';
+        if (isSupabase) {
+          const { data: wishlistsData } = await db
+            .from('wishlists')
+            .select('*')
+            .gte('updated_at', start.toISOString())
+            .lte('updated_at', end.toISOString());
+          if (wishlistsData) {
+            inShoppingLists = wishlistsData.reduce((sum: number, w: any) => {
+              return sum + (w.items?.length || w.products?.length || 0);
+            }, 0);
+          }
+        } else {
+          try {
+            const wishlistsQuery = query(
+              collection(db, "wishlists"),
+              where("updatedAt", ">=", Timestamp.fromDate(start)),
+              where("updatedAt", "<=", Timestamp.fromDate(end))
+            );
+            const wishlistsSnapshot = await getDocs(wishlistsQuery);
+            inShoppingLists = wishlistsSnapshot.docs.reduce((sum, doc) => {
+              const data = doc.data();
+              return sum + (data.items?.length || data.products?.length || 0);
+            }, 0);
+          } catch {
+            inShoppingLists = 0;
+          }
+        }
+      } catch (error) {
+        console.error("Error al calcular listas de compra:", error);
+        inShoppingLists = 0;
+      }
+
+      // Calcular ranking por pedidos (porcentaje de pedidos que incluyen productos vs total de pedidos)
+      let rankingByOrders = 0;
+      if (orders.length > 0) {
+        // Contar cuántos pedidos tienen productos (no están vacíos)
+        const ordersWithProducts = orders.filter((order: any) => {
+          const items = order.items || order.products || [];
+          return items && items.length > 0;
+        }).length;
+
+        // Calcular el porcentaje de pedidos con productos
+        rankingByOrders = orders.length > 0 ? (ordersWithProducts / orders.length) * 100 : 0;
+      }
+
+      setAdditionalMetrics({
+        cartAbandonments,
+        productPacks,
+        inShoppingLists,
+        rankingByOrders
+      });
+
+      // Preparar datos de tendencia de ventas
+      const trendData = Object.entries(dailySales)
+        .map(([date, sales]) => ({ date, sales }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+      setSalesTrend(trendData);
+
+      // Top 6 clientes por precio
+      const topByPrice = Object.values(customerSales)
+        .sort((a, b) => b.price - a.price)
+        .slice(0, 6)
+        .map(c => ({ name: c.name, value: c.price }));
+      setTopCustomersByPrice(topByPrice);
+
+      // Top 6 clientes por número de pedidos
+      const topByOrders = Object.values(customerSales)
+        .sort((a, b) => b.orders - a.orders)
+        .slice(0, 6)
+        .map(c => ({ name: c.name, value: c.orders }));
+      setTopCustomersByOrders(topByOrders);
+    } catch (error) {
+      console.error("Error al cargar métricas de ventas:", error);
+    } finally {
+      setLoadingMetrics(false);
+    }
   };
 
   useEffect(() => {
@@ -355,11 +637,11 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
           getLeastViewedProducts(100),
           getProductViewsTrend()
         ]);
-        
+
         setMostViewed(mostData);
         setLeastViewed(leastData);
         setTrend(trendData);
-        
+
         // Calcular distribución por categoría
         const catMap: Record<string, number> = {};
         mostData.forEach((p: any) => {
@@ -373,10 +655,19 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
         setIsLoading(false);
       }
     };
-    
+
     fetchData();
   }, []);
-  
+
+  // Cargar métricas de ventas cuando cambia el rango de fechas o cuando se cargan los productos
+  useEffect(() => {
+    console.log('[ProductAnalytics] Efecto trigger:', { mostViewedLength: mostViewed.length, dateRange });
+    if (!isLoading && mostViewed.length >= 0) {
+      console.log('[ProductAnalytics] Llamando fetchSalesMetrics...');
+      fetchSalesMetrics();
+    }
+  }, [dateRange, isLoading, mostViewed.length]);
+
   // Cargar datos de visitantes cuando se selecciona un producto
   useEffect(() => {
     const loadVisitorData = async () => {
@@ -385,10 +676,10 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
         setViewEvents([]);
         return;
       }
-      
+
       console.log(`[loadVisitorData] Iniciando carga para producto: ID=${selectedProduct.id}, Nombre=${selectedProduct.productName}`);
       setIsLoadingVisitors(true);
-      
+
       try {
         // Verificar que tenemos un ID de producto válido
         if (!selectedProduct.id) {
@@ -396,32 +687,32 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
           setIsLoadingVisitors(false);
           return;
         }
-        
+
         // Obtener datos de visitantes y eventos para el producto seleccionado
         const startDate = getDateForTimeRange(timeRange);
         const endDate = new Date().toISOString();
-        
+
         console.log(`[loadVisitorData] Período: ${timeRange}, fechas: ${startDate} hasta ${endDate}`);
-        
+
         // DIAGNÓSTICO: Consultar primero si hay registros para este producto sin filtrar por fecha
         console.log(`[loadVisitorData] DIAGNÓSTICO: Verificando existencia de registros para producto ${selectedProduct.id}`);
-        
+
         try {
           // Intentar obtener datos reales secuencialmente para mejor diagnóstico
           console.log(`[loadVisitorData] Obteniendo datos de visitantes...`);
           const visitors = await getVisitorAnalytics(selectedProduct.id, startDate, endDate);
           console.log(`[loadVisitorData] Obteniendo datos de eventos...`);
           const events = await getDetailedViewEvents(selectedProduct.id, startDate, endDate);
-          
+
           console.log(`[loadVisitorData] Resultados: ${visitors.length} visitantes, ${events.length} eventos`);
-          
+
           // Actualizar estado de la UI
           setVisitorData(visitors);
           setViewEvents(events);
-          
+
           if (visitors.length === 0 && events.length === 0) {
             console.log(`[loadVisitorData] No se encontraron datos para este producto y período`);
-            
+
             // DIAGNÓSTICO: Intentar con una consulta más amplia para verificar si hay datos en general
             try {
               const testQuery = query(
@@ -431,7 +722,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
               );
               const testSnapshot = await getDocs(testQuery);
               console.log(`[loadVisitorData] DIAGNÓSTICO: Existen ${testSnapshot.size} registros en total para este producto`);
-              
+
               if (testSnapshot.size > 0) {
                 const sampleDoc = testSnapshot.docs[0].data();
                 console.log(`[loadVisitorData] Ejemplo de registro: ${JSON.stringify(sampleDoc)}`);
@@ -451,10 +742,10 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
         setIsLoadingVisitors(false);
       }
     };
-    
+
     loadVisitorData();
   }, [selectedProduct, timeRange]);
-  
+
   // Filtrar visitantes por consulta de búsqueda
   const filteredVisitors = visitorData.filter(visitor => {
     if (!visitorSearchQuery) return true;
@@ -487,39 +778,39 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
   // Calcular métricas para el panel de visitantes
   const visitorMetrics = React.useMemo(() => {
     if (!visitorData.length) return null;
-    
+
     // Dispositivos
     const devices: Record<string, number> = {};
     visitorData.forEach(v => {
       const deviceType = v.deviceInfo?.device || 'Desconocido';
       devices[deviceType] = (devices[deviceType] || 0) + 1;
     });
-    
+
     // Navegadores
     const browsers: Record<string, number> = {};
     visitorData.forEach(v => {
       const browser = v.deviceInfo?.browser || 'Desconocido';
       browsers[browser] = (browsers[browser] || 0) + 1;
     });
-    
+
     // Sistemas operativos
     const operatingSystems: Record<string, number> = {};
     visitorData.forEach(v => {
       const os = v.deviceInfo?.os || 'Desconocido';
       operatingSystems[os] = (operatingSystems[os] || 0) + 1;
     });
-    
+
     // Países
     const countries: Record<string, number> = {};
     visitorData.forEach(v => {
       const country = v.location?.country || 'Desconocido';
       countries[country] = (countries[country] || 0) + 1;
     });
-    
+
     // Calcular promedio de visitas por usuario
     const totalVisits = visitorData.reduce((sum, v) => sum + v.totalVisits, 0);
     const avgVisitsPerUser = totalVisits / visitorData.length;
-    
+
     // Calcular promedio de tiempo en el producto (en segundos)
     let totalDuration = 0;
     let eventCount = 0;
@@ -530,7 +821,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
       }
     });
     const avgDuration = eventCount ? totalDuration / eventCount : 0;
-    
+
     return {
       totalUniqueVisitors: visitorData.length,
       avgVisitsPerUser,
@@ -579,15 +870,15 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
       setSelectedProduct(null);
     }, 300); // Dar tiempo para la animación de cierre
   };
-  
+
   // Exportar a Excel
   const handleExport = async () => {
     try {
       const productsData = await getProductsViewsForExport();
-      
+
       // Crear libro y hoja
       const wb = XLSX.utils.book_new();
-      
+
       // Exportar datos generales
       const wsData = productsData.map(p => ({
         'ID Producto': p.id,
@@ -599,10 +890,10 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
         'Día con más vistas': p.peakDay,
         'Vistas en pico': p.peakViews
       }));
-      
+
       const ws = XLSX.utils.json_to_sheet(wsData);
       XLSX.utils.book_append_sheet(wb, ws, "Resumen Productos");
-      
+
       // Exportar tendencia diaria (otra hoja)
       const allDates = new Set<string>();
       productsData.forEach(p => {
@@ -610,17 +901,17 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
           Object.keys(p.viewsByDay).forEach(date => allDates.add(date));
         }
       });
-      
+
       const sortedDates = Array.from(allDates).sort();
       const trendData: any[] = [];
-      
+
       // Cabecera
       const trendHeader: any = { Fecha: 'Fecha' };
       productsData.forEach(p => {
         trendHeader[p.id] = p.productName;
       });
       trendData.push(trendHeader);
-      
+
       // Datos por día
       sortedDates.forEach(date => {
         const row: any = { Fecha: date };
@@ -629,10 +920,10 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
         });
         trendData.push(row);
       });
-      
+
       const wsTrend = XLSX.utils.json_to_sheet(trendData);
       XLSX.utils.book_append_sheet(wb, wsTrend, "Tendencia Diaria");
-      
+
       // Si hay datos de visitantes para el producto seleccionado, también los exportamos
       if (selectedProduct && visitorData.length > 0) {
         const visitorSheetData = visitorData.map(v => ({
@@ -650,10 +941,10 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
           'Ciudad': v.location?.city || 'N/A',
           'Región': v.location?.region || 'N/A'
         }));
-        
+
         const visitorSheet = XLSX.utils.json_to_sheet(visitorSheetData);
         XLSX.utils.book_append_sheet(wb, visitorSheet, "Visitantes");
-        
+
         // También exportar eventos detallados
         const eventsSheetData = viewEvents.map(e => ({
           'ID Evento': e.id,
@@ -666,25 +957,25 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
           'Dispositivo': e.deviceType || 'N/A',
           'Ubicación': e.location || 'N/A'
         }));
-        
+
         const eventsSheet = XLSX.utils.json_to_sheet(eventsSheetData);
         XLSX.utils.book_append_sheet(wb, eventsSheet, "Eventos Detallados");
       }
-      
+
       // Descargar
       XLSX.writeFile(wb, `Análisis_Productos_${new Date().toISOString().slice(0, 10)}.xlsx`);
     } catch (error) {
       console.error("Error al exportar datos:", error);
     }
   };
-  
+
   // Componente para el panel detallado de visitantes
   const VisitorDetailsPanel = () => {
     if (!selectedProduct) return null;
-    
+
     return (
       <div className={`fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex justify-end transition-opacity duration-300 ${showVisitorPanel ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <div 
+        <div
           className={`bg-white dark:bg-slate-900 shadow-2xl w-full md:max-w-[800px] overflow-auto transform transition-transform duration-300 ${showVisitorPanel ? 'translate-x-0' : 'translate-x-full'}`}
         >
           <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 shadow-md border-b p-4">
@@ -708,10 +999,10 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                 <span className="sr-only">Cerrar</span>
               </Button>
             </div>
-            
-            <Tabs 
-              value={visitorAnalyticsTab} 
-              onValueChange={(value) => setVisitorAnalyticsTab(value as any)} 
+
+            <Tabs
+              value={visitorAnalyticsTab}
+              onValueChange={(value) => setVisitorAnalyticsTab(value as any)}
               className="mt-4"
             >
               <TabsList className="grid w-full grid-cols-3">
@@ -721,11 +1012,11 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
               </TabsList>
             </Tabs>
           </div>
-          
+
           <div className="p-4 md:p-6">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
-                <Select 
+                <Select
                   value={timeRange}
                   onValueChange={(value) => {
                     console.log(`Cambiando rango de tiempo a: ${value}`);
@@ -743,13 +1034,13 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                     <SelectItem value="365d">Último año</SelectItem>
                   </SelectContent>
                 </Select>
-                
+
                 <Button variant="outline" onClick={handleExport} className="flex items-center gap-1">
                   <Download className="h-4 w-4" />
                   <span className="hidden md:inline">Exportar</span>
                 </Button>
               </div>
-              
+
               <div className="relative">
                 <input
                   type="text"
@@ -760,7 +1051,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                 />
               </div>
             </div>
-            
+
             {isLoadingVisitors ? (
               <div className="flex justify-center items-center h-60">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -768,389 +1059,387 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
             ) : (
               <Tabs value={visitorAnalyticsTab}>
                 <TabsContent value="overview" className="mt-4 space-y-6">
-                {visitorMetrics ? (
-                  <>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <Card>
-                        <CardContent className="pt-6">
-                          <div className="text-2xl md:text-3xl font-bold">{visitorMetrics.totalUniqueVisitors}</div>
-                          <p className="text-sm text-muted-foreground">Visitantes Únicos</p>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="pt-6">
-                          <div className="text-2xl md:text-3xl font-bold">{visitorMetrics.avgVisitsPerUser.toFixed(1)}</div>
-                          <p className="text-sm text-muted-foreground">Visitas Promedio</p>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="pt-6">
-                          <div className="text-2xl md:text-3xl font-bold">{formatDuration(Math.round(visitorMetrics.avgDuration))}</div>
-                          <p className="text-sm text-muted-foreground">Tiempo Promedio</p>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="pt-6">
-                          <div className="text-2xl md:text-3xl font-bold">{viewEvents.length}</div>
-                          <p className="text-sm text-muted-foreground">Total Eventos</p>
-                        </CardContent>
-                      </Card>
+                  {visitorMetrics ? (
+                    <>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Card>
+                          <CardContent className="pt-6">
+                            <div className="text-2xl md:text-3xl font-bold">{visitorMetrics.totalUniqueVisitors}</div>
+                            <p className="text-sm text-muted-foreground">Visitantes Únicos</p>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardContent className="pt-6">
+                            <div className="text-2xl md:text-3xl font-bold">{visitorMetrics.avgVisitsPerUser.toFixed(1)}</div>
+                            <p className="text-sm text-muted-foreground">Visitas Promedio</p>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardContent className="pt-6">
+                            <div className="text-2xl md:text-3xl font-bold">{formatDuration(Math.round(visitorMetrics.avgDuration))}</div>
+                            <p className="text-sm text-muted-foreground">Tiempo Promedio</p>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardContent className="pt-6">
+                            <div className="text-2xl md:text-3xl font-bold">{viewEvents.length}</div>
+                            <p className="text-sm text-muted-foreground">Total Eventos</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Distribución por Dispositivo</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <SimpleBarChart data={visitorMetrics.devices.map(item => ({
+                              name: item.label,
+                              value: item.value
+                            }))} />
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Distribución por Navegador</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <SimpleBarChart data={visitorMetrics.browsers.map(item => ({
+                              name: item.label,
+                              value: item.value
+                            }))} />
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Distribución por Sistema</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <SimpleBarChart data={visitorMetrics.operatingSystems.map(item => ({
+                              name: item.label,
+                              value: item.value
+                            }))} />
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Distribución por País</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <SimpleBarChart data={visitorMetrics.countries.map(item => ({
+                              name: item.label,
+                              value: item.value
+                            }))} />
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center p-8 flex flex-col items-center">
+                      <Eye className="h-10 w-10 text-slate-300 mb-3" />
+                      <p className="text-muted-foreground font-medium">
+                        No se encontraron datos de visitantes.
+                      </p>
+                      <p className="text-sm text-slate-500 mt-2 max-w-md">
+                        No hay registros de visitantes para este producto en el período seleccionado ({timeRange === '7d' ? 'últimos 7 días' :
+                          timeRange === '30d' ? 'últimos 30 días' :
+                            timeRange === '90d' ? 'últimos 90 días' : 'último año'}).
+                      </p>
+                      <p className="text-xs text-slate-400 mt-2">
+                        Posibles razones:
+                        <ul className="text-left mt-1 list-disc pl-5">
+                          <li>No se ha registrado ninguna visita en este período</li>
+                          <li>Las visitas no se están registrando correctamente</li>
+                          <li>El producto es nuevo o tiene poca visibilidad</li>
+                        </ul>
+                      </p>
+                      <div className="flex gap-3 mt-4">
+                        <Button
+                          variant="outline"
+                          className="text-sm text-indigo-600"
+                          onClick={() => {
+                            // Recargar datos reales con otro rango de tiempo
+                            const timeRanges = ['7d', '30d', '90d', '365d'];
+                            const currentIndex = timeRanges.indexOf(timeRange);
+                            const nextRange = timeRanges[(currentIndex + 1) % timeRanges.length];
+                            console.log(`Cambiando rango de tiempo a: ${nextRange}`);
+                            setTimeRange(nextRange);
+                          }}
+                        >
+                          Probar con otro período
+                        </Button>
+                        <Button
+                          variant="default"
+                          className="text-sm bg-indigo-600"
+                          onClick={() => {
+                            // Recargar datos reales
+                            const startDate = getDateForTimeRange(timeRange);
+                            const endDate = new Date().toISOString();
+                            setIsLoadingVisitors(true);
+
+                            Promise.all([
+                              getVisitorAnalytics(selectedProduct?.id, startDate, endDate),
+                              getDetailedViewEvents(selectedProduct?.id, startDate, endDate)
+                            ]).then(([visitors, events]) => {
+                              setVisitorData(visitors);
+                              setViewEvents(events);
+                              setIsLoadingVisitors(false);
+                            }).catch(error => {
+                              console.error("Error al recargar datos:", error);
+                              setIsLoadingVisitors(false);
+                            });
+                          }}
+                        >
+                          Reintentar carga
+                        </Button>
+                      </div>
                     </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-base">Distribución por Dispositivo</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <SimpleBarChart data={visitorMetrics.devices.map(item => ({ 
-                            name: item.label, 
-                            value: item.value 
-                          }))} />
-                        </CardContent>
-                      </Card>
-                      
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-base">Distribución por Navegador</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <SimpleBarChart data={visitorMetrics.browsers.map(item => ({ 
-                            name: item.label, 
-                            value: item.value 
-                          }))} />
-                        </CardContent>
-                      </Card>
-                      
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-base">Distribución por Sistema</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <SimpleBarChart data={visitorMetrics.operatingSystems.map(item => ({ 
-                            name: item.label, 
-                            value: item.value 
-                          }))} />
-                        </CardContent>
-                      </Card>
-                      
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-base">Distribución por País</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <SimpleBarChart data={visitorMetrics.countries.map(item => ({ 
-                            name: item.label, 
-                            value: item.value 
-                          }))} />
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center p-8 flex flex-col items-center">
-                    <Eye className="h-10 w-10 text-slate-300 mb-3" />
-                    <p className="text-muted-foreground font-medium">
-                      No se encontraron datos de visitantes.
-                    </p>
-                    <p className="text-sm text-slate-500 mt-2 max-w-md">
-                      No hay registros de visitantes para este producto en el período seleccionado ({timeRange === '7d' ? 'últimos 7 días' : 
-                      timeRange === '30d' ? 'últimos 30 días' : 
-                      timeRange === '90d' ? 'últimos 90 días' : 'último año'}).
-                    </p>
-                    <p className="text-xs text-slate-400 mt-2">
-                      Posibles razones:
-                      <ul className="text-left mt-1 list-disc pl-5">
-                        <li>No se ha registrado ninguna visita en este período</li>
-                        <li>Las visitas no se están registrando correctamente</li>
-                        <li>El producto es nuevo o tiene poca visibilidad</li>
-                      </ul>
-                    </p>
-                    <div className="flex gap-3 mt-4">
-                      <Button 
-                        variant="outline"
-                        className="text-sm text-indigo-600"
-                        onClick={() => {
-                          // Recargar datos reales con otro rango de tiempo
-                          const timeRanges = ['7d', '30d', '90d', '365d'];
-                          const currentIndex = timeRanges.indexOf(timeRange);
-                          const nextRange = timeRanges[(currentIndex + 1) % timeRanges.length];
-                          console.log(`Cambiando rango de tiempo a: ${nextRange}`);
-                          setTimeRange(nextRange);
-                        }}
-                      >
-                        Probar con otro período
-                      </Button>
-                      <Button 
-                        variant="default"
-                        className="text-sm bg-indigo-600"
-                        onClick={() => {
-                          // Recargar datos reales
-                          const startDate = getDateForTimeRange(timeRange);
-                          const endDate = new Date().toISOString();
-                          setIsLoadingVisitors(true);
-                          
-                          Promise.all([
-                            getVisitorAnalytics(selectedProduct?.id, startDate, endDate),
-                            getDetailedViewEvents(selectedProduct?.id, startDate, endDate)
-                          ]).then(([visitors, events]) => {
-                            setVisitorData(visitors);
-                            setViewEvents(events);
-                            setIsLoadingVisitors(false);
-                          }).catch(error => {
-                            console.error("Error al recargar datos:", error);
-                            setIsLoadingVisitors(false);
-                          });
-                        }}
-                      >
-                        Reintentar carga
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
-            
-            <TabsContent value="visitors" className="mt-4">
-              <Card>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12">Usuario</TableHead>
-                          <TableHead>Nombre</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Visitas</TableHead>
-                          <TableHead>Última Visita</TableHead>
-                          <TableHead>Dispositivo</TableHead>
-                          <TableHead>Ubicación</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredVisitors.length ? (
-                          filteredVisitors.map((visitor) => (
-                            <TableRow key={visitor.userId}>
-                              <TableCell>
-                                <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center">
-                                  {visitor.avatarUrl ? (
-                                    <img src={visitor.avatarUrl} alt={visitor.displayName || 'Usuario'} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <span className="text-xs font-medium">{(visitor.displayName || 'U').charAt(0)}</span>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="font-medium">
-                                {visitor.isAnonymous ? (
-                                  <span className="flex items-center">
-                                    <span className="mr-1.5">Anónimo</span>
-                                    <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-600">No identificado</span>
-                                  </span>
-                                ) : (
-                                  <span className="flex items-center">
-                                    <span className="mr-1.5">{visitor.displayName || 'Usuario'}</span>
-                                    <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs">Registrado</span>
-                                  </span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                {visitor.email ? (
-                                  <span className="text-blue-600 font-medium">{visitor.email}</span>
-                                ) : (
-                                  <span className="text-gray-400 italic">No disponible</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <span className="font-medium">{visitor.totalVisits}</span>
-                                {visitor.visits && visitor.visits.length > 0 && (
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    Última: {visitor.visits[0].date} {visitor.visits[0].time}
-                                  </div>
-                                )}
-                              </TableCell>
-                              <TableCell>{formatDate(visitor.lastSeen || visitor.firstVisit)}</TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
-                                    {visitor.deviceInfo?.browser || 'N/A'}
-                                  </span>
-                                  <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
-                                    {visitor.deviceInfo?.device || 'N/A'}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell>{visitor.location?.country || 'N/A'}{visitor.location?.city ? `, ${visitor.location.city}` : ''}</TableCell>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="visitors" className="mt-4">
+                  <Card>
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-12">Usuario</TableHead>
+                              <TableHead>Nombre</TableHead>
+                              <TableHead>Email</TableHead>
+                              <TableHead>Visitas</TableHead>
+                              <TableHead>Última Visita</TableHead>
+                              <TableHead>Dispositivo</TableHead>
+                              <TableHead>Ubicación</TableHead>
                             </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={7}>
-                              <div className="text-center py-10 flex flex-col items-center">
-                                <Eye className="h-8 w-8 text-slate-300 mb-2" />
-                                <p className="text-muted-foreground font-medium">
-                                  {visitorSearchQuery 
-                                    ? 'No se encontraron visitantes que coincidan con la búsqueda.' 
-                                    : 'No hay datos de visitantes disponibles.'}
-                                </p>
-                                <p className="text-xs text-slate-400 mt-2 max-w-md">
-                                  {visitorSearchQuery 
-                                    ? 'Prueba con otra búsqueda o elimina los filtros aplicados.' 
-                                    : `No hay registros de visitantes para este producto en el período seleccionado (${
-                                      timeRange === '7d' ? 'últimos 7 días' : 
-                                      timeRange === '30d' ? 'últimos 30 días' : 
-                                      timeRange === '90d' ? 'últimos 90 días' : 'último año'
-                                    }).`}
-                                </p>
-                                <Button 
-                                  variant="outline"
-                                  className="mt-4 text-xs text-indigo-600"
-                                  onClick={() => {
-                                    if (visitorSearchQuery) {
-                                      setVisitorSearchQuery('');
-                                    } else {
-                                      // Recargar datos reales con otro rango de tiempo
-                                      const timeRanges = ['7d', '30d', '90d', '365d'];
-                                      const currentIndex = timeRanges.indexOf(timeRange);
-                                      const nextRange = timeRanges[(currentIndex + 1) % timeRanges.length];
-                                      console.log(`Cambiando rango de tiempo a: ${nextRange}`);
-                                      setTimeRange(nextRange);
-                                    }
-                                  }}
-                                >
-                                  {visitorSearchQuery ? 'Limpiar búsqueda' : 'Probar con otro período'}
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="events" className="mt-4">
-              <Card>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Fecha/Hora</TableHead>
-                          <TableHead>Usuario</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Dispositivo</TableHead>
-                          <TableHead>Sistema</TableHead>
-                          <TableHead>Estado</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {visitorData.flatMap(visitor => 
-                            (visitor.visits || []).map((visit, index) => (
-                              <TableRow key={`${visitor.userId}-${index}`}>
-                                <TableCell>
-                                  <div className="font-medium">{visit.date}</div>
-                                  <div className="text-xs text-gray-500">{visit.time}</div>
-                                </TableCell>
-                                <TableCell>
-                                  {visitor.isAnonymous ? (
-                                    <span className="text-gray-500 flex items-center gap-1">
-                                      Anónimo
-                                      <span className="w-2 h-2 rounded-full bg-gray-300"></span>
-                                    </span>
-                                  ) : (
-                                    <span className="font-medium">{visitor.displayName || 'Usuario'}</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  {visitor.email ? (
-                                    <span className="text-blue-600">{visitor.email}</span>
-                                  ) : (
-                                    <span className="text-gray-400 italic">No disponible</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
-                                      {visit.deviceInfo?.device || 'Desconocido'}
-                                    </span>
-                                    {visit.deviceInfo?.isMobile && (
-                                      <span className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded">Móvil</span>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
-                                      {visit.deviceInfo?.browser || 'Desconocido'}
-                                    </span>
-                                    <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
-                                      {visit.deviceInfo?.os || 'Desconocido'}
-                                    </span>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex flex-col">
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">
-                                      Completada
-                                    </span>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredVisitors.length ? (
+                              filteredVisitors.map((visitor) => (
+                                <TableRow key={visitor.userId}>
+                                  <TableCell>
+                                    <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center">
+                                      {visitor.avatarUrl ? (
+                                        <img src={visitor.avatarUrl} alt={visitor.displayName || 'Usuario'} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <span className="text-xs font-medium">{(visitor.displayName || 'U').charAt(0)}</span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="font-medium">
                                     {visitor.isAnonymous ? (
-                                      <span className="text-xs text-gray-500 mt-1">Visitante anónimo</span>
+                                      <span className="flex items-center">
+                                        <span className="mr-1.5">Anónimo</span>
+                                        <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-600">No identificado</span>
+                                      </span>
                                     ) : (
-                                      <span className="text-xs text-indigo-600 mt-1">Usuario registrado</span>
+                                      <span className="flex items-center">
+                                        <span className="mr-1.5">{visitor.displayName || 'Usuario'}</span>
+                                        <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs">Registrado</span>
+                                      </span>
                                     )}
+                                  </TableCell>
+                                  <TableCell>
+                                    {visitor.email ? (
+                                      <span className="text-blue-600 font-medium">{visitor.email}</span>
+                                    ) : (
+                                      <span className="text-gray-400 italic">No disponible</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className="font-medium">{visitor.totalVisits}</span>
+                                    {visitor.visits && visitor.visits.length > 0 && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        Última: {visitor.visits[0].date} {visitor.visits[0].time}
+                                      </div>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>{formatDate(visitor.lastSeen || visitor.firstVisit)}</TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
+                                        {visitor.deviceInfo?.browser || 'N/A'}
+                                      </span>
+                                      <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
+                                        {visitor.deviceInfo?.device || 'N/A'}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>{visitor.location?.country || 'N/A'}{visitor.location?.city ? `, ${visitor.location.city}` : ''}</TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell colSpan={7}>
+                                  <div className="text-center py-10 flex flex-col items-center">
+                                    <Eye className="h-8 w-8 text-slate-300 mb-2" />
+                                    <p className="text-muted-foreground font-medium">
+                                      {visitorSearchQuery
+                                        ? 'No se encontraron visitantes que coincidan con la búsqueda.'
+                                        : 'No hay datos de visitantes disponibles.'}
+                                    </p>
+                                    <p className="text-xs text-slate-400 mt-2 max-w-md">
+                                      {visitorSearchQuery
+                                        ? 'Prueba con otra búsqueda o elimina los filtros aplicados.'
+                                        : `No hay registros de visitantes para este producto en el período seleccionado (${timeRange === '7d' ? 'últimos 7 días' :
+                                          timeRange === '30d' ? 'últimos 30 días' :
+                                            timeRange === '90d' ? 'últimos 90 días' : 'último año'
+                                        }).`}
+                                    </p>
+                                    <Button
+                                      variant="outline"
+                                      className="mt-4 text-xs text-indigo-600"
+                                      onClick={() => {
+                                        if (visitorSearchQuery) {
+                                          setVisitorSearchQuery('');
+                                        } else {
+                                          // Recargar datos reales con otro rango de tiempo
+                                          const timeRanges = ['7d', '30d', '90d', '365d'];
+                                          const currentIndex = timeRanges.indexOf(timeRange);
+                                          const nextRange = timeRanges[(currentIndex + 1) % timeRanges.length];
+                                          console.log(`Cambiando rango de tiempo a: ${nextRange}`);
+                                          setTimeRange(nextRange);
+                                        }
+                                      }}
+                                    >
+                                      {visitorSearchQuery ? 'Limpiar búsqueda' : 'Probar con otro período'}
+                                    </Button>
                                   </div>
                                 </TableCell>
                               </TableRow>
-                            ))
-                          )}
-                          {!visitorData.some(v => v.visits && v.visits.length > 0) && (
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="events" className="mt-4">
+                  <Card>
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
                             <TableRow>
-                              <TableCell colSpan={6}>
-                                <div className="text-center py-10 flex flex-col items-center">
-                                  <LineChart className="h-8 w-8 text-slate-300 mb-2" />
-                                  <p className="text-muted-foreground font-medium">
-                                    {visitorSearchQuery 
-                                      ? 'No se encontraron eventos que coincidan con la búsqueda.' 
-                                      : 'No hay datos de eventos disponibles.'}
-                                  </p>
-                                  <p className="text-xs text-slate-400 mt-2 max-w-md">
-                                    {visitorSearchQuery 
-                                      ? 'Prueba con otra búsqueda o elimina los filtros aplicados.' 
-                                      : `No hay registros de eventos para este producto en el período seleccionado (${
-                                        timeRange === '7d' ? 'últimos 7 días' : 
-                                        timeRange === '30d' ? 'últimos 30 días' : 
-                                        timeRange === '90d' ? 'últimos 90 días' : 'último año'
-                                      }).`}
-                                  </p>
-                                  <Button 
-                                    variant="outline"
-                                    className="mt-4 text-xs text-indigo-600"
-                                    onClick={() => {
-                                      if (visitorSearchQuery) {
-                                        setVisitorSearchQuery('');
-                                      } else {
-                                        // Recargar datos reales con otro rango de tiempo
-                                        const timeRanges = ['7d', '30d', '90d', '365d'];
-                                        const currentIndex = timeRanges.indexOf(timeRange);
-                                        const nextRange = timeRanges[(currentIndex + 1) % timeRanges.length];
-                                        console.log(`Cambiando rango de tiempo a: ${nextRange}`);
-                                        setTimeRange(nextRange);
-                                      }
-                                    }}
-                                  >
-                                    {visitorSearchQuery ? 'Limpiar búsqueda' : 'Probar con otro período'}
-                                  </Button>
-                                </div>
-                              </TableCell>
+                              <TableHead>Fecha/Hora</TableHead>
+                              <TableHead>Usuario</TableHead>
+                              <TableHead>Email</TableHead>
+                              <TableHead>Dispositivo</TableHead>
+                              <TableHead>Sistema</TableHead>
+                              <TableHead>Estado</TableHead>
                             </TableRow>
-                          )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                          </TableHeader>
+                          <TableBody>
+                            {visitorData.flatMap(visitor =>
+                              (visitor.visits || []).map((visit, index) => (
+                                <TableRow key={`${visitor.userId}-${index}`}>
+                                  <TableCell>
+                                    <div className="font-medium">{visit.date}</div>
+                                    <div className="text-xs text-gray-500">{visit.time}</div>
+                                  </TableCell>
+                                  <TableCell>
+                                    {visitor.isAnonymous ? (
+                                      <span className="text-gray-500 flex items-center gap-1">
+                                        Anónimo
+                                        <span className="w-2 h-2 rounded-full bg-gray-300"></span>
+                                      </span>
+                                    ) : (
+                                      <span className="font-medium">{visitor.displayName || 'Usuario'}</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    {visitor.email ? (
+                                      <span className="text-blue-600">{visitor.email}</span>
+                                    ) : (
+                                      <span className="text-gray-400 italic">No disponible</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
+                                        {visit.deviceInfo?.device || 'Desconocido'}
+                                      </span>
+                                      {visit.deviceInfo?.isMobile && (
+                                        <span className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded">Móvil</span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
+                                        {visit.deviceInfo?.browser || 'Desconocido'}
+                                      </span>
+                                      <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
+                                        {visit.deviceInfo?.os || 'Desconocido'}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-col">
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">
+                                        Completada
+                                      </span>
+                                      {visitor.isAnonymous ? (
+                                        <span className="text-xs text-gray-500 mt-1">Visitante anónimo</span>
+                                      ) : (
+                                        <span className="text-xs text-indigo-600 mt-1">Usuario registrado</span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            )}
+                            {!visitorData.some(v => v.visits && v.visits.length > 0) && (
+                              <TableRow>
+                                <TableCell colSpan={6}>
+                                  <div className="text-center py-10 flex flex-col items-center">
+                                    <LineChart className="h-8 w-8 text-slate-300 mb-2" />
+                                    <p className="text-muted-foreground font-medium">
+                                      {visitorSearchQuery
+                                        ? 'No se encontraron eventos que coincidan con la búsqueda.'
+                                        : 'No hay datos de eventos disponibles.'}
+                                    </p>
+                                    <p className="text-xs text-slate-400 mt-2 max-w-md">
+                                      {visitorSearchQuery
+                                        ? 'Prueba con otra búsqueda o elimina los filtros aplicados.'
+                                        : `No hay registros de eventos para este producto en el período seleccionado (${timeRange === '7d' ? 'últimos 7 días' :
+                                          timeRange === '30d' ? 'últimos 30 días' :
+                                            timeRange === '90d' ? 'últimos 90 días' : 'último año'
+                                        }).`}
+                                    </p>
+                                    <Button
+                                      variant="outline"
+                                      className="mt-4 text-xs text-indigo-600"
+                                      onClick={() => {
+                                        if (visitorSearchQuery) {
+                                          setVisitorSearchQuery('');
+                                        } else {
+                                          // Recargar datos reales con otro rango de tiempo
+                                          const timeRanges = ['7d', '30d', '90d', '365d'];
+                                          const currentIndex = timeRanges.indexOf(timeRange);
+                                          const nextRange = timeRanges[(currentIndex + 1) % timeRanges.length];
+                                          console.log(`Cambiando rango de tiempo a: ${nextRange}`);
+                                          setTimeRange(nextRange);
+                                        }
+                                      }}
+                                    >
+                                      {visitorSearchQuery ? 'Limpiar búsqueda' : 'Probar con otro período'}
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
               </Tabs>
             )}
           </div>
@@ -1159,38 +1448,447 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
     );
   };
 
+  // Formatear fecha para el selector
+  const formatDateForInput = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const handleDateRangeChange = (type: 'start' | 'end', value: string) => {
+    const newDate = new Date(value);
+    if (type === 'start') {
+      setDateRange({ ...dateRange, start: newDate });
+    } else {
+      setDateRange({ ...dateRange, end: newDate });
+    }
+  };
+
   return (
-    <div className="space-y-6 pb-12">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-100">
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex h-12 w-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 items-center justify-center text-white shadow-lg shadow-indigo-200">
-            <BarChart3 className="h-6 w-6" />
-          </div>
-          <div>
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
-              Análisis de Productos
+    <div className="space-y-4 sm:space-y-6 pb-8 sm:pb-12 bg-white rounded-lg shadow-sm">
+      {/* Header con título y selector de fechas - Estilo AdminLTE */}
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-800">
+              ESTADÍSTICAS DE PRODUCTO
             </h2>
-            <p className="text-slate-500 text-sm md:text-base">
-              Métricas detalladas sobre las vistas y rendimiento de tus productos
-            </p>
           </div>
-        </div>
-        <div className="flex items-center gap-3 self-end">
-          <div className="hidden md:block text-xs text-slate-500 pr-2 border-r">
-            <p>Última actualización:</p>
-            <p className="font-medium">{new Date().toLocaleDateString()}</p>
+
+          {/* Selector de rango de fechas - Estilo AdminLTE */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Select
+                defaultValue="7d"
+                onValueChange={(value) => {
+                  const end = new Date();
+                  const start = new Date();
+                  const days = value === '7d' ? 7 : value === '30d' ? 30 : value === '90d' ? 90 : 365;
+                  start.setDate(start.getDate() - days);
+                  setDateRange({ start, end });
+                }}
+              >
+                <SelectTrigger className="flex-1 sm:w-[140px] h-9 border-gray-300">
+                  <SelectValue placeholder="Período" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7d">Últimos 7 días</SelectItem>
+                  <SelectItem value="30d">Últimos 30 días</SelectItem>
+                  <SelectItem value="90d">Últimos 90 días</SelectItem>
+                  <SelectItem value="365d">Último año</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                size="sm"
+                onClick={() => fetchSalesMetrics()}
+                className="h-9 bg-blue-600 hover:bg-blue-700 text-white sm:hidden px-4"
+              >
+                OK
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-1 sm:gap-2 text-sm text-gray-700 bg-white border border-gray-300 rounded px-2 py-1.5 sm:py-1">
+              <Calendar className="h-4 w-4 text-gray-500 hidden xs:block" />
+              <input
+                type="date"
+                value={formatDateForInput(dateRange.start)}
+                onChange={(e) => handleDateRangeChange('start', e.target.value)}
+                className="border-0 outline-none text-[12px] sm:text-sm w-full xs:w-28 bg-transparent"
+              />
+              <span className="text-gray-400">al</span>
+              <input
+                type="date"
+                value={formatDateForInput(dateRange.end)}
+                onChange={(e) => handleDateRangeChange('end', e.target.value)}
+                className="border-0 outline-none text-[12px] sm:text-sm w-full xs:w-28 bg-transparent"
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={() => fetchSalesMetrics()}
+              className="hidden sm:flex h-9 bg-blue-600 hover:bg-blue-700 text-white px-4"
+            >
+              OK
+            </Button>
           </div>
-          <Button 
-            onClick={handleExport}
-            className="flex items-center bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 transition-all shadow-md hover:shadow-lg"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            <span className="hidden md:inline">Exportar a </span>Excel
-          </Button>
         </div>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+      {/* Tabs principales - Estilo AdminLTE */}
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 overflow-x-auto scrollbar-hide">
+        <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as any)}>
+          <TabsList className="bg-transparent border-b border-gray-200 h-auto p-0 flex-nowrap whitespace-nowrap">
+            <TabsTrigger
+              value="general"
+              className="px-3 sm:px-4 py-3 data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent rounded-none text-xs sm:text-sm"
+            >
+              GENERAL
+            </TabsTrigger>
+            <TabsTrigger
+              value="bought-together"
+              className="px-3 sm:px-4 py-3 data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent rounded-none text-xs sm:text-sm"
+            >
+              COMPRADOS CONJUNTAMENTE
+            </TabsTrigger>
+            <TabsTrigger
+              value="ranking"
+              className="px-3 sm:px-4 py-3 data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent rounded-none text-xs sm:text-sm"
+            >
+              RANKING
+            </TabsTrigger>
+            <TabsTrigger
+              value="audience"
+              className="px-3 sm:px-4 py-3 data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent rounded-none text-xs sm:text-sm"
+            >
+              AUDIENCIA
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* KPIs en paneles de colores - Estilo AdminLTE más fiel */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 px-4 sm:px-6 py-4 bg-gray-50/50">
+        {/* VENTAS - Verde */}
+        <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4 sm:p-5 relative overflow-hidden">
+            <div className="flex items-start justify-between relative z-10">
+              <div className="flex-1">
+                <p className="text-green-50 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-2 opacity-90">VENTAS</p>
+                <div className="space-y-0.5 sm:space-y-1">
+                  <p className="text-xl sm:text-2xl font-bold leading-tight">Online:</p>
+                  <p className="text-xl sm:text-2xl font-semibold break-all">{loadingMetrics ? '...' : `${salesData.online.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`}</p>
+                  <p className="text-xs text-green-50 opacity-80 mt-2">Otros: {salesData.others.toLocaleString('es-AR', { minimumFractionDigits: 2 })} €</p>
+                </div>
+              </div>
+              <div className="opacity-20 absolute -right-2 -top-2">
+                <DollarSign className="h-16 w-16 sm:h-20 sm:w-20" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* VISITAS - Azul */}
+        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4 sm:p-5 relative overflow-hidden">
+            <div className="flex items-start justify-between relative z-10">
+              <div className="flex-1">
+                <p className="text-blue-50 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-2 opacity-90">VISITAS</p>
+                <p className="text-2xl sm:text-3xl font-bold leading-tight mt-2">{loadingMetrics ? '...' : visitsData.toLocaleString()}</p>
+              </div>
+              <div className="opacity-20 absolute -right-2 -top-2">
+                <BarChart3 className="h-16 w-16 sm:h-20 sm:w-20" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* COMPRADO - Naranja */}
+        <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4 sm:p-5 relative overflow-hidden">
+            <div className="flex items-start justify-between relative z-10">
+              <div className="flex-1">
+                <p className="text-orange-50 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-2 opacity-90">COMPRADOS</p>
+                <div className="space-y-0.5 sm:space-y-1">
+                  <p className="text-xs text-orange-50 opacity-80 mt-1">Online:</p>
+                  <p className="text-2xl sm:text-3xl font-bold leading-tight">{loadingMetrics ? '...' : purchasedData.online}</p>
+                  <p className="text-xs text-orange-50 opacity-80 mt-2">Otros: {purchasedData.others}</p>
+                </div>
+              </div>
+              <div className="opacity-20 absolute -right-2 -top-2">
+                <ShoppingBag className="h-16 w-16 sm:h-20 sm:w-20" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* RATIO DE CONVERSIÓN - Púrpura/Magenta */}
+        <Card className="bg-gradient-to-br from-purple-500 to-pink-600 text-white border-0 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4 sm:p-5 relative overflow-hidden">
+            <div className="flex items-start justify-between relative z-10">
+              <div className="flex-1">
+                <p className="text-purple-50 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-2 opacity-90">CONVERSIÓN</p>
+                <p className="text-2xl sm:text-3xl font-bold leading-tight mt-2">{loadingMetrics ? '...' : `${conversionRate.toFixed(1)}%`}</p>
+              </div>
+              <div className="opacity-20 absolute -right-2 -top-2">
+                <TrendingUp className="h-16 w-16 sm:h-20 sm:w-20" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Contenido de los tabs */}
+      <div className="px-6 pb-6">
+        <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as any)}>
+          {/* Tab GENERAL */}
+          <TabsContent value="general" className="space-y-6 mt-6">
+            {/* Métricas adicionales */}
+            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-gray-50/80 p-3 sm:p-4 rounded-lg border border-gray-200">
+                <p className="text-[10px] sm:text-xs text-gray-500 mb-1 font-bold uppercase tracking-wider">Abandonos Cesta</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{loadingMetrics ? '...' : additionalMetrics.cartAbandonments}</p>
+              </div>
+              <div className="bg-gray-50/80 p-3 sm:p-4 rounded-lg border border-gray-200">
+                <p className="text-[10px] sm:text-xs text-gray-500 mb-1 font-bold uppercase tracking-wider">Packs Producto</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{loadingMetrics ? '...' : additionalMetrics.productPacks}</p>
+              </div>
+              <div className="bg-gray-50/80 p-3 sm:p-4 rounded-lg border border-gray-200">
+                <p className="text-[10px] sm:text-xs text-gray-500 mb-1 font-bold uppercase tracking-wider">En Listas</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{loadingMetrics ? '...' : additionalMetrics.inShoppingLists}</p>
+              </div>
+              <div className="bg-gray-50/80 p-3 sm:p-4 rounded-lg border border-gray-200">
+                <p className="text-[10px] sm:text-xs text-gray-500 mb-1 font-bold uppercase tracking-wider">Ranking Pedidos</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{loadingMetrics ? '...' : `${additionalMetrics.rankingByOrders.toFixed(2)}%`}</p>
+              </div>
+            </div>
+
+            {/* Gráfico de línea de ventas - Estilo AdminLTE */}
+            <Card className="border border-gray-200 shadow-sm">
+              <CardHeader className="bg-white border-b border-gray-200">
+                <CardTitle className="text-lg font-semibold text-gray-800">VENTAS</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6">
+                {salesTrend.length > 0 ? (
+                  <div className="h-48 sm:h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={salesTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: '#6b7280', fontSize: 10 }}
+                          interval="preserveStartEnd"
+                          minTickGap={30}
+                          tickFormatter={(date) => {
+                            const d = new Date(date);
+                            return `${d.getDate()}/${d.getMonth() + 1}`;
+                          }}
+                          stroke="#d1d5db"
+                        />
+                        <YAxis
+                          tick={{ fill: '#6b7280', fontSize: 12 }}
+                          tickFormatter={(value) => {
+                            if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+                            return value.toString();
+                          }}
+                          stroke="#d1d5db"
+                        />
+                        <Tooltip
+                          formatter={(value: any) => [`${Number(value).toFixed(2)} €`, 'Ventas']}
+                          labelFormatter={(date) => {
+                            const d = new Date(date);
+                            return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                          }}
+                          contentStyle={{
+                            backgroundColor: 'white',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '6px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="sales"
+                          stroke="#3b82f6"
+                          fill="url(#colorSales)"
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{ r: 4, fill: '#3b82f6' }}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-64 flex items-center justify-center text-gray-500 bg-gray-50 rounded">
+                    <div className="text-center">
+                      <BarChart3 className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                      <p>No hay datos de ventas para el período seleccionado</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Gráficos de dona para top clientes - Estilo AdminLTE */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Top clientes por precio */}
+              <Card className="border border-gray-200 shadow-sm">
+                <CardHeader className="bg-white border-b border-gray-200">
+                  <CardTitle className="text-sm sm:text-base font-semibold text-gray-800">TOP #6 PRINCIPALES CLIENTES POR PRECIO</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-6">
+                  {topCustomersByPrice.length > 0 ? (
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={topCustomersByPrice}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius="80%"
+                            innerRadius="50%"
+                            label={({ value }) => `${value.toFixed(0)}€`}
+                            labelLine={false}
+                          >
+                            {topCustomersByPrice.map((_, index) => (
+                              <Cell key={`cell-price-${index}`} fill={pieColors[index % pieColors.length]} stroke="#fff" strokeWidth={2} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip
+                            formatter={(value: any) => `${Number(value).toFixed(2)} €`}
+                            contentStyle={{
+                              backgroundColor: 'white',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '6px'
+                            }}
+                          />
+                          <Legend
+                            verticalAlign="bottom"
+                            height={36}
+                            formatter={(value, entry: any) => {
+                              const data = topCustomersByPrice.find(c => c.name === value);
+                              return data ? `${value} (${data.value.toFixed(2)}€)` : value;
+                            }}
+                            wrapperStyle={{ fontSize: '12px', paddingTop: '20px' }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="h-80 flex items-center justify-center text-gray-500 bg-gray-50 rounded">
+                      <div className="text-center">
+                        <Users className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                        <p>No hay datos de clientes disponibles</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Top clientes por número de pedidos */}
+              <Card className="border border-gray-200 shadow-sm">
+                <CardHeader className="bg-white border-b border-gray-200">
+                  <CardTitle className="text-sm sm:text-base font-semibold text-gray-800">TOP #6 PRINCIPALES CLIENTES POR PEDIDOS</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-6">
+                  {topCustomersByOrders.length > 0 ? (
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={topCustomersByOrders}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius="80%"
+                            innerRadius="50%"
+                            label={({ value }) => `${value}`}
+                            labelLine={false}
+                          >
+                            {topCustomersByOrders.map((_, index) => (
+                              <Cell key={`cell-orders-${index}`} fill={pieColors[(index + 6) % pieColors.length]} stroke="#fff" strokeWidth={2} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip
+                            formatter={(value: any) => `${value} pedidos`}
+                            contentStyle={{
+                              backgroundColor: 'white',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '6px'
+                            }}
+                          />
+                          <Legend
+                            verticalAlign="bottom"
+                            height={36}
+                            formatter={(value, entry: any) => {
+                              const data = topCustomersByOrders.find(c => c.name === value);
+                              return data ? `${value} (${data.value} pedidos)` : value;
+                            }}
+                            wrapperStyle={{ fontSize: '12px', paddingTop: '20px' }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="h-80 flex items-center justify-center text-gray-500 bg-gray-50 rounded">
+                      <div className="text-center">
+                        <ShoppingBag className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                        <p>No hay datos de pedidos disponibles</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Otros tabs - por ahora con contenido básico */}
+          <TabsContent value="bought-together" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Productos Comprados Conjuntamente</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-500">Funcionalidad en desarrollo...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="ranking" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Ranking en la Categoría</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-500">Funcionalidad en desarrollo...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="audience" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Audiencia</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-500">Funcionalidad en desarrollo...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-4 sm:px-6 pb-6">
         {/* Tarjeta de tendencia general - Versión mejorada */}
         <Card className="md:col-span-3 overflow-hidden border-0 shadow-lg">
           <CardHeader className="pb-2 bg-gradient-to-r from-indigo-50 to-slate-50 dark:from-indigo-950/30 dark:to-slate-900">
@@ -1211,8 +1909,8 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                   <div className="flex h-2 w-2 rounded-full bg-indigo-500"></div>
                   <span>{trend.reduce((sum, day) => sum + day.views, 0).toLocaleString()} vistas totales</span>
                 </div>
-                <Select 
-                  defaultValue={timeRange} 
+                <Select
+                  defaultValue={timeRange}
                   onValueChange={setTimeRange}
                 >
                   <SelectTrigger className="w-full xs:w-32 h-9 text-xs md:text-sm bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
@@ -1234,11 +1932,11 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                 <div className="text-slate-500">Cargando datos históricos...</div>
               </div>
             ) : trend.length > 0 ? (
-              <div className="px-2 md:px-6">
+              <div className="px-2 sm:px-4 md:px-6">
                 <SimpleTrendChart data={trend} />
-                <div className="flex justify-between text-2xs text-slate-500 mt-2 px-2">
-                  <div>Fecha inicial: {new Date(trend[0]?.date).toLocaleDateString()}</div>
-                  <div>Fecha final: {new Date(trend[trend.length-1]?.date).toLocaleDateString()}</div>
+                <div className="flex flex-col xs:flex-row justify-between text-[10px] text-slate-500 mt-2 px-2 gap-1">
+                  <div>Inicio: {new Date(trend[0]?.date).toLocaleDateString()}</div>
+                  <div>Fin: {new Date(trend[trend.length - 1]?.date).toLocaleDateString()}</div>
                 </div>
               </div>
             ) : (
@@ -1250,7 +1948,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
             )}
           </CardContent>
         </Card>
-        
+
         {/* Tarjetas de métricas principales - Versión mejorada */}
         <Tabs defaultValue="most-viewed" className="col-span-2">
           <TabsList className="grid grid-cols-2 p-1 bg-indigo-50/70 dark:bg-slate-800/50">
@@ -1263,7 +1961,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
               <span className="hidden xs:inline">Productos</span> Menos Vistos
             </TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="most-viewed" className="space-y-4 pt-3">
             <Card className="border-0 shadow-md overflow-hidden">
               <CardContent className="p-0">
@@ -1303,7 +2001,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                         mostViewed.slice(0, 10).map((product, idx) => {
                           const maxViews = mostViewed[0]?.totalViews || 1;
                           const percentage = product.totalViews / maxViews * 100;
-                          
+
                           return (
                             <TableRow key={product.id} className="hover:bg-indigo-50/30 dark:hover:bg-slate-800/20 group">
                               <TableCell>
@@ -1334,7 +2032,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                               </TableCell>
                               <TableCell>
                                 <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5 shadow-inner overflow-hidden">
-                                  <div 
+                                  <div
                                     className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-full rounded-full shadow-sm transition-all duration-500 ease-out"
                                     style={{ width: `${percentage}%` }}
                                   ></div>
@@ -1346,8 +2044,8 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                               </TableCell>
                               <TableCell>
                                 <div className="flex flex-col space-y-2">
-                                  <Button 
-                                    variant="outline" 
+                                  <Button
+                                    variant="outline"
                                     size="sm"
                                     className="text-xs py-1 h-7 border-indigo-200 hover:border-indigo-300 hover:bg-indigo-50 text-indigo-600"
                                     onClick={() => handleSelectProduct(product)}
@@ -1366,7 +2064,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                     </TableBody>
                   </Table>
                 </div>
-                
+
                 {mostViewed.length > 10 && (
                   <div className="flex justify-center p-2 border-t">
                     <Button variant="ghost" size="sm" className="text-xs text-indigo-600 hover:text-indigo-700">
@@ -1377,7 +2075,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="least-viewed" className="space-y-4 pt-3">
             <Card className="border-0 shadow-md overflow-hidden">
               <CardContent className="p-0">
@@ -1417,7 +2115,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                         leastViewed.slice(0, 10).map((product, idx) => {
                           const maxViews = Math.max(...leastViewed.map(p => p.totalViews)) || 1;
                           const percentage = product.totalViews / maxViews * 100;
-                          
+
                           return (
                             <TableRow key={product.id} className="hover:bg-red-50/30 dark:hover:bg-slate-800/20 group">
                               <TableCell>
@@ -1448,7 +2146,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                               </TableCell>
                               <TableCell>
                                 <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5 shadow-inner overflow-hidden">
-                                  <div 
+                                  <div
                                     className="bg-gradient-to-r from-amber-500 to-red-500 h-full rounded-full shadow-sm transition-all duration-500 ease-out"
                                     style={{ width: `${percentage}%` }}
                                   ></div>
@@ -1464,15 +2162,15 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                                     {product.uniqueVisitors ? (
                                       <div className="flex -space-x-2 overflow-hidden">
                                         {(product.visitors || []).slice(0, 3).map((visitor, vidx) => (
-                                          <div 
-                                            key={vidx} 
+                                          <div
+                                            key={vidx}
                                             className="inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-slate-800"
                                             title={visitor.displayName || 'Anónimo'}
                                           >
                                             {visitor.avatarUrl ? (
-                                              <img 
-                                                src={visitor.avatarUrl} 
-                                                alt={visitor.displayName || 'Anónimo'} 
+                                              <img
+                                                src={visitor.avatarUrl}
+                                                alt={visitor.displayName || 'Anónimo'}
                                                 className="h-full w-full object-cover rounded-full"
                                               />
                                             ) : (
@@ -1487,8 +2185,8 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                                       <span className="text-xs text-slate-500">Sin visitas</span>
                                     )}
                                   </div>
-                                  <Button 
-                                    variant="ghost" 
+                                  <Button
+                                    variant="ghost"
                                     size="sm"
                                     className="text-xs py-0.5 h-5 mt-1 text-red-600 hover:text-red-700 hover:bg-red-50"
                                     onClick={() => handleSelectProduct(product)}
@@ -1504,7 +2202,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                     </TableBody>
                   </Table>
                 </div>
-                
+
                 {leastViewed.length > 10 && (
                   <div className="flex justify-center p-2 border-t">
                     <Button variant="ghost" size="sm" className="text-xs text-red-600 hover:text-red-700">
@@ -1516,7 +2214,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
             </Card>
           </TabsContent>
         </Tabs>
-        
+
         {/* Gráfico de pastel de productos más vistos - Versión mejorada */}
         <Card className="row-span-2 overflow-hidden hover:shadow-lg transition-shadow">
           <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -1528,8 +2226,8 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
               Porcentaje de vistas de los productos más populares
             </CardDescription>
             <div className="w-full md:w-36 mt-2">
-              <Select 
-                defaultValue={chartDisplayMode} 
+              <Select
+                defaultValue={chartDisplayMode}
                 onValueChange={(value) => setChartDisplayMode(value as 'count' | 'percent')}
               >
                 <SelectTrigger className="text-xs md:text-sm h-8">
@@ -1554,7 +2252,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                 <div className="absolute top-2 right-2 md:hidden bg-white/80 dark:bg-black/80 backdrop-blur-sm rounded-lg shadow-sm border p-1 text-xs">
                   <p>Pulsa para detalles</p>
                 </div>
-                
+
                 <div className="h-60 md:h-80 w-full p-2 md:p-6 flex flex-col items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
@@ -1573,7 +2271,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                         // Label móvil vs desktop con modo de visualización
                         label={({ name, percent, value }) => {
                           if (window.innerWidth < 768) {
-                            return chartDisplayMode === 'percent' 
+                            return chartDisplayMode === 'percent'
                               ? `${(percent * 100).toFixed(0)}%`
                               : `${value}`;
                           } else {
@@ -1587,20 +2285,20 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                         paddingAngle={2}
                       >
                         {mostViewed.slice(0, 8).map((_, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={pieColors[index % pieColors.length]} 
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={pieColors[index % pieColors.length]}
                             strokeWidth={1}
                             stroke="#ffffff"
                             className="hover:opacity-80 transition-opacity drop-shadow-md"
                           />
                         ))}
                       </Pie>
-                      <RechartsTooltip 
+                      <RechartsTooltip
                         formatter={(value: any, name: any, props: any) => {
                           const item = props.payload;
                           const percent = (props.percent * 100).toFixed(1);
-                          
+
                           return chartDisplayMode === 'percent'
                             ? [`${percent}% (${value} vistas)`, item.fullName || item.name]
                             : [`${value} vistas (${percent}%)`, item.fullName || item.name];
@@ -1613,8 +2311,8 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                           border: '1px solid rgba(0, 0, 0, 0.1)'
                         }}
                       />
-                      <Legend 
-                        layout="horizontal" 
+                      <Legend
+                        layout="horizontal"
                         verticalAlign="bottom"
                         align="center"
                         iconSize={10}
@@ -1635,7 +2333,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                
+
                 {/* Leyenda mejorada para dispositivos pequeños */}
                 <div className="mt-2 px-2 md:hidden">
                   <div className="text-xs font-medium mb-2 text-center">Productos destacados:</div>
@@ -1644,17 +2342,17 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                       // Calcular el porcentaje para cada producto
                       const totalViews = mostViewed.slice(0, 8).reduce((sum, p) => sum + p.totalViews, 0);
                       const percent = totalViews > 0 ? (product.totalViews / totalViews * 100).toFixed(1) : '0';
-                      
+
                       return (
                         <div key={index} className="flex items-center gap-1.5 bg-white/60 dark:bg-slate-800/60 p-1.5 rounded-md shadow-sm">
-                          <div 
-                            className="w-3 h-3 rounded-full flex-shrink-0" 
+                          <div
+                            className="w-3 h-3 rounded-full flex-shrink-0"
                             style={{ backgroundColor: pieColors[index % pieColors.length] }}
                           ></div>
                           <div className="flex flex-col">
                             <div className="truncate text-2xs font-medium">{product.productName}</div>
                             <div className="text-2xs text-gray-500">
-                              {chartDisplayMode === 'percent' 
+                              {chartDisplayMode === 'percent'
                                 ? `${percent}%`
                                 : `${product.totalViews}`
                               }
@@ -1679,7 +2377,7 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
         </Card>
 
       </div>
-      
+
       {/* Panel de detalles de visitantes */}
       <VisitorDetailsPanel />
     </div>

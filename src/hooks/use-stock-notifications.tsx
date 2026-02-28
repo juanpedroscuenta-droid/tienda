@@ -52,6 +52,7 @@ const loadNotificationsFromStorage = (): StockNotification[] => {
 };
 
 export const useStockNotifications = () => {
+  const isSupabase = typeof (db as any)?.from === 'function';
   const [notifications, setNotifications] = useState<StockNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const previousStockRef = useRef<Map<string, number>>(new Map());
@@ -77,6 +78,11 @@ export const useStockNotifications = () => {
   }, [notifications]);
 
   useEffect(() => {
+    if (isSupabase) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
     // OPTIMIZACIÓN: Usar debouncing y procesamiento eficiente para mejorar rendimiento
     let processingTimeout: NodeJS.Timeout | null = null;
     let batchChanges: Array<{productId: string, product: any}> = [];

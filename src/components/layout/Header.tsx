@@ -33,7 +33,7 @@ export const Header: React.FC = () => {
             {/* Logo */}
             <div className="flex items-center space-x-3">
               <div className="relative">
-                <img src="/logo-nuevo.png" alt="Regala Algo" className="h-14 w-auto" />
+                <img src="/logo%20vifum.png" alt="Tienda 24-7" className="h-14 w-auto" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground hidden sm:block">Tu tienda del conjunto</p>
@@ -69,7 +69,7 @@ export const Header: React.FC = () => {
               >
                 <ShoppingCart className="h-4 w-4" />
                 {itemCount > 0 && (
-                  <Badge 
+                  <Badge
                     className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 gradient-orange text-white text-xs font-bold animate-pulse"
                   >
                     {itemCount}
@@ -88,7 +88,7 @@ export const Header: React.FC = () => {
                   <UserMenu user={user!} />
                 </div>
               ) : (
-                <Button 
+                <Button
                   onClick={() => setShowAuthModal(true)}
                   className="gradient-orange hover:opacity-90 transition-all transform hover:scale-105 shadow-lg"
                   size="sm"

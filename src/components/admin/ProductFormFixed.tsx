@@ -8,10 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
-import { cn } from "@/lib/utils";
-import { 
-  Plus, Package, Edit, Trash2, Search, Save, X, Image, AlertTriangle, Check, CreditCard, 
-  ShieldCheck, Award, Wand2, ChevronDown, Calendar, Filter, RefreshCw, Tags, History, 
+import { cn, parseFormattedPrice } from "@/lib/utils";
+import {
+  Plus, Package, Edit, Trash2, Search, Save, X, Image, AlertTriangle, Check, CreditCard,
+  ShieldCheck, Award, Wand2, ChevronDown, Calendar, Filter, RefreshCw, Tags, History,
   SlidersHorizontal, Loader2, Eye
 } from 'lucide-react';
 import { CustomClock } from '@/components/ui/CustomClock';
@@ -110,13 +110,6 @@ export const ProductForm: React.FC = () => {
   // This is now handled by the useMemo implementation later in the code
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      setLoadingProducts(true);
-      const querySnapshot = await getDocs(collection(db, "products"));
-      setProducts(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setLoadingProducts(false);
-    };
-
     const fetchCategories = async () => {
       try {
         // Get all categories
@@ -127,9 +120,9 @@ export const ProductForm: React.FC = () => {
           name: doc.data().name || "Categoría sin nombre",
           parentId: doc.data().parentId || null
         })) as { id: string; name: string; parentId?: string | null }[];
-        
+
         setCategories(allCategories);
-        
+
         // Verificar si el usuario tiene libertad
         if (user && user.email) {
           const adminDoc = await getDoc(doc(db, "admins", user.email));
@@ -143,12 +136,45 @@ export const ProductForm: React.FC = () => {
     };
 
     fetchCategories();
-    fetchProducts();
   }, [user]);
+
+  // Efecto para cargar productos cuando las categorías estén disponibles
+  useEffect(() => {
+    const fetchProducts = async () => {
+      if (categories.length === 0) return; // Esperar a que las categorías se carguen
+
+      setLoadingProducts(true);
+      const querySnapshot = await getDocs(collection(db, "products"));
+      const productsData = querySnapshot.docs.map(doc => {
+        const productData = { id: doc.id, ...doc.data() } as any;
+
+        // Mapear nombres de categorías desde el array de categorías
+        const categoryId = productData.category_id ?? productData.category ?? '';
+        const subcategoryId = productData.subcategory ?? '';
+        const terceraCategoriaId = productData.terceraCategoria ?? productData.tercera_categoria ?? '';
+
+        const categoryObj = categories.find(cat => cat.id === categoryId);
+        const subcategoryObj = categories.find(cat => cat.id === subcategoryId);
+        const terceraCategoriaObj = categories.find(cat => cat.id === terceraCategoriaId);
+
+        return {
+          ...productData,
+          categoryName: categoryObj?.name || productData.categoryName || productData.category_name || (categoryId && categoryId.length > 20 ? 'Categoría no encontrada' : categoryId),
+          subcategoryName: subcategoryObj?.name || productData.subcategoryName || productData.subcategory_name || (subcategoryId && subcategoryId.length > 20 ? null : subcategoryId),
+          terceraCategoriaName: terceraCategoriaObj?.name || productData.terceraCategoriaName || productData.tercera_categoria_name || null,
+        };
+      });
+
+      setProducts(productsData);
+      setLoadingProducts(false);
+    };
+
+    fetchProducts();
+  }, [categories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name || !formData.price || !formData.stock || !formData.category) {
       toast({
         variant: "destructive",
@@ -157,10 +183,10 @@ export const ProductForm: React.FC = () => {
       });
       return;
     }
-    
-    const numericPrice = parseFloat(formData.price);
+
+    const numericPrice = parseFormattedPrice(formData.price);
     const numericStock = parseInt(formData.stock, 10);
-    
+
     if (isNaN(numericPrice) || isNaN(numericStock)) {
       toast({
         variant: "destructive",
@@ -172,22 +198,22 @@ export const ProductForm: React.FC = () => {
 
     // Encontrar nombres completos de categorías para mejor visualización
     const categoryName = categories.find(cat => cat.id === formData.category)?.name || "";
-    const subcategoryName = formData.subcategory ? 
-      categories.find(cat => cat.id === formData.subcategory)?.name || "" : 
+    const subcategoryName = formData.subcategory ?
+      categories.find(cat => cat.id === formData.subcategory)?.name || "" :
       "";
-    
+
     const productData = {
       ...formData,
       price: numericPrice,
       stock: numericStock,
-      originalPrice: formData.isOffer ? parseFloat(formData.originalPrice) : numericPrice,
-      discount: formData.isOffer ? parseFloat(formData.discount) : 0,
+      originalPrice: formData.isOffer ? parseFormattedPrice(formData.originalPrice) : numericPrice,
+      discount: formData.isOffer ? parseFormattedPrice(formData.discount) : 0,
       isOffer: formData.isOffer,
       categoryName, // Agregar nombres descriptivos
       subcategoryName,
       lastModified: new Date(),
     };
-    
+
     try {
       if (isEditing && editingId) {
         // Si liberta="no", los cambios van a revisión
@@ -200,7 +226,7 @@ export const ProductForm: React.FC = () => {
             createdAt: new Date(),
             editorEmail: user?.email || "unknown"
           });
-          
+
           toast({
             title: "Cambios enviados a revisión",
             description: "Los cambios han sido enviados para aprobación del administrador."
@@ -214,9 +240,9 @@ export const ProductForm: React.FC = () => {
             description: "El producto ha sido actualizado exitosamente."
           });
           resetForm();
-          
+
           // Actualizar la lista de productos
-          const updatedProducts = products.map(product => 
+          const updatedProducts = products.map(product =>
             product.id === editingId ? { id: editingId, ...productData } : product
           );
           setProducts(updatedProducts);
@@ -231,7 +257,7 @@ export const ProductForm: React.FC = () => {
             createdAt: new Date(),
             editorEmail: user?.email || "unknown"
           });
-          
+
           toast({
             title: "Producto enviado a revisión",
             description: "El producto ha sido enviado para aprobación del administrador."
@@ -245,7 +271,7 @@ export const ProductForm: React.FC = () => {
             description: "El producto ha sido agregado exitosamente."
           });
           resetForm();
-          
+
           // Actualizar la lista de productos
           setProducts([...products, { id: docRef.id, ...productData }]);
         }
@@ -263,7 +289,7 @@ export const ProductForm: React.FC = () => {
   const handleEdit = (product: any) => {
     setIsEditing(true);
     setEditingId(product.id);
-    
+
     // Convertir valores numéricos a string para el formulario
     setFormData({
       name: product.name || '',
@@ -274,9 +300,9 @@ export const ProductForm: React.FC = () => {
       terceraCategoria: product.terceraCategoria || '',
       stock: String(product.stock) || '',
       image: product.image || '',
-      additionalImages: product.additionalImages && product.additionalImages.length >= 3 ? 
+      additionalImages: product.additionalImages && product.additionalImages.length >= 3 ?
         product.additionalImages : ['', '', ''],
-      specifications: product.specifications && product.specifications.length > 0 ? 
+      specifications: product.specifications && product.specifications.length > 0 ?
         product.specifications : [{ name: '', value: '' }],
       isOffer: product.isOffer || false,
       discount: String(product.discount || ''),
@@ -286,7 +312,7 @@ export const ProductForm: React.FC = () => {
       paymentMethods: product.paymentMethods || [],
       colors: product.colors || []
     });
-    
+
     // Scroll al formulario
     document.getElementById('product-form')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -300,12 +326,12 @@ export const ProductForm: React.FC = () => {
           deletedAt: new Date(),
           deletedBy: user?.email || "unknown"
         }, { merge: true });
-        
+
         toast({
           title: "Producto eliminado",
           description: "El producto ha sido eliminado exitosamente."
         });
-        
+
         // Actualizar la lista de productos (no mostramos los marcados como eliminados)
         setProducts(products.filter(product => product.id !== productId));
       } else {
@@ -317,7 +343,7 @@ export const ProductForm: React.FC = () => {
           createdAt: new Date(),
           editorEmail: user?.email || "unknown"
         });
-        
+
         toast({
           title: "Solicitud enviada a revisión",
           description: "La solicitud de eliminación ha sido enviada para aprobación del administrador."
@@ -369,20 +395,20 @@ export const ProductForm: React.FC = () => {
 
   // State for sorting
   const [sortOrder, setSortOrder] = useState<'recent' | 'oldest' | 'price-high' | 'price-low' | 'name-asc' | 'name-desc'>('recent');
-  
+
   // Filter products based on search term
   const filteredProducts = useMemo(() => {
     if (!searchTerm.trim()) return products;
-    
+
     const lowercasedTerm = searchTerm.toLowerCase();
-    return products.filter(product => 
-      (product.name && product.name.toLowerCase().includes(lowercasedTerm)) || 
+    return products.filter(product =>
+      (product.name && product.name.toLowerCase().includes(lowercasedTerm)) ||
       (product.description && product.description.toLowerCase().includes(lowercasedTerm)) ||
       (product.category && product.category.toLowerCase().includes(lowercasedTerm)) ||
       (product.price && String(product.price).includes(lowercasedTerm))
     );
   }, [searchTerm, products]);
-  
+
   // Sort products based on selected order
   const sortedProducts = useMemo(() => {
     return [...filteredProducts].sort((a, b) => {
@@ -397,9 +423,9 @@ export const ProductForm: React.FC = () => {
           const bModifiedOld = b.lastModified?.toDate?.() || b.updatedAt || new Date();
           return aModifiedOld.getTime() - bModifiedOld.getTime();
         case 'price-high':
-          return (parseFloat(String(b.price)) || 0) - (parseFloat(String(a.price)) || 0);
+          return (parseFormattedPrice(String(b.price)) || 0) - (parseFormattedPrice(String(a.price)) || 0);
         case 'price-low':
-          return (parseFloat(String(a.price)) || 0) - (parseFloat(String(b.price)) || 0);
+          return (parseFormattedPrice(String(a.price)) || 0) - (parseFormattedPrice(String(b.price)) || 0);
         case 'name-asc':
           return (a.name || '').localeCompare(b.name || '');
         case 'name-desc':
@@ -411,15 +437,15 @@ export const ProductForm: React.FC = () => {
   }, [filteredProducts, sortOrder]);
 
   // Image loading state
-  const [loadingImages, setLoadingImages] = useState<{[key: string]: boolean}>({});
-  
+  const [loadingImages, setLoadingImages] = useState<{ [key: string]: boolean }>({});
+
   // Function to handle image load start/end
   const handleImageLoadStart = (productId: string) => {
-    setLoadingImages(prev => ({...prev, [productId]: true}));
+    setLoadingImages(prev => ({ ...prev, [productId]: true }));
   };
-  
+
   const handleImageLoadEnd = (productId: string) => {
-    setLoadingImages(prev => ({...prev, [productId]: false}));
+    setLoadingImages(prev => ({ ...prev, [productId]: false }));
   };
 
   return (
@@ -468,7 +494,7 @@ export const ProductForm: React.FC = () => {
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Ej: Coca-Cola 600ml"
                   required
                   className="h-11"
@@ -479,10 +505,10 @@ export const ProductForm: React.FC = () => {
                 <Label htmlFor="category" className="text-sm font-semibold">
                   Categoría Principal <span className="text-red-500">*</span>
                 </Label>
-                <Select 
-                  value={formData.category} 
+                <Select
+                  value={formData.category}
                   onValueChange={(value) => {
-                    setFormData({...formData, category: value, subcategory: ''}); // Reset subcategory when category changes (se mostrará como "none")
+                    setFormData({ ...formData, category: value, subcategory: '' }); // Reset subcategory when category changes (se mostrará como "none")
                   }}
                 >
                   <SelectTrigger className="h-11">
@@ -506,14 +532,14 @@ export const ProductForm: React.FC = () => {
                   </div>
                 )}
               </div>
-              
+
               {/* Add the rest of your form fields here */}
             </div>
 
             <div className="flex gap-3 pt-6 mt-6 border-t">
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
                 onClick={() => {
                   setFormData({
@@ -528,8 +554,8 @@ export const ProductForm: React.FC = () => {
                 <Wand2 className="h-4 w-4 mr-2" />
                 Auto-Rellenar
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="bg-gradient-to-r from-sky-500 to-blue-600 text-white hover:opacity-90 transition-all shadow-lg"
                 disabled={liberta === "no" && isEditing} // Solo permite agregar, no editar directo
               >
@@ -537,9 +563,9 @@ export const ProductForm: React.FC = () => {
                 {isEditing ? 'Actualizar Producto' : 'Agregar Producto'}
               </Button>
               {isEditing && (
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={resetForm}
                   className="border-gray-300 hover:bg-gray-50"
                 >
@@ -564,7 +590,7 @@ export const ProductForm: React.FC = () => {
               </div>
               <span className="text-blue-700">Inventario de Productos ({sortedProducts.length})</span>
             </CardTitle>
-            
+
             <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -597,21 +623,21 @@ export const ProductForm: React.FC = () => {
               </DropdownMenu>
             </div>
           </div>
-          
+
           <div className="relative mt-4">
             <div className="flex items-center bg-white border rounded-lg overflow-hidden shadow-sm focus-within:ring-2 focus-within:ring-sky-500/20 focus-within:border-sky-500 transition-all">
               <div className="pl-3 py-2">
                 <Search className="h-5 w-5 text-sky-500" />
               </div>
-              <Input 
-                placeholder="Buscar por nombre, descripción, categoría o precio" 
+              <Input
+                placeholder="Buscar por nombre, descripción, categoría o precio"
                 className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-10 flex-1"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
               {searchTerm && (
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="icon"
                   onClick={() => setSearchTerm('')}
                   className="h-8 w-8 mr-1 rounded-full hover:bg-sky-50 text-gray-400 hover:text-gray-600"
@@ -669,41 +695,52 @@ export const ProductForm: React.FC = () => {
                       <div className="flex-1">
                         <h4 className="font-bold text-lg">{product.name}</h4>
                         <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{product.description}</p>
-                        <div className="flex items-center gap-3 mt-2">
-                          <div className="flex flex-wrap gap-1">
-                            <Badge variant="outline" className="font-medium bg-orange-50 text-orange-700 border-orange-200">
-                              <span className="text-xs text-gray-500 mr-1">Categoría:</span> {product.categoryName || product.category}
-                            </Badge>
+                        <div className="mt-3 space-y-2">
+                          {/* Primera fila: Categorías */}
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-gray-500 font-medium">Categoría:</span>
+                              <span className="text-gray-900 font-semibold">{product.categoryName || product.category || 'Sin categoría'}</span>
+                            </div>
                             {product.subcategoryName && (
-                              <div className="flex items-center">
-                                <svg className="h-3 w-3 text-gray-400 mx-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                                <Badge variant="outline" className="font-medium bg-blue-50 text-blue-700 border-blue-200">
-                                  <span className="text-xs text-gray-500 mr-1">Subcategoría:</span> {product.subcategoryName}
-                                </Badge>
-                              </div>
+                              <>
+                                <span className="text-gray-300">|</span>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <span className="text-gray-500 font-medium">Subcategoría:</span>
+                                  <span className="text-gray-900 font-semibold">{product.subcategoryName}</span>
+                                </div>
+                              </>
                             )}
                           </div>
-                          <span className="text-lg font-bold text-green-600">
-                            ${product.price.toLocaleString()}
-                          </span>
-                          <Badge className={cn(
-                            stockStatus.color, 
-                            "flex items-center gap-1"
-                          )}>
-                            <span className={cn(
-                              "w-2 h-2 rounded-full",
-                              stockStatus.text === "En Stock" ? "bg-green-400" : 
-                              stockStatus.text === "Stock Bajo" ? "bg-yellow-400" : 
-                              "bg-red-400"
-                            )}></span>
-                            {stockStatus.text}: {product.stock}
-                          </Badge>
-                          {product.lastModified && (
-                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 ml-2">
-                              <CustomClock className="h-3 w-3 mr-1 opacity-70" />
-                              {new Date(product.lastModified.toDate?.() || product.lastModified).toLocaleDateString()}
-                            </Badge>
-                          )}
+
+                          {/* Segunda fila: Precio */}
+                          <div className="flex items-center gap-4 flex-wrap">
+                            <span className="text-2xl font-bold text-green-600">${product.price.toLocaleString('es-CO')}</span>
+                          </div>
+
+                          {/* Tercera fila: Estado y Stock */}
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <div className={cn(
+                              "flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium",
+                              stockStatus.text === "En Stock" ? "bg-green-100 text-green-800" :
+                                stockStatus.text === "Stock Bajo" ? "bg-yellow-100 text-yellow-800" :
+                                  "bg-red-100 text-red-800"
+                            )}>
+                              <span className={cn(
+                                "w-1.5 h-1.5 rounded-full",
+                                stockStatus.text === "En Stock" ? "bg-green-500" :
+                                  stockStatus.text === "Stock Bajo" ? "bg-yellow-500" :
+                                    "bg-red-500"
+                              )}></span>
+                              {stockStatus.text}: {product.stock}
+                            </div>
+                            {product.lastModified && (
+                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 ml-2">
+                                <CustomClock className="h-3 w-3 mr-1 opacity-70" />
+                                {new Date(product.lastModified.toDate?.() || product.lastModified).toLocaleDateString('es-CO')}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -747,7 +784,7 @@ export const ProductForm: React.FC = () => {
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                      
+
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button
@@ -771,7 +808,7 @@ export const ProductForm: React.FC = () => {
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction 
+                            <AlertDialogAction
                               onClick={() => handleDelete(product.id)}
                               className="bg-red-600 hover:bg-red-700"
                               disabled={liberta === "no"}
@@ -786,7 +823,8 @@ export const ProductForm: React.FC = () => {
                 );
               })}
             </div>
-          )}
+          )
+          }
         </CardContent>
       </Card>
     </div>

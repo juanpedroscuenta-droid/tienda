@@ -2,12 +2,11 @@ import React, { useEffect, useState } from "react";
 import { TopPromoBar } from "@/components/layout/TopPromoBar";
 import { AdvancedHeader } from "@/components/layout/AdvancedHeader";
 import { useCategories } from "@/hooks/use-categories";
-import { db } from '@/firebase';
-import { collection, getDoc, doc } from 'firebase/firestore';
+import { fetchInfoSections } from "@/lib/api";
 import { MapPin, Package, Truck, Clock, ArrowRight } from "lucide-react";
 
 const Envios = () => {
-  const { categories } = useCategories();
+  const { categories, mainCategories, subcategoriesByParent, thirdLevelBySubcategory } = useCategories();
   const [selectedCategory, setSelectedCategory] = React.useState("Todos");
   const [promoVisible, setPromoVisible] = React.useState(true);
   const [info, setInfo] = useState<{ content: string; enabled: boolean } | null>(null);
@@ -16,15 +15,17 @@ const Envios = () => {
   useEffect(() => {
     const fetchInfo = async () => {
       setLoading(true);
-      const docRef = doc(db, 'infoSections', 'envios');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setInfo({
-          content: docSnap.data().content || '',
-          enabled: docSnap.data().enabled ?? false,
-        });
-      } else {
-        setInfo(null);
+      try {
+        const sections = await fetchInfoSections();
+        const enviosSection = sections.find((s: any) => s.id === 'envios');
+        if (enviosSection) {
+          setInfo({
+            content: enviosSection.content || '',
+            enabled: enviosSection.enabled ?? false,
+          });
+        }
+      } catch (e) {
+        console.error("Error fetching envios info:", e);
       }
       setLoading(false);
     };
@@ -39,6 +40,9 @@ const Envios = () => {
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         promoVisible={promoVisible}
+        mainCategories={mainCategories}
+        subcategoriesByParent={subcategoriesByParent}
+        thirdLevelBySubcategory={thirdLevelBySubcategory}
       />
       <main className="flex-1 flex flex-col">
         {/* Hero Section */}
@@ -77,14 +81,14 @@ const Envios = () => {
                   </div>
                   Envíos
                 </h2>
-                
+
                 {/* Ubicación Card */}
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 md:p-8 shadow-md border border-blue-100">
                   <p className="text-lg md:text-xl text-gray-700 mb-6 font-normal leading-relaxed">
                     Estamos ubicados en Olavarría 610 (esquina San Luis), Salta, Argentina, y realizamos envíos a todo el país.
                   </p>
-                  <a 
-                    href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
+                  <a
+                    href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold">
@@ -93,14 +97,14 @@ const Envios = () => {
                     <ArrowRight className="w-4 h-4" />
                   </a>
                 </div>
-                
+
                 {/* Entrega Card */}
                 <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 md:p-8 shadow-md border border-purple-100">
                   <p className="text-lg md:text-xl text-gray-700 font-normal leading-relaxed">
                     📦 Nos encargamos de que tu pedido llegue de forma rápida, segura y sin complicaciones, estés donde estés.
                   </p>
                 </div>
-                
+
                 {/* Envíos Bonificados */}
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-8 md:p-10 shadow-xl border border-green-200">
                   <h3 className="text-2xl font-bold font-serif text-gray-900 mb-6 flex items-center gap-3">
@@ -125,7 +129,7 @@ const Envios = () => {
                     🔸 Para compras menores a esos montos, el costo de envío corre por cuenta del cliente, y se calcula automáticamente al momento de realizar la compra.
                   </p>
                 </div>
-                
+
                 {/* Tiempo de Despacho */}
                 <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-6 md:p-8 shadow-md border border-amber-100">
                   <div className="flex items-start gap-4">
@@ -137,7 +141,7 @@ const Envios = () => {
                     </p>
                   </div>
                 </div>
-                
+
                 {/* Retiro */}
                 <div className="bg-gradient-to-br from-slate-50 to-gray-100 rounded-xl p-6 md:p-8 shadow-md border border-gray-200">
                   <div className="flex items-start gap-4">
@@ -162,7 +166,7 @@ const Envios = () => {
                 <div className="w-8 h-8 gradient-orange rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">T</span>
                 </div>
-                <span className="text-lg font-bold gradient-text-orange">REGALA ALGO</span>
+                <span className="text-lg font-bold gradient-text-orange">TIENDA 24-7</span>
               </div>
               <p className="text-muted-foreground text-sm">
                 Tu tienda premium con los mejores productos y atención personalizada.
@@ -200,8 +204,8 @@ const Envios = () => {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>📍 Olavarría 610 (esquina San Luis)</li>
                 <li>
-                  <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
-                     className="text-blue-600 hover:underline">
+                  <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw"
+                    className="text-blue-600 hover:underline">
                     Ver en el mapa
                   </a>
                 </li>

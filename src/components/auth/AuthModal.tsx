@@ -12,14 +12,8 @@ import {
   ArrowLeft, ArrowRight, CheckCircle2, Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { auth, db } from "@/firebase";
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword,
-  sendPasswordResetEmail,
-  sendEmailVerification
-} from "firebase/auth";
-import { collection, addDoc, setDoc, doc, getDoc } from "firebase/firestore";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -30,6 +24,7 @@ type RegisterStep = 'personal' | 'account' | 'verification';
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
@@ -102,8 +97,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   };
   
   const validatePhoneNumber = (phone: string) => {
-    const phoneRegex = /^[0-9]{10}$/;
-    return phoneRegex.test(phone);
+    const digits = phone.replace(/\D/g, '');
+    return digits.length >= 8 && digits.length <= 15;
   };
   
   // Handle login with email and password
@@ -135,7 +130,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setIsLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, loginData.email, loginData.password);
+      console.log("AuthModal:login:start", { email: loginData.email });
+      const { data, error } = await auth.signInWithPassword({
+        email: loginData.email,
+        password: loginData.password
+      });
+
+      console.log("AuthModal:login:result", { userId: data?.user?.id, hasSession: !!data?.session, error });
+      if (error) throw error;
       
       // Store email in localStorage if rememberMe is checked
       if (rememberMe) {
@@ -148,14 +150,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         title: "¡Bienvenido!",
         description: "Has iniciado sesión correctamente",
       });
-      onClose();
+      
+      // Pequeño delay para asegurar que Supabase actualiza el estado
+      setTimeout(() => {
+        console.log("AuthModal:login:closeModal" );
+        onClose();
+      }, 300);
     } catch (error: any) {
+      console.error("AuthModal:login:error", error);
       // Handle specific error codes
-      if (error.code === 'auth/user-not-found') {
-        setErrors(prev => ({...prev, loginEmail: 'No existe una cuenta con este email'}));
-      } else if (error.code === 'auth/wrong-password') {
-        setErrors(prev => ({...prev, loginPassword: 'Contraseña incorrecta'}));
-      } else if (error.code === 'auth/too-many-requests') {
+      if (error.message?.includes('Invalid login credentials')) {
+        setErrors(prev => ({...prev, loginEmail: 'Email o contraseña incorrectos'}));
+      } else if (error.message?.includes('too many requests')) {
         toast({
           title: "Demasiados intentos",
           description: "Has realizado demasiados intentos fallidos. Prueba más tarde o restablece tu contraseña.",
@@ -164,7 +170,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       } else {
         toast({
           title: "Error",
-          description: "No se pudo iniciar sesión. Verifica tus credenciales.",
+          description: error.message || "No se pudo iniciar sesión. Verifica tus credenciales.",
           variant: "destructive",
         });
       }
@@ -194,18 +200,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setIsLoading(true);
     
     try {
-      await sendPasswordResetEmail(auth, resetPasswordEmail);
+      const { error } = await auth.resetPasswordForEmail(resetPasswordEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
       toast({
         title: "Correo enviado",
         description: "Revisa tu bandeja de entrada para restablecer tu contraseña",
       });
       setShowForgotPassword(false);
     } catch (error: any) {
-      if (error.code === 'auth/user-not-found') {
-        setErrors(prev => ({...prev, resetEmail: 'No existe una cuenta con este email'}));
-      } else {
-        toast({
-          title: "Error",
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo enviar el correo de recuperación",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
           description: "No se pudo enviar el correo de recuperación",
           variant: "destructive",
         });
@@ -231,7 +246,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       }
       
       if (!validatePhoneNumber(registerData.phone)) {
-        newErrors.registerPhone = 'Ingresa un número de teléfono válido (10 dígitos)';
+        newErrors.registerPhone = 'Teléfono debe tener entre 8 y 15 dígitos';
         isValid = false;
       }
     }
@@ -281,24 +296,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     const { email, password, name, phone, address } = registerData;
 
     try {
-      // Create user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      
-      // Send welcome email instead of verification email
-      await sendEmailVerification(userCredential.user);
-      
-      // Save user data in Firestore
-      await setDoc(doc(db, "users", userCredential.user.uid), {
-        uid: userCredential.user.uid,
-        name,
+      // Create user in Supabase Auth
+      const { data, error } = await auth.signUp({
         email,
-        phone,
-        address: address || '',
-        createdAt: new Date(),
-        emailVerified: true // Marcamos como verificado directamente
+        password,
+        options: {
+          data: {
+            name,
+            phone,
+            address: address || ''
+          }
+        }
       });
 
-      // Show success message and move to welcome step
+      if (error) throw error;
+      
+      // Show success message (skip DB insert to avoid RLS errors)
       toast({
         title: "¡Cuenta creada!",
         description: "¡Bienvenido a nuestra tienda!",
@@ -306,13 +319,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       
       setRegisterStep('verification');
     } catch (error: any) {
-      if (error.code === 'auth/email-already-in-use') {
+      if (error.message?.includes('already registered')) {
         setErrors(prev => ({...prev, registerEmail: 'Este email ya está en uso'}));
         setRegisterStep('account'); // Go back to account step
       } else {
         toast({
           title: "Error",
-          description: "No se pudo crear tu cuenta. Intenta nuevamente.",
+          description: error.message || "No se pudo crear tu cuenta. Intenta nuevamente.",
           variant: "destructive",
         });
       }
@@ -335,6 +348,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       setRememberMe(true);
     }
   }, []);
+
+  // Cierra el modal automáticamente cuando el usuario se autentica
+  useEffect(() => {
+    if (user && isOpen) {
+      onClose();
+    }
+  }, [user, isOpen, onClose]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {

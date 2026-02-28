@@ -66,22 +66,22 @@ export const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        
+
         <DropdownMenuItem onClick={handleProfile} className="cursor-pointer">
           <UserIcon className="mr-2 h-4 w-4" />
           <span>Mi Perfil</span>
         </DropdownMenuItem>
-        
+
         {(user?.email === "admin@gmail.com" || user?.subCuenta === "si") && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleAdminPanel} className="cursor-pointer bg-orange-50 hover:bg-orange-100 text-orange-700">
+            <DropdownMenuItem onClick={handleAdminPanel} className="cursor-pointer">
               <Settings className="mr-2 h-4 w-4" />
-              <span className="font-medium">Panel de Administración</span>
+              <span>Panel de Administración</span>
             </DropdownMenuItem>
           </>
         )}
-        
+
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={logout} className="text-red-600 cursor-pointer hover:bg-red-50">
           <LogOut className="mr-2 h-4 w-4" />

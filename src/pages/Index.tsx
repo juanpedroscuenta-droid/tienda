@@ -8,7 +8,7 @@ import { ProductsSection } from '@/components/products/ProductsSection';
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [categories, setCategories] = useState<string[]>([]);
-  
+
   return (
     <AuthProvider>
       <CartProvider>
@@ -22,7 +22,7 @@ const Index = () => {
               setCategories={setCategories}
             />
           </main>
-          
+
           {/* Footer */}
           <footer className="bg-muted/50 py-12 mt-16">
             <div className="container">
@@ -32,13 +32,13 @@ const Index = () => {
                     <div className="w-8 h-8 gradient-orange rounded-lg flex items-center justify-center">
                       <span className="text-white font-bold text-sm">T</span>
                     </div>
-                    <span className="text-lg font-bold gradient-text-orange">REGALA ALGO</span>
+                    <span className="text-lg font-bold gradient-text-orange">TIENDA 24-7</span>
                   </div>
                   <p className="text-muted-foreground text-sm">
                     Tu tienda premium con los mejores productos y atención personalizada.
                   </p>
                 </div>
-                
+
                 <div>
                   <h4 className="font-semibold mb-4">Productos</h4>
                   <ul className="space-y-2 text-sm text-muted-foreground">
@@ -48,7 +48,7 @@ const Index = () => {
                     <li>Fotografía</li>
                   </ul>
                 </div>
-                
+
                 <div>
                   <h4 className="font-semibold mb-4">Soporte</h4>
                   <ul className="space-y-2 text-sm text-muted-foreground">
@@ -58,19 +58,19 @@ const Index = () => {
                     <li>Contacto</li>
                   </ul>
                 </div>
-                
+
                 <div>
                   <h4 className="font-semibold mb-4">Contacto</h4>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li>WhatsApp: +54 3873439775</li>
+                    <li>WhatsApp: +57 321 2619434</li>
                     <li>Email: Regalo.Algo@gmail.com</li>
                     <li>Horario: 8AM - 8PM</li>
                   </ul>
                 </div>
               </div>
-              
+
               <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
-                <p>&copy; 2024 REGALA ALGO. Todos los derechos reservados.</p>
+                <p>&copy; 2024 TIENDA 24-7. Todos los derechos reservados.</p>
               </div>
             </div>
           </footer>

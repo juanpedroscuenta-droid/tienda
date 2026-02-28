@@ -33,10 +33,10 @@ interface ProductSchemaProps {
 }
 
 export const StoreStructuredData: React.FC<StoreSchemaProps> = ({
-  name = 'REGALA ALGO',
+  name = 'TIENDA 24-7',
   description = 'Tu tienda online confiable para electrodomésticos, regalería, productos para el hogar, bebidas, snacks y más.',
   url = typeof window !== 'undefined' ? window.location.origin : 'https://regalaalgo.com',
-  logo = typeof window !== 'undefined' ? `${window.location.origin}/logo-nuevo.png` : 'https://regalaalgo.com/logo-nuevo.png',
+  logo = typeof window !== 'undefined' ? `${window.location.origin}/logo.webp` : 'https://regalaalgo.com/logo.webp',
   address = {
     addressCountry: 'AR'
   },
@@ -77,7 +77,7 @@ export const StoreStructuredData: React.FC<StoreSchemaProps> = ({
       sameAs: [
         // Agregar redes sociales si las tienes
         // 'https://www.facebook.com/regalaalgo',
-        // 'https://www.instagram.com/regalaalgo'
+        'https://www.instagram.com/tienda247'
       ],
       potentialAction: {
         '@type': 'SearchAction',
@@ -114,7 +114,7 @@ export const ProductStructuredData: React.FC<ProductSchemaProps> = ({
   currency = 'ARS',
   availability = 'https://schema.org/InStock',
   sku,
-  brand = 'REGALA ALGO',
+  brand = 'TIENDA 24-7',
   category,
   url = typeof window !== 'undefined' ? window.location.href : ''
 }) => {
@@ -126,7 +126,7 @@ export const ProductStructuredData: React.FC<ProductSchemaProps> = ({
     }
 
     const images = Array.isArray(image) ? image : [image];
-    
+
     const schema = {
       '@context': 'https://schema.org',
       '@type': 'Product',

@@ -8,7 +8,7 @@ import { useCategories } from '@/hooks/use-categories';
 // de esta solución inmediata, así que usaremos el componente tal como está.
 
 const ImageDownloaderPage: React.FC = () => {
-  const { categories, setCategories } = useCategories();
+  const { categories, setCategories, mainCategories, subcategoriesByParent, thirdLevelBySubcategory } = useCategories();
   const [selectedCategory, setSelectedCategory] = React.useState("Todos");
   const [promoVisible, setPromoVisible] = useState(true);
 
@@ -21,6 +21,9 @@ const ImageDownloaderPage: React.FC = () => {
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         promoVisible={true}
+        mainCategories={mainCategories}
+        subcategoriesByParent={subcategoriesByParent}
+        thirdLevelBySubcategory={thirdLevelBySubcategory}
       />
       
       <div className="pt-40 pb-20">

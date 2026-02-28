@@ -1,7 +1,4 @@
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, sendWelcomeEmail } from "@/firebase";
-import { getDocumentById, createDocumentWithId, updateDocument } from "@/lib/database";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 export interface User {
@@ -12,16 +9,29 @@ export interface User {
   phone: string;
   address: string;
   isAdmin: boolean;
-  subCuenta?: string; // Permite identificar subcuentas
+  subCuenta?: string;
+  liberta?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
+  birthdate?: string;
+  preferences?: string;
+  notifications?: {
+    email: boolean;
+    sms: boolean;
+    promotions: boolean;
+  };
 }
+
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api';
 
 interface AuthContextType {
   user: User | null;
-  currentUser: any; // Firebase user object
+  currentUser: any;
   login: (email: string, password: string) => Promise<boolean>;
   register: (userData: Omit<User, 'id' | 'isAdmin'> & { password: string }) => Promise<boolean>;
   logout: () => Promise<void>;
-  updateUser: (userData: Partial<User>) => void;
+  updateUser: (userData: Partial<User>) => Promise<boolean>;
   isAuthenticated: boolean;
 }
 
@@ -40,163 +50,173 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Escucha cambios de sesión de Firebase
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setCurrentUser(firebaseUser);
-      if (firebaseUser) {
-        try {
-          // Usar nuestro helper que maneja errores y fallbacks
-          const userData = await getDocumentById("users", firebaseUser.uid);
-          
-          if (userData) {
-            setUser({
-              id: firebaseUser.uid,
-              email: firebaseUser.email || "",
-              name: userData.name || "",
-              departmentNumber: userData.departmentNumber || userData.conjunto || "",
-              phone: userData.phone || "",
-              address: userData.address || "",
-              isAdmin: firebaseUser.email === "admin@gmail.com" || firebaseUser.email === "admin@tienda.com",
-              subCuenta: userData.subCuenta || undefined
-            });
-          } else {
-            // Si el usuario no existe en Firestore, crear un documento nuevo
-          const newUserData = {
-            name: firebaseUser.displayName || "",
-            email: firebaseUser.email || "",
-            phone: "",
-            address: "",
-            departmentNumber: "",
-            conjunto: "",
-            createdAt: new Date()
-          };
-          
-          // Solo para usuarios que no son el primer inicio como admin
-          if (firebaseUser.email !== "admin@gmail.com" && firebaseUser.email !== "admin@tienda.com") {
-            // Usar nuestro helper que maneja errores y fallbacks
-            await createDocumentWithId("users", firebaseUser.uid, newUserData);
-            console.log("Documento de usuario creado automáticamente:", firebaseUser.uid);
-          }
-          
-          setUser({
-            id: firebaseUser.uid,
-            email: firebaseUser.email || "",
-            name: firebaseUser.displayName || "",
-            departmentNumber: "",
-            phone: "",
-            address: "",
-            isAdmin: firebaseUser.email === "admin@gmail.com" || firebaseUser.email === "admin@tienda.com"
-          });
-        }
-        } catch (error) {
-          console.error("Error al acceder a Firestore:", error);
-          // En caso de error de permisos, aún permitimos el acceso con datos básicos
-          setUser({
-            id: firebaseUser.uid,
-            email: firebaseUser.email || "",
-            name: firebaseUser.displayName || "",
-            departmentNumber: "",
-            phone: "",
-            address: "",
-            isAdmin: firebaseUser.email === "admin@gmail.com" || firebaseUser.email === "admin@tienda.com"
-          });
-        }
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
+    let mounted = true;
+
+    const applySession = async (supabaseUser: any) => {
+      if (!mounted) return;
+      await handleAuthStateChange(supabaseUser);
+    };
+
+    auth.getSession()
+      .then(({ data: { session } }) => session?.user || null)
+      .then(user => { if (mounted) applySession(user); })
+      .catch(() => { if (mounted) setLoading(false); });
+
+    const { data: { subscription } } = auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      await applySession(session?.user || null);
     });
-    return () => unsubscribe();
+
+    const timeout = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 5000);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+      subscription?.unsubscribe();
+    };
   }, []);
 
-  // Login con Firebase
+  const handleAuthStateChange = async (supabaseUser: any) => {
+    setCurrentUser(supabaseUser);
+    if (supabaseUser) {
+      const baseUser = {
+        id: supabaseUser.id,
+        email: supabaseUser.email || "",
+        name: supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || supabaseUser.email?.split('@')[0] || "Usuario",
+        departmentNumber: "",
+        phone: supabaseUser.user_metadata?.phone || "",
+        address: supabaseUser.user_metadata?.address || "",
+        isAdmin: supabaseUser.email === "admin@gmail.com" || supabaseUser.email === "admin@tienda.com",
+        subCuenta: supabaseUser.user_metadata?.sub_cuenta || undefined,
+        liberta: undefined as string | undefined,
+      };
+      setUser(baseUser);
+
+      try {
+        const { data: sessionData } = await auth.getSession();
+        const token = sessionData?.session?.access_token;
+
+        const response = await fetch(`${API_BASE_URL}/users/${supabaseUser.id}`, {
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        });
+        if (response.ok) {
+          const dbData = await response.json();
+          console.log("User data fetched from backend:", dbData);
+          if (dbData) {
+            setUser(prev => {
+              const updated = prev ? {
+                ...prev,
+                ...dbData, // Spread all data from DB
+                name: dbData.name || dbData.nombre || prev.name,
+                phone: dbData.phone || dbData.telefono || prev.phone,
+                address: dbData.address || dbData.direccion || prev.address,
+                city: dbData.city || prev.city || "",
+                province: dbData.province || prev.province || "",
+                postalCode: dbData.postal_code || dbData.postalCode || prev.postalCode || "",
+                birthdate: dbData.birthdate || prev.birthdate || "",
+                preferences: dbData.preferences || prev.preferences || "",
+                notifications: dbData.notifications || prev.notifications || { email: true, sms: false, promotions: true },
+                subCuenta: dbData.sub_cuenta || dbData.subCuenta || prev.subCuenta,
+                liberta: dbData.liberta || prev.liberta
+              } : prev;
+              console.log("Updated user state:", updated);
+              return updated;
+            });
+          }
+        } else {
+          console.warn("Failed to fetch user data from backend:", response.status);
+        }
+      } catch (e) {
+        console.error("Error fetching user data from backend:", e);
+      }
+      setLoading(false);
+    } else {
+      setUser(null);
+      setLoading(false);
+    }
+  };
+
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      // El listener de arriba actualizará el usuario automáticamente
-      return !!result.user;
+      const { data, error } = await auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      return !!data.user;
     } catch (error) {
+      console.error("Login error:", error);
       return false;
     }
   };
 
-  // Registro con Firebase
   const register = async (userData: Omit<User, 'id' | 'isAdmin'> & { password: string }): Promise<boolean> => {
     try {
-      const result = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
-      
-      if (result.user) {
-        // Eliminamos la contraseña del objeto userData antes de guardarlo en Firestore
-        const { password, ...dataToSave } = userData;
-        
-        // Escribimos los datos del usuario en Firestore y lo marcamos como verificado directamente
-        await setDoc(doc(db, "users", result.user.uid), {
-          ...dataToSave,
-          createdAt: new Date(),
-          emailVerified: true, // Marcamos como verificado directamente
-          isAdmin: userData.email === "admin@gmail.com" || userData.email === "admin@tienda.com"
-        });
-        
-        // Enviar correo de bienvenida usando la Cloud Function
-        try {
-          await sendWelcomeEmail({
-            email: userData.email,
-            name: userData.name || userData.email.split('@')[0]
-          });
-          console.log("Correo de bienvenida enviado a:", userData.email);
-        } catch (emailError) {
-          console.error("Error al enviar correo de bienvenida:", emailError);
-          // No interrumpimos el registro si falla el envío del correo
-        }
-        
+      const { data, error: signupError } = await auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: { data: { name: userData.name } }
+      });
+
+      if (signupError) throw signupError;
+      if (!data.user) throw new Error('No user returned from signup');
+
+      // Backend record creation will be handled by Supabase trigger or a separate API call here if needed
+      // For now, we rely on the backend to handle user persistence on signup if configured
+
+      try {
+        await sendWelcomeEmail(userData.email, userData.name || userData.email.split('@')[0]);
+      } catch (emailError) {
+        console.error("Error sending welcome email:", emailError);
+      }
+      return true;
+    } catch (error) {
+      console.error("Registration error:", error);
+      return false;
+    }
+  };
+
+  const updateUser = async (userData: Partial<User>) => {
+    if (!user?.id) return false;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+
+      if (response.ok) {
+        setUser(prev => prev ? { ...prev, ...userData } : prev);
         return true;
       }
       return false;
     } catch (error) {
-      console.error("Error en registro:", error);
+      console.error("Error updating user:", error);
       return false;
     }
   };
 
-  // Actualizar datos del usuario
-  const updateUser = (userData: Partial<User>) => {
-    if (!user || !user.id) return;
-    
-    // Actualizar en Firestore
-    updateDocument("users", user.id, userData);
-    
-    // Actualizar estado local
-    setUser({
-      ...user,
-      ...userData,
-    });
-  };
-
-  // Cerrar sesión
   const logout = async () => {
-    await signOut(auth);
+    await auth.signOut();
     setUser(null);
   };
 
-  // No mostramos nada mientras verificamos el estado de autenticación
   if (loading) {
-    return <div className="loading">Cargando...</div>;
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="w-12 h-12 mx-auto mb-4 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    );
   }
 
-  // Valor que se pasa al contexto
-  const value = {
-    user,
-    currentUser,
-    login,
-    register,
-    logout,
-    updateUser,
-    isAuthenticated: !!user,
-  };
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, currentUser, login, register, logout, updateUser, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

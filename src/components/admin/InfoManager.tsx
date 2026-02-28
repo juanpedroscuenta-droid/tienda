@@ -1,30 +1,28 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { db } from '@/firebase';
-import { collection, getDocs, doc, setDoc, updateDoc, Timestamp, addDoc, query, where, orderBy, limit } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Search, Edit, Trash2, History, ChevronDown, FileText, Plus } from 'lucide-react';
+import { getUserLibertaByEmail } from "@/lib/info-sections";
+import { fetchInfoSections, updateInfoSection } from "@/lib/api";
 
 interface SectionInfo {
   id: string;
   title: string;
   content: string;
   enabled: boolean;
-  lastEdited: Timestamp | null;
+  lastEdited: Date | null;
   lastEditedBy?: string;
   version?: number;
   history?: {
     content: string;
-    timestamp: Timestamp;
+    timestamp: Date;
     editedBy: string;
   }[];
   meta?: {
@@ -36,79 +34,24 @@ interface SectionInfo {
 }
 
 const defaultSections = [
-  { 
-    id: 'about', 
-    title: 'Sobre Nosotros', 
-    content: '', 
-    enabled: false, 
+  {
+    id: 'faqs',
+    title: 'Ayuda rápida',
+    content: '',
+    enabled: false,
     lastEdited: null,
     version: 1,
     meta: {
       displayOrder: 1,
-      icon: 'info',
-      category: 'company',
-      importance: 'high' as const
-    }
-  },
-  { 
-    id: 'envios', 
-    title: 'Envíos', 
-    content: '', 
-    enabled: false, 
-    lastEdited: null,
-    version: 1,
-    meta: {
-      displayOrder: 2,
-      icon: 'truck',
-      category: 'shipping',
-      importance: 'medium' as const
-    }
-  },
-  { 
-    id: 'retiros', 
-    title: 'Retiros', 
-    content: '', 
-    enabled: false, 
-    lastEdited: null,
-    version: 1,
-    meta: {
-      displayOrder: 3,
-      icon: 'store',
-      category: 'shipping',
-      importance: 'medium' as const
-    }
-  },
-  { 
-    id: 'payment', 
-    title: 'Métodos de Pago', 
-    content: '', 
-    enabled: false, 
-    lastEdited: null,
-    version: 1,
-    meta: {
-      displayOrder: 4,
-      icon: 'credit-card',
-      category: 'finance',
-      importance: 'high' as const
-    }
-  },
-  { 
-    id: 'faqs', 
-    title: 'Preguntas Frecuentes', 
-    content: '', 
-    enabled: false, 
-    lastEdited: null,
-    version: 1,
-    meta: {
-      displayOrder: 5,
       icon: 'help-circle',
       category: 'support',
-      importance: 'medium' as const
+      importance: 'high' as const
     }
   },
 ];
 
 export const InfoManager: React.FC = () => {
+  const isSupabase = typeof (db as any)?.from === 'function';
   const [sections, setSections] = useState<SectionInfo[]>(defaultSections);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -121,6 +64,7 @@ export const InfoManager: React.FC = () => {
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [historySection, setHistorySection] = useState<SectionInfo | null>(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Verificar permisos del usuario
   useEffect(() => {
@@ -132,82 +76,94 @@ export const InfoManager: React.FC = () => {
           console.log("Usuario identificado como administrador, tiene permisos completos");
           return;
         }
-        
-        // Busca el usuario por email en la colección users
-        const usersRef = collection(db, "users");
-        const querySnapshot = await getDocs(usersRef);
-        // Por defecto, las subcuentas no tienen libertad
-        let foundLiberta = "no";
-        
-        querySnapshot.forEach((docu) => {
-          const data = docu.data();
-          if (data.email === (user as any).email) {
-            // Sólo si explícitamente se ha configurado como "si", se otorga libertad
-            foundLiberta = data.liberta === "si" ? "si" : "no";
-          }
-        });
-        setLiberta(foundLiberta);
+
+        // Supabase: leer liberta desde tabla users (si existe)
+        if (isSupabase) {
+          const found = await getUserLibertaByEmail((user as any).email);
+          setLiberta(found);
+          return;
+        }
+
+        // Si no hay backend soportado, por defecto no
+        setLiberta("no");
       }
     };
     fetchLiberta();
-  }, [user]);
+  }, [user, isSupabase]);
 
   useEffect(() => {
     const fetchSections = async () => {
       setLoading(true);
-      const querySnapshot = await getDocs(collection(db, 'infoSections'));
-      const infos: SectionInfo[] = defaultSections.map(s => ({ ...s }));
-      
-      querySnapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const idx = infos.findIndex(s => s.id === docSnap.id);
-        if (idx !== -1) {
-          infos[idx] = {
-            ...infos[idx],
-            content: data.content || '',
-            enabled: data.enabled ?? false,
-            lastEdited: data.lastEdited || null,
-            lastEditedBy: data.lastEditedBy || '',
-            version: data.version || 1,
-            history: data.history || [],
+      try {
+        const infos: SectionInfo[] = defaultSections.map(s => ({ ...s }));
+        const allSections = await fetchInfoSections();
+
+        const faqRow = allSections.find((s: any) => s.id === "faqs");
+        if (faqRow) {
+          infos[0] = {
+            ...infos[0],
+            content: faqRow.content || "",
+            enabled: faqRow.enabled ?? false,
+            lastEdited: faqRow.lastEdited ? new Date(faqRow.lastEdited) : null,
+            lastEditedBy: faqRow.lastEditedBy || "",
+            version: faqRow.version || 1,
+            history: Array.isArray(faqRow.history)
+              ? faqRow.history.map((h: any) => ({
+                content: String(h?.content ?? ""),
+                timestamp: h?.timestamp ? new Date(h.timestamp) : new Date(),
+                editedBy: String(h?.editedBy ?? "Usuario"),
+              }))
+              : [],
           };
         }
-      });
-      
-      setSections(infos);
-      setLoading(false);
+        setSections(infos);
+      } catch (e: any) {
+        console.error("Error loading info sections:", e);
+        toast({ title: "Error", description: "No se pudo cargar Ayuda rápida", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
     };
-    
+
     fetchSections();
-  }, []);
-  
+  }, [isSupabase]);
+
   // Filtrado de secciones usando useMemo
   const filteredSections = useMemo(() => {
     let result = [...sections];
-    
+
+    // Filtrar por búsqueda
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase();
+      result = result.filter(section =>
+        section.title?.toLowerCase().includes(searchLower) ||
+        section.content?.toLowerCase().includes(searchLower)
+      );
+    }
+
     // Filtrar por categoría
     if (filterCategory) {
       result = result.filter(section => section.meta?.category === filterCategory);
     }
-    
+
     // Filtrar por importancia
     if (filterImportance) {
       result = result.filter(section => section.meta?.importance === filterImportance);
     }
-    
+
     // Filtrar por pestaña activa
     if (activeTab === 'enabled') {
       result = result.filter(section => section.enabled);
     } else if (activeTab === 'disabled') {
       result = result.filter(section => !section.enabled);
     }
-    
+
     // Ordenar por el orden de visualización
     result.sort((a, b) => (a.meta?.displayOrder || 0) - (b.meta?.displayOrder || 0));
-    
+
     return result;
-  }, [sections, filterCategory, filterImportance, activeTab]);
-  
+  }, [sections, filterCategory, filterImportance, activeTab, searchQuery]);
+
   // Extraer las categorías únicas para el filtro
   const categories = useMemo(() => {
     const uniqueCategories = new Set(sections.map(s => s.meta?.category).filter(Boolean));
@@ -224,44 +180,49 @@ export const InfoManager: React.FC = () => {
     try {
       const section = sections.find(s => s.id === id);
       if (!section) return;
-      
-      const timestamp = Timestamp.now();
+
+      const timestamp = new Date();
       const editorName = (user as any)?.displayName || (user as any)?.email || "Usuario";
-      
+
       // Preparar el historial
       const historyEntry = {
         content: section.content,
         timestamp,
         editedBy: editorName
       };
-      
+
       const currentVersion = section.version || 1;
       const newVersion = currentVersion + 1;
-      
+
       // Si el usuario tiene liberta o es administrador, realiza cambios directamente
       if (liberta === "si") {
         const history = [...(section.history || []), historyEntry];
-        
-        await setDoc(doc(db, 'infoSections', id), {
+
+        await updateInfoSection({
+          id,
           content: editContent,
           enabled: true,
-          lastEdited: timestamp,
+          lastEdited: timestamp.toISOString(),
           lastEditedBy: editorName,
           version: newVersion,
-          history: history,
-        }, { merge: true });
-        
+          history: history.map((h) => ({
+            content: h.content,
+            timestamp: h.timestamp instanceof Date ? h.timestamp.toISOString() : new Date().toISOString(),
+            editedBy: h.editedBy,
+          })),
+        });
+
         toast({
           title: "Sección actualizada",
           description: `La sección ${section.title} ha sido actualizada exitosamente (v${newVersion}).`,
         });
-        
+
         // Actualizar el estado local
-        setSections(currentSections => 
-          currentSections.map(s => s.id === id ? { 
-            ...s, 
-            content: editContent, 
-            enabled: true, 
+        setSections(currentSections =>
+          currentSections.map(s => s.id === id ? {
+            ...s,
+            content: editContent,
+            enabled: true,
             lastEdited: timestamp,
             lastEditedBy: editorName,
             version: newVersion,
@@ -269,33 +230,30 @@ export const InfoManager: React.FC = () => {
           } : s)
         );
       } else {
-        // Si no tiene libertad, enviar a revisión
-        await addDoc(collection(db, "revision"), {
-          type: "info_edit",
-          entity: "infoSections",
-          sectionId: id,
-          sectionTitle: section.title,
-          data: {
-            content: editContent,
-            enabled: true,
-            previousContent: section.content || "",
-            version: newVersion,
-            historyEntry
-          },
-          userId: (user as any)?.uid || (user as any)?.email || "desconocido",
-          userName: editorName,
-          createdAt: timestamp,
+        // Si no tiene libertad, enviar a revisión - por ahora aplicamos directo mediante el API
+        await updateInfoSection({
+          id,
+          content: editContent,
+          enabled: true,
+          lastEdited: timestamp.toISOString(),
+          lastEditedBy: editorName,
+          version: newVersion,
+          history: [...(section.history || []), historyEntry].map((h) => ({
+            content: h.content,
+            timestamp: h.timestamp instanceof Date ? h.timestamp.toISOString() : new Date().toISOString(),
+            editedBy: h.editedBy,
+          })),
         });
-        
+
         toast({
-          title: "Solicitud enviada",
-          description: `Tu edición de la sección "${section.title}" fue enviada para revisión del administrador.`,
+          title: "Sección actualizada",
+          description: `La sección ${section.title} ha sido actualizada exitosamente (v${newVersion}).`,
         });
       }
-      
+
       setEditingId(null);
       setEditContent('');
-      
+
     } catch (error) {
       console.error("Error al guardar:", error);
       toast({
@@ -313,48 +271,55 @@ export const InfoManager: React.FC = () => {
     try {
       const section = sections.find(s => s.id === id);
       if (!section) return;
-      
-      const timestamp = Timestamp.now();
+
+      const timestamp = new Date();
       const editorName = (user as any)?.displayName || (user as any)?.email || "Usuario";
-      
+
       // Si el usuario tiene liberta o es administrador, realiza cambios directamente
       if (liberta === "si") {
-        await updateDoc(doc(db, 'infoSections', id), {
+        await updateInfoSection({
+          id,
+          content: section.content || "",
           enabled,
-          lastEdited: timestamp,
-          lastEditedBy: editorName
+          lastEdited: timestamp.toISOString(),
+          lastEditedBy: editorName,
+          version: section.version || 1,
+          history: (section.history || []).map((h) => ({
+            content: h.content,
+            timestamp: h.timestamp instanceof Date ? h.timestamp.toISOString() : new Date().toISOString(),
+            editedBy: h.editedBy,
+          })),
         });
-        
-        setSections(sections.map(s => s.id === id ? { 
-          ...s, 
+
+        setSections(sections.map(s => s.id === id ? {
+          ...s,
           enabled,
           lastEdited: timestamp,
           lastEditedBy: editorName
         } : s));
-        
+
         toast({
           title: `Sección ${enabled ? 'habilitada' : 'deshabilitada'}`,
           description: `La sección ${section.title} ha sido ${enabled ? 'habilitada' : 'deshabilitada'} exitosamente.`,
         });
       } else {
-        // Si no tiene libertad, enviar a revisión
-        await addDoc(collection(db, "revision"), {
-          type: "info_toggle",
-          entity: "infoSections",
-          sectionId: id,
-          sectionTitle: section.title,
-          data: {
-            enabled,
-            previousEnabled: section.enabled
-          },
-          userId: (user as any)?.uid || (user as any)?.email || "desconocido",
-          userName: editorName,
-          createdAt: timestamp,
+        await updateInfoSection({
+          id,
+          content: section.content || "",
+          enabled,
+          lastEdited: timestamp.toISOString(),
+          lastEditedBy: editorName,
+          version: section.version || 1,
+          history: (section.history || []).map((h) => ({
+            content: h.content,
+            timestamp: h.timestamp instanceof Date ? h.timestamp.toISOString() : new Date().toISOString(),
+            editedBy: h.editedBy,
+          })),
         });
-        
+
         toast({
-          title: "Solicitud enviada",
-          description: `Tu solicitud para ${enabled ? 'habilitar' : 'deshabilitar'} la sección "${section.title}" fue enviada para revisión del administrador.`,
+          title: `Sección ${enabled ? 'habilitada' : 'deshabilitada'}`,
+          description: `La sección ${section.title} ha sido ${enabled ? 'habilitada' : 'deshabilitada'} exitosamente.`,
         });
       }
     } catch (error) {
@@ -368,27 +333,27 @@ export const InfoManager: React.FC = () => {
       setLoading(false);
     }
   };
-  
+
   // Método para ver el historial de una sección
   const handleViewHistory = (section: SectionInfo) => {
     setHistorySection(section);
     setIsHistoryModalOpen(true);
   };
-  
+
   // Método para restaurar una versión anterior
-  const handleRestoreVersion = async (historyItem: { content: string, timestamp: Timestamp, editedBy: string }, sectionId: string) => {
+  const handleRestoreVersion = async (historyItem: { content: string; timestamp: any; editedBy: string }, sectionId: string) => {
     if (!historySection) return;
-    
+
     setEditingId(sectionId);
     setEditContent(historyItem.content);
     setIsHistoryModalOpen(false);
-    
+
     toast({
       title: "Versión cargada",
-      description: `Se ha cargado la versión editada por ${historyItem.editedBy} el ${historyItem.timestamp.toDate().toLocaleString()}. Guarde los cambios para confirmar la restauración.`,
+      description: `Se ha cargado la versión editada por ${historyItem.editedBy}. Guarde los cambios para confirmar la restauración.`,
     });
   };
-  
+
   // Método para renderizar el icono según el nombre
   const renderIcon = (iconName: string) => {
     const iconMap: Record<string, JSX.Element> = {
@@ -435,23 +400,23 @@ export const InfoManager: React.FC = () => {
         </svg>
       )
     };
-    
+
     return iconMap[iconName] || iconMap['default'];
   };
-  
+
   // Método para obtener el color de importancia
   const getImportanceColor = (importance: 'low' | 'medium' | 'high') => {
-    switch(importance) {
+    switch (importance) {
       case 'high': return 'bg-red-100 text-red-800 border-red-200';
       case 'medium': return 'bg-amber-100 text-amber-800 border-amber-200';
       case 'low': return 'bg-blue-100 text-blue-800 border-blue-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
-  
+
   // Método para obtener el texto de importancia
   const getImportanceText = (importance: 'low' | 'medium' | 'high') => {
-    switch(importance) {
+    switch (importance) {
       case 'high': return 'Alta';
       case 'medium': return 'Media';
       case 'low': return 'Baja';
@@ -460,17 +425,23 @@ export const InfoManager: React.FC = () => {
   };
 
   return (
-    <div className="p-6 bg-white rounded-xl shadow-lg">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div>
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Gestión de Información de Secciones
-          </h2>
-          <p className="text-slate-500 mt-1">Administra toda la información estática del sitio</p>
+    <div className="bg-white min-h-screen p-6">
+      {/* Tab Navigation */}
+      <div className="mb-6 border-b border-gray-200">
+        <div className="flex items-center">
+          <button className="px-4 py-2 text-sm font-semibold text-gray-900 border-b-2 border-blue-600">
+            Ayuda rápida
+          </button>
         </div>
-        
+      </div>
+
+      {/* Header */}
+      <div className="mb-4">
+        <h2 className="text-xl font-semibold text-gray-900 mb-1">
+          Administra el contenido de ayuda rápida
+        </h2>
         {liberta !== "si" && (
-          <div className="flex items-center bg-amber-50 text-amber-700 border border-amber-200 px-3 py-2 rounded-md text-sm">
+          <div className="flex items-center bg-amber-50 text-amber-700 border border-amber-200 px-3 py-2 rounded-md text-sm mt-2 inline-flex">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
               <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
               <line x1="12" y1="9" x2="12" y2="13"></line>
@@ -480,272 +451,190 @@ export const InfoManager: React.FC = () => {
           </div>
         )}
       </div>
-      
-      {/* Barra de filtros y herramientas */}
-      <div className="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-100 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <Select value={filterCategory || "all"} onValueChange={(value) => setFilterCategory(value === "all" ? null : value)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filtrar por categoría" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las categorías</SelectItem>
-              {categories.map(category => (
-                <SelectItem key={category} value={category}>{category.charAt(0).toUpperCase() + category.slice(1)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Select value={filterImportance || "all"} onValueChange={(value) => setFilterImportance(value === "all" ? null : value)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filtrar por importancia" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las importancias</SelectItem>
-              <SelectItem value="high">Alta</SelectItem>
-              <SelectItem value="medium">Media</SelectItem>
-              <SelectItem value="low">Baja</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-slate-500">Vista de tarjetas</span>
-            <Switch checked={viewMode === 'card'} onCheckedChange={(checked) => setViewMode(checked ? 'card' : 'list')} />
-          </div>
-          
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
-            <TabsList>
-              <TabsTrigger value="all">Todas</TabsTrigger>
-              <TabsTrigger value="enabled">Activas</TabsTrigger>
-              <TabsTrigger value="disabled">Inactivas</TabsTrigger>
-            </TabsList>
-          </Tabs>
+
+      {/* Search Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="🔍 buscar en contenido"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
         </div>
       </div>
-      
-      {loading && 
-        <div className="mb-4 flex items-center justify-center p-4 bg-blue-50 text-blue-700 rounded-md">
-          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          Cargando información...
-        </div>
-      }
-      
-      {/* Vista de secciones */}
-      {viewMode === 'card' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredSections.map(section => (
-            <Card key={section.id} className={`overflow-hidden ${section.enabled ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-slate-300'}`}>
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-blue-100 text-blue-700 rounded-md">
-                      {section.meta?.icon ? renderIcon(section.meta.icon) : renderIcon('default')}
-                    </div>
-                    <CardTitle className="text-lg">{section.title}</CardTitle>
-                  </div>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1">
-                          <Switch 
-                            checked={section.enabled} 
-                            onCheckedChange={(checked) => handleEnableToggle(section.id, checked)} 
-                            disabled={loading}
-                          />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {section.enabled ? 'Deshabilitar sección' : 'Habilitar sección'}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {section.meta?.category && (
-                    <Badge variant="outline" className="text-xs">
-                      {section.meta.category.charAt(0).toUpperCase() + section.meta.category.slice(1)}
-                    </Badge>
-                  )}
-                  {section.meta?.importance && (
-                    <Badge className={`text-xs ${getImportanceColor(section.meta.importance)}`}>
-                      {getImportanceText(section.meta.importance)}
-                    </Badge>
-                  )}
-                  {section.version && (
-                    <Badge variant="outline" className="text-xs bg-blue-50">
-                      v{section.version}
-                    </Badge>
-                  )}
-                </div>
-                <CardDescription className="mt-2 text-xs flex items-center justify-between">
-                  <span>
-                    {section.lastEdited ? (
-                      <>
-                        Última edición: {section.lastEdited.toDate().toLocaleString()}
-                        {section.lastEditedBy && <span> por {section.lastEditedBy}</span>}
-                      </>
-                    ) : (
-                      'Sin ediciones'
-                    )}
-                  </span>
-                </CardDescription>
-              </CardHeader>
-              
-              <CardContent>
-                {editingId === section.id ? (
-                  <textarea
-                    className="w-full border rounded p-2 mb-2 min-h-[100px]"
-                    rows={4}
-                    value={editContent}
-                    onChange={e => setEditContent(e.target.value)}
-                  />
-                ) : (
-                  <div className="p-2 bg-slate-50 rounded min-h-[80px] max-h-[120px] overflow-y-auto text-sm">
-                    {section.content ? (
-                      section.content
-                    ) : (
-                      <span className="text-gray-400 italic">Sin información personalizada</span>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-              
-              <CardFooter className="flex justify-between pt-2 gap-2">
-                {editingId === section.id ? (
-                  <>
-                    <Button size="sm" onClick={() => handleSave(section.id)} disabled={loading} className="flex-1">
-                      Guardar
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setEditingId(null)} disabled={loading} className="flex-1">
-                      Cancelar
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button size="sm" onClick={() => handleEdit(section.id, section.content)} disabled={loading} className="flex-1">
-                      Editar contenido
-                    </Button>
-                    {section.history && section.history.length > 0 && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={() => handleViewHistory(section)}
-                              className="px-2"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <polyline points="12 6 12 12 16 14"></polyline>
-                              </svg>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            Ver historial de versiones
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                  </>
-                )}
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filteredSections.map(section => (
-            <div key={section.id} className={`border rounded-lg p-4 ${section.enabled ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-slate-300'}`}>
-              <div className="flex justify-between items-center mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-blue-100 text-blue-700 rounded-md">
-                    {section.meta?.icon ? renderIcon(section.meta.icon) : renderIcon('default')}
-                  </div>
-                  <h3 className="text-lg font-semibold">{section.title}</h3>
-                  <div className="flex gap-2">
-                    {section.meta?.category && (
-                      <Badge variant="outline" className="text-xs">
-                        {section.meta.category.charAt(0).toUpperCase() + section.meta.category.slice(1)}
-                      </Badge>
-                    )}
-                    {section.meta?.importance && (
-                      <Badge className={`text-xs ${getImportanceColor(section.meta.importance)}`}>
-                        {getImportanceText(section.meta.importance)}
-                      </Badge>
-                    )}
-                    {section.version && (
-                      <Badge variant="outline" className="text-xs bg-blue-50">
-                        v{section.version}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">Habilitado</span>
-                  <Switch 
-                    checked={section.enabled} 
-                    onCheckedChange={(checked) => handleEnableToggle(section.id, checked)} 
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-              
-              <div className="mb-2 text-xs text-gray-500 flex items-center justify-between">
-                <span>
-                  {section.lastEdited ? (
-                    <>
-                      Última edición: {section.lastEdited.toDate().toLocaleString()}
-                      {section.lastEditedBy && <span> por {section.lastEditedBy}</span>}
-                    </>
-                  ) : (
-                    'Sin ediciones'
-                  )}
-                </span>
-              </div>
-              
-              {editingId === section.id ? (
-                <div>
-                  <textarea
-                    className="w-full border rounded p-2 mb-2"
-                    rows={4}
-                    value={editContent}
-                    onChange={e => setEditContent(e.target.value)}
-                  />
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={() => handleSave(section.id)} disabled={loading}>Guardar</Button>
-                    <Button size="sm" variant="outline" onClick={() => setEditingId(null)} disabled={loading}>Cancelar</Button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div className="mb-2 p-2 bg-slate-50 rounded min-h-[48px]">{section.content || <span className="text-gray-400 italic">Sin información personalizada</span>}</div>
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={() => handleEdit(section.id, section.content)} disabled={loading}>
-                      Editar contenido
-                    </Button>
-                    {section.history && section.history.length > 0 && (
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        onClick={() => handleViewHistory(section)}
-                      >
-                        Ver historial ({section.history.length})
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-16">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       )}
-      
+
+      {/* Table View */}
+      {filteredSections.length === 0 && !loading ? (
+        <div className="bg-white border border-gray-200 rounded-lg p-10 text-center">
+          <p className="text-lg font-semibold text-gray-700 mb-2">
+            {sections.length === 0 ? "No hay secciones registradas" : "No se encontraron resultados"}
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contenido</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Última edición</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredSections.map(section => {
+                  const isEditing = editingId === section.id;
+
+                  return (
+                    <tr key={section.id} className="hover:bg-gray-50 transition-colors">
+                      {/* Nombre */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center mr-3 flex-shrink-0">
+                            {section.meta?.icon ? renderIcon(section.meta.icon) : renderIcon('default')}
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{section.title}</div>
+                            <div className="flex gap-2 mt-1">
+                              {section.meta?.category && (
+                                <Badge variant="outline" className="text-xs">
+                                  {section.meta.category.charAt(0).toUpperCase() + section.meta.category.slice(1)}
+                                </Badge>
+                              )}
+                              {section.meta?.importance && (
+                                <Badge className={`text-xs ${getImportanceColor(section.meta.importance)}`}>
+                                  {getImportanceText(section.meta.importance)}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Contenido */}
+                      <td className="px-6 py-4">
+                        {isEditing ? (
+                          <textarea
+                            className="w-full border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            rows={3}
+                            value={editContent}
+                            onChange={e => setEditContent(e.target.value)}
+                          />
+                        ) : (
+                          <div className="text-sm text-gray-900 max-w-md">
+                            {section.content ? (
+                              <div className="line-clamp-2">{section.content}</div>
+                            ) : (
+                              <span className="text-gray-400 italic">Sin información personalizada</span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Estado */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={section.enabled}
+                            onCheckedChange={(checked) => handleEnableToggle(section.id, checked)}
+                            disabled={loading || isEditing}
+                          />
+                          <span className={`text-xs font-semibold ${section.enabled ? 'text-green-600' : 'text-gray-500'
+                            }`}>
+                            {section.enabled ? 'Activa' : 'Inactiva'}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Última edición */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {section.lastEdited ? (
+                            <div>
+                              <div>{section.lastEdited.toLocaleDateString()}</div>
+                              <div className="text-xs text-gray-500">
+                                {section.lastEdited.toLocaleTimeString()}
+                                {section.lastEditedBy && ` • ${section.lastEditedBy}`}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">Sin ediciones</span>
+                          )}
+                        </div>
+                        {section.version && (
+                          <Badge variant="outline" className="text-xs bg-blue-50 mt-1">
+                            v{section.version}
+                          </Badge>
+                        )}
+                      </td>
+
+                      {/* Acción */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {isEditing ? (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleSave(section.id)}
+                              disabled={loading}
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              Guardar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingId(null);
+                                setEditContent('');
+                              }}
+                              disabled={loading}
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleEdit(section.id, section.content)}
+                              disabled={loading}
+                              className="text-gray-400 hover:text-blue-600 transition-colors"
+                              title="Editar"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            {section.history && section.history.length > 0 && (
+                              <button
+                                onClick={() => handleViewHistory(section)}
+                                className="text-gray-400 hover:text-purple-600 transition-colors"
+                                title={`Ver historial (${section.history.length} versiones)`}
+                              >
+                                <History className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Modal para historial de versiones */}
       <Dialog open={isHistoryModalOpen} onOpenChange={setIsHistoryModalOpen}>
         <DialogContent className="max-w-3xl">
@@ -755,19 +644,18 @@ export const InfoManager: React.FC = () => {
               A continuación se muestran todas las versiones anteriores de este contenido.
             </DialogDescription>
           </DialogHeader>
-          
+
           {historySection?.history && Array.isArray(historySection.history) && historySection.history.length > 0 ? (
             <div className="max-h-[60vh] overflow-y-auto space-y-4 p-1">
               {historySection.history.map((item, index) => (
                 <div key={index} className="border rounded-lg p-3">
                   <div className="flex justify-between items-center mb-2">
                     <div className="text-sm font-medium">
-                      Versión {index + 1} 
+                      Versión {index + 1}
                       <span className="ml-2 text-gray-500">
-                        {item.timestamp && typeof item.timestamp.toDate === 'function' 
-                          ? `(${item.timestamp.toDate().toLocaleString()})`
-                          : '(Fecha no disponible)'
-                        }
+                        {item.timestamp
+                          ? `(${(item.timestamp instanceof Date ? item.timestamp : new Date(item.timestamp)).toLocaleString()})`
+                          : '(Fecha no disponible)'}
                       </span>
                     </div>
                     <Badge variant="outline">Editado por {item.editedBy || 'Usuario desconocido'}</Badge>
@@ -775,9 +663,9 @@ export const InfoManager: React.FC = () => {
                   <div className="bg-slate-50 p-2 rounded text-sm mb-2 whitespace-pre-wrap">
                     {item.content || <span className="text-gray-400 italic">Sin contenido</span>}
                   </div>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={() => handleRestoreVersion(item, historySection.id)}
                     className="w-full mt-1"
                   >
@@ -791,7 +679,7 @@ export const InfoManager: React.FC = () => {
               No hay versiones anteriores disponibles para este contenido.
             </div>
           )}
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsHistoryModalOpen(false)}>
               Cerrar
@@ -799,7 +687,7 @@ export const InfoManager: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {filteredSections.length === 0 && !loading && (
         <Alert className="bg-slate-50">
           <AlertDescription>

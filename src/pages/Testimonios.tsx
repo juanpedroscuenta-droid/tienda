@@ -12,16 +12,16 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogFooter,
   DialogTrigger,
   DialogClose
 } from "@/components/ui/dialog";
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -50,7 +50,7 @@ interface Testimonio {
 }
 
 const Testimonios = () => {
-  const { categories } = useCategories();
+  const { categories, mainCategories, subcategoriesByParent, thirdLevelBySubcategory } = useCategories();
   const { user, isAuthenticated, currentUser } = useAuth();
   const [selectedCategory, setSelectedCategory] = React.useState("Todos");
   const [promoVisible, setPromoVisible] = React.useState(true);
@@ -106,12 +106,12 @@ const Testimonios = () => {
             fotoProducto: data.fotoProducto || ''
           });
         });
-        
+
         // Solo usar testimonios reales de la base de datos
         // Ordenar por fecha (más recientes primero)
         testimoniosList.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
         setTestimonios(testimoniosList);
-        
+
         // Verificar si el usuario ya ha comentado
         if (user) {
           const miTestimonio = testimoniosList.find(t => t.userId === user.id);
@@ -133,7 +133,7 @@ const Testimonios = () => {
 
       setLoading(false);
     };
-    
+
     fetchInfo();
   }, [user]);
 
@@ -152,7 +152,7 @@ const Testimonios = () => {
     }
     return stars;
   };
-  
+
   // Función para renderizar estrellas seleccionables
   const renderSelectableStars = (selectedRating: number, onSelect: (rating: number) => void) => {
     const stars = [];
@@ -160,16 +160,15 @@ const Testimonios = () => {
       stars.push(
         <Star
           key={i}
-          className={`h-6 w-6 cursor-pointer transition-colors duration-200 ${
-            i <= selectedRating ? "fill-yellow-400 text-yellow-400" : "text-gray-300 hover:text-yellow-200"
-          }`}
+          className={`h-6 w-6 cursor-pointer transition-colors duration-200 ${i <= selectedRating ? "fill-yellow-400 text-yellow-400" : "text-gray-300 hover:text-yellow-200"
+            }`}
           onClick={() => onSelect(i)}
         />
       );
     }
     return stars;
   };
-  
+
   // Función para manejar cambios en el formulario
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -178,7 +177,7 @@ const Testimonios = () => {
       [name]: value
     }));
   };
-  
+
   // Función para guardar un nuevo testimonio
   const guardarTestimonio = async () => {
     if (!isAuthenticated || !user) {
@@ -189,7 +188,7 @@ const Testimonios = () => {
       });
       return;
     }
-    
+
     if (!formTestimonio.comentario) {
       toast({
         title: "Error",
@@ -198,9 +197,9 @@ const Testimonios = () => {
       });
       return;
     }
-    
+
     setEnviandoTestimonio(true);
-    
+
     try {
       // Si está editando, actualizar el testimonio existente
       if (editando && miTestimonio) {
@@ -211,7 +210,7 @@ const Testimonios = () => {
           productoComprado: formTestimonio.productoComprado,
           fechaActualizado: serverTimestamp()
         });
-        
+
         // Actualizar el estado local
         const testimonioActualizado: Testimonio = {
           ...miTestimonio,
@@ -221,10 +220,10 @@ const Testimonios = () => {
           productoComprado: formTestimonio.productoComprado,
           fecha: new Date() // Esto es solo para la visualización, en Firestore usamos serverTimestamp()
         };
-        
+
         setMiTestimonio(testimonioActualizado);
         setTestimonios(prev => prev.map(t => t.id === miTestimonio.id ? testimonioActualizado : t));
-        
+
         toast({
           title: "¡Éxito!",
           description: "Tu testimonio ha sido actualizado correctamente",
@@ -243,27 +242,27 @@ const Testimonios = () => {
           userId: user.id,
           imagenUrl: currentUser?.photoURL || ""
         };
-        
+
         const docRef = await addDoc(collection(db, "testimonios"), nuevoTestimonio);
-        
+
         // Agregar el nuevo testimonio al estado local
         const testimonioParaMostrar: Testimonio = {
           id: docRef.id,
           ...nuevoTestimonio,
           fecha: new Date() // Esto es solo para la visualización, en Firestore usamos serverTimestamp()
         };
-        
+
         setMiTestimonio(testimonioParaMostrar);
         setTestimonios(prev => [testimonioParaMostrar, ...prev]);
         setUsuarioYaComentó(true);
-        
+
         toast({
           title: "¡Gracias por tu opinión!",
           description: "Tu testimonio ha sido publicado correctamente",
           variant: "default"
         });
       }
-      
+
       setModalOpen(false);
       setEditando(false);
     } catch (error) {
@@ -277,19 +276,19 @@ const Testimonios = () => {
       setEnviandoTestimonio(false);
     }
   };
-  
+
   // Función para eliminar un testimonio
   const eliminarTestimonio = async () => {
     if (!miTestimonio || !isAuthenticated) return;
-    
+
     try {
       await deleteDoc(doc(db, "testimonios", miTestimonio.id));
-      
+
       // Actualizar estado local
       setTestimonios(prev => prev.filter(t => t.id !== miTestimonio.id));
       setMiTestimonio(null);
       setUsuarioYaComentó(false);
-      
+
       toast({
         title: "Testimonio eliminado",
         description: "Tu testimonio ha sido eliminado correctamente",
@@ -313,6 +312,9 @@ const Testimonios = () => {
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         promoVisible={promoVisible}
+        mainCategories={mainCategories}
+        subcategoriesByParent={subcategoriesByParent}
+        thirdLevelBySubcategory={thirdLevelBySubcategory}
       />
       <main className="flex-1 flex flex-col">
         <section className="flex-1 min-h-[calc(100vh-8rem)] w-full flex flex-col justify-center items-center bg-white">
@@ -348,9 +350,9 @@ const Testimonios = () => {
                           Tu testimonio
                         </h3>
                         <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => {
                               setEditando(true);
                               setModalOpen(true);
@@ -360,11 +362,11 @@ const Testimonios = () => {
                             <Edit className="h-4 w-4 mr-1" />
                             Editar
                           </Button>
-                          
+
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button 
-                                variant="outline" 
+                              <Button
+                                variant="outline"
                                 size="sm"
                                 className="text-red-600 border-red-300 hover:bg-red-50"
                               >
@@ -398,14 +400,14 @@ const Testimonios = () => {
                             </div>
                           </div>
                           <p className="text-gray-700 italic mb-3">"{miTestimonio.comentario}"</p>
-                          
+
                           {miTestimonio.productoComprado && (
                             <div className="flex items-center bg-gray-50 p-2 rounded-md text-sm text-gray-600 mb-3">
                               <span className="mr-2">Producto:</span>
                               <span className="font-medium">{miTestimonio.productoComprado}</span>
                             </div>
                           )}
-                          
+
                           <p className="text-xs text-gray-500">
                             {miTestimonio.fecha.toLocaleDateString('es-AR', {
                               year: 'numeric',
@@ -425,11 +427,11 @@ const Testimonios = () => {
                         </h3>
                       </div>
                       <p className="text-gray-700 mb-4">
-                        Ayuda a otros clientes compartiendo tu experiencia de compra con nosotros. 
+                        Ayuda a otros clientes compartiendo tu experiencia de compra con nosotros.
                         Tu opinión es muy valiosa.
                       </p>
-                      <Button 
-                        onClick={() => setModalOpen(true)} 
+                      <Button
+                        onClick={() => setModalOpen(true)}
                         className="bg-blue-600 hover:bg-blue-700"
                       >
                         Escribir mi testimonio
@@ -447,11 +449,10 @@ const Testimonios = () => {
                     <p className="text-gray-500">¡Sé el primero en compartir tu experiencia!</p>
                   </div>
                 ) : testimonios.map((testimonio) => (
-                  <Card 
-                    key={testimonio.id} 
-                    className={`border-0 shadow-lg hover:shadow-xl transition-all duration-300 ${
-                      miTestimonio?.id === testimonio.id ? 'ring-2 ring-blue-400' : ''
-                    }`}
+                  <Card
+                    key={testimonio.id}
+                    className={`border-0 shadow-lg hover:shadow-xl transition-all duration-300 ${miTestimonio?.id === testimonio.id ? 'ring-2 ring-blue-400' : ''
+                      }`}
                   >
                     <CardContent className="p-6 relative bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
                       <Quote className="absolute text-blue-200 h-16 w-16 -top-2 -left-2 opacity-20" />
@@ -476,22 +477,22 @@ const Testimonios = () => {
                           )}
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center mb-4">
                         <div className="flex">
                           {renderStars(testimonio.calificacion)}
                         </div>
                       </div>
-                      
+
                       <p className="text-gray-700 italic mb-4">"{testimonio.comentario}"</p>
-                      
+
                       {testimonio.productoComprado && (
                         <div className="bg-white/70 p-2 rounded mb-3 text-sm border border-indigo-50">
                           <p className="font-medium text-indigo-700">Producto comprado:</p>
                           <p className="text-gray-600">{testimonio.productoComprado}</p>
                         </div>
                       )}
-                      
+
                       <p className="text-xs text-gray-500">
                         {testimonio.fecha.toLocaleDateString('es-AR', {
                           year: 'numeric',
@@ -509,25 +510,25 @@ const Testimonios = () => {
                   <DialogHeader>
                     <DialogTitle>{editando ? 'Editar testimonio' : 'Nuevo testimonio'}</DialogTitle>
                     <p id="dialog-description" className="text-sm text-gray-500">
-                      {editando 
+                      {editando
                         ? 'Modifica tu testimonio para compartir tu experiencia actualizada con nuestros productos.'
                         : 'Comparte tu experiencia con nuestros productos y ayuda a otros clientes.'}
                     </p>
                   </DialogHeader>
-                  
+
                   <div className="grid gap-4 py-4">
                     <div className="space-y-2">
                       <Label htmlFor="calificacion">Tu calificación</Label>
                       <div className="flex gap-1 py-2">
-                        {renderSelectableStars(formTestimonio.calificacion, (rating) => 
+                        {renderSelectableStars(formTestimonio.calificacion, (rating) =>
                           setFormTestimonio(prev => ({ ...prev, calificacion: rating }))
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="comentario">Tu comentario</Label>
-                      <Textarea 
+                      <Textarea
                         id="comentario"
                         name="comentario"
                         placeholder="Comparte tu experiencia con nuestros productos y servicio..."
@@ -536,11 +537,11 @@ const Testimonios = () => {
                         className="min-h-[120px]"
                       />
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="profesion">Profesión (opcional)</Label>
-                        <Input 
+                        <Input
                           id="profesion"
                           name="profesion"
                           placeholder="Ej: Diseñador, Médica, Estudiante..."
@@ -548,10 +549,10 @@ const Testimonios = () => {
                           onChange={handleFormChange}
                         />
                       </div>
-                      
+
                       <div className="space-y-2">
                         <Label htmlFor="productoComprado">Producto que compraste</Label>
-                        <Input 
+                        <Input
                           id="productoComprado"
                           name="productoComprado"
                           placeholder="Ej: Smartwatch, Mate Personalizado..."
@@ -561,13 +562,13 @@ const Testimonios = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
                       Cancelar
                     </Button>
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       onClick={guardarTestimonio}
                       disabled={!formTestimonio.comentario || enviandoTestimonio}
                       className="bg-blue-600 hover:bg-blue-700"
@@ -594,7 +595,7 @@ const Testimonios = () => {
                 <p className="text-lg text-gray-700 mb-6">
                   Nos encantaría conocer tu opinión. Comparte tu experiencia y ayuda a otros clientes a conocer nuestros productos y servicios.
                 </p>
-                
+
                 {isAuthenticated ? (
                   usuarioYaComentó ? (
                     <div className="bg-white/70 p-4 rounded-lg inline-block shadow-sm">
@@ -604,8 +605,8 @@ const Testimonios = () => {
                       </p>
                     </div>
                   ) : (
-                    <Button 
-                      onClick={() => setModalOpen(true)} 
+                    <Button
+                      onClick={() => setModalOpen(true)}
                       className="px-8 py-6 bg-blue-600 hover:bg-blue-700 text-lg"
                     >
                       <PenLine className="h-5 w-5 mr-2" />
@@ -618,7 +619,7 @@ const Testimonios = () => {
                       <AlertCircle className="h-5 w-5" />
                       Inicia sesión para dejar tu testimonio
                     </p>
-                    <Button 
+                    <Button
                       onClick={() => setModalOpen(true)}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
@@ -639,7 +640,7 @@ const Testimonios = () => {
                 <div className="w-8 h-8 gradient-orange rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">T</span>
                 </div>
-                <span className="text-lg font-bold gradient-text-orange">REGALA ALGO</span>
+                <span className="text-lg font-bold gradient-text-orange">TIENDA 24-7</span>
               </div>
               <p className="text-muted-foreground text-sm">
                 Tu tienda premium con los mejores productos y atención personalizada.
