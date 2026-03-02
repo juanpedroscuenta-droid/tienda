@@ -31,7 +31,8 @@ import {
   PlusCircle,
   Share2,
   Building2,
-  ChevronLeft
+  ChevronLeft,
+  Key
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -179,6 +180,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'categories', icon: <Tag className="h-5 w-5" />, label: 'Categorías', description: 'Organizar productos' },
     { id: 'ai-assistant', icon: <Bot className="h-5 w-5" />, label: 'Asistente IA', description: 'Inteligencia artificial' },
     { id: 'help-manual', icon: <HelpCircle className="h-5 w-5" />, label: 'Ayuda', description: 'Manual de usuario' },
+    { id: 'credentials', icon: <Key className="h-5 w-5" />, label: 'Contraseñas', description: 'Gestión de accesos' },
 
     ...(isSubAdmin ? [] : [
       { id: 'revisiones', icon: <Bell className="h-5 w-5" />, label: 'Revisiones', description: 'Aprobar cambios' },

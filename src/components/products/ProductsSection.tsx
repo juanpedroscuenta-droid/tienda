@@ -15,12 +15,15 @@ import { useCategories } from '@/hooks/use-categories';
 import { useFilters } from '@/hooks/use-filters';
 import { fetchProducts as fetchProductsApi } from '@/lib/api';
 import { parseFormattedPrice } from '@/lib/utils';
+import { HomeBanners } from '@/components/home/HomeBanners';
 
 interface ProductsSectionProps {
   selectedCategory: string;
   setSelectedCategory: (cat: string) => void;
   setCategories: (cats: string[]) => void;
   initialSearchTerm?: string;
+  showCatalog?: boolean;
+  setShowCatalog?: (show: boolean) => void;
 }
 
 function extractMlFromProduct(p: Product): number[] {
@@ -44,6 +47,8 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   setSelectedCategory,
   setCategories,
   initialSearchTerm = '',
+  showCatalog = false,
+  setShowCatalog = () => { },
 }) => {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [sortBy, setSortBy] = useState('relevance');
@@ -60,7 +65,6 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   const [selectedFilterOptions, setSelectedFilterOptions] = useState<{ [filterId: string]: string[] }>({});
   const [showAllForFilter, setShowAllForFilter] = useState<{ [filterId: string]: boolean }>({});
 
-  const [showCatalog, setShowCatalog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
@@ -435,11 +439,13 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
               <div className="flex justify-center w-full py-8 mb-4">
                 <button
                   onClick={() => setShowCatalog(true)}
-                  className="text-gray-900 font-black uppercase tracking-[0.25em] text-sm hover:text-[#005cb9] transition-all border-b-4 border-gray-900 hover:border-[#005cb9] pb-2 px-4"
+                  className="text-gray-900 font-black uppercase tracking-[0.25em] text-sm hover:text-[#005cb9] transition-all pb-2 px-4"
                 >
                   Ver todo el catálogo
                 </button>
               </div>
+
+              <HomeBanners />
 
               <div className="-mx-4 md:-mx-8">
                 <GenericProductCarousel

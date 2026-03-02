@@ -8,6 +8,7 @@ import { ProductsSection } from '@/components/products/ProductsSection';
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [categories, setCategories] = useState<string[]>([]);
+  const [showCatalog, setShowCatalog] = useState(false);
 
   return (
     <AuthProvider>
@@ -15,11 +16,13 @@ const Index = () => {
         <div className="min-h-screen bg-background">
           <Header />
           <main>
-            <HeroSection />
+            <HeroSection isCatalog={showCatalog} />
             <ProductsSection
               selectedCategory={selectedCategory}
               setSelectedCategory={setSelectedCategory}
               setCategories={setCategories}
+              showCatalog={showCatalog}
+              setShowCatalog={setShowCatalog}
             />
           </main>
 

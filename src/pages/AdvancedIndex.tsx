@@ -21,6 +21,7 @@ const AdvancedIndex = () => {
     thirdLevelBySubcategory,
   } = useCategories();
   const [searchTerm, setSearchTerm] = useState("");
+  const [showCatalog, setShowCatalog] = useState(false);
 
   const params = new URLSearchParams(location.search);
   const categoryParam = params.get("category");
@@ -34,6 +35,7 @@ const AdvancedIndex = () => {
   const setSelectedCategory = (cat: string) => {
     if (cat === "Todos") {
       navigate("/");
+      setShowCatalog(false);
       return;
     }
     navigate(`/categoria/${encodeURIComponent(cat)}`);
@@ -71,7 +73,7 @@ const AdvancedIndex = () => {
         allCategoriesData={categoriesData}
       />
 
-      <HeroBanner />
+      <HeroBanner isCatalog={showCatalog} />
 
       <main className="relative z-10 w-full pt-4">
         <ProductsSection
@@ -79,6 +81,8 @@ const AdvancedIndex = () => {
           setSelectedCategory={setSelectedCategory}
           setCategories={setCategories}
           initialSearchTerm={searchTerm}
+          showCatalog={showCatalog}
+          setShowCatalog={setShowCatalog}
         />
       </main>
 

@@ -618,16 +618,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
               </div>
 
               <div className="mt-6 pt-6 border-t border-gray-100 px-6 space-y-6">
-                <button
-                  onClick={() => { navigate('/preguntas-frecuentes'); setIsMenuOpen(false); }}
-                  className="flex items-center gap-3 w-full text-left"
-                >
-                  <div className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-600 rounded-full">
-                    <HelpCircle className="w-5 h-5" />
-                  </div>
-                  <div className="text-sm font-black text-gray-900 uppercase tracking-tight">Ayuda rápida</div>
-                  <ChevronRight className="w-4 h-4 text-gray-400 ml-auto" />
-                </button>
+
 
                 <button
                   onClick={() => {
@@ -724,18 +715,40 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
           categoryDropdownTimer.current = setTimeout(() => setOpenCategoryDropdown(null), 100);
         }}
       >
-        <div className="w-full max-w-[1400px] mx-auto px-4 md:px-8">
-          <ul className="flex flex-col items-center md:flex-row md:items-center md:justify-center md:space-x-12 text-white md:py-4">
+        <div className="w-full max-w-[1440px] mx-auto px-1">
+          <ul className="grid grid-flow-col auto-cols-fr w-full h-[60px] text-white">
             {mainCategoriesForNav.map((category) => {
               const isActive = selectedCategory === category;
               const subs = getSubsForMain(category);
               const hasDropdown = subs.length > 0;
               const isDropdownOpen = openCategoryDropdown === category;
 
+              // Explicit splitting for common long categories with "y"
+              const lowerName = category.toLowerCase();
+              let labelElement: React.ReactNode = category;
+
+              if (lowerName.includes(' y ')) {
+                const parts = category.split(/\s+[yY]\s+/);
+                labelElement = (
+                  <>
+                    <span className="block leading-none">{parts[0]} Y</span>
+                    <span className="block leading-none">{parts.slice(1).join(' Y ')}</span>
+                  </>
+                );
+              } else if (category.length > 10 && category.includes(' ')) {
+                const parts = category.split(' ');
+                labelElement = (
+                  <>
+                    <span className="block leading-none">{parts[0]}</span>
+                    <span className="block leading-none">{parts.slice(1).join(' ')}</span>
+                  </>
+                );
+              }
+
               return (
                 <li
                   key={category}
-                  className="relative group/nav"
+                  className="flex items-center justify-center h-full border-r border-white/5 last:border-0"
                   onMouseEnter={() => {
                     if (categoryDropdownTimer.current) clearTimeout(categoryDropdownTimer.current);
                     if (hasDropdown) setOpenCategoryDropdown(category);
@@ -746,7 +759,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 >
                   <button
                     type="button"
-                    className={`flex items-center justify-center gap-1 w-full md:w-auto text-center py-2 md:py-0 text-[13px] font-bold tracking-widest transition-all uppercase relative ${isActive || isDropdownOpen
+                    className={`flex flex-col items-center justify-center w-full min-h-[50px] px-1 text-center transition-all uppercase relative group ${isActive || isDropdownOpen
                       ? "text-white opacity-100"
                       : "text-white/70 hover:text-white"
                       }`}
@@ -754,28 +767,18 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                       goToCategory(category);
                     }}
                   >
-                    {category}
+                    <div className="text-[10px] xl:text-[11px] font-bold uppercase flex flex-col items-center leading-tight">
+                      {labelElement}
+                    </div>
                     {(isActive || isDropdownOpen) && (
-                      <span className="absolute -bottom-4 left-0 right-0 h-0.5 bg-white animate-in fade-in slide-in-from-bottom-1" />
+                      <span className="absolute -bottom-0 left-1 right-1 h-0.5 bg-white animate-in fade-in" />
                     )}
                   </button>
                 </li>
               );
             })}
-            {/* Ayuda rápida */}
-            <li className="relative">
-              <button
-                type="button"
-                className="flex items-center justify-center gap-1 w-full md:w-auto text-center py-2 md:py-0 text-[13px] font-bold uppercase tracking-widest text-white/70 hover:text-white transition-colors"
-                onClick={() => {
-                  navigate('/preguntas-frecuentes');
-                  setIsMenuOpen(false);
-                }}
-              >
-                Ayuda rápida
-              </button>
-            </li>
           </ul>
+
         </div>
 
         {/* Dropdown Categorías (Mega-Menu) - Blue Minimal Style */}
@@ -785,15 +788,15 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
           return (
             <div
-              className="absolute left-1/2 -translate-x-1/2 top-full w-full max-w-4xl bg-white shadow-[0_40px_80px_-15px_rgba(0,0,0,0.15)] z-50 border border-gray-100 rounded-b-[2rem] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300"
+              className="absolute left-1/2 -translate-x-1/2 top-full w-full max-w-4xl bg-white shadow-[0_40px_80px_-15px_rgba(0,0,0,0.15)] z-50 border border-gray-100 rounded-b-[2rem] animate-in fade-in slide-in-from-top-2 duration-300"
               onMouseEnter={() => {
                 if (categoryDropdownTimer.current) clearTimeout(categoryDropdownTimer.current);
                 setOpenCategoryDropdown(openCategoryDropdown);
               }}
             >
-              <div className="flex h-auto max-h-[75vh]">
+              <div className="flex" style={{ maxHeight: '70vh' }}>
                 {/* Col 1: Level 1 Subcategories & Promo */}
-                <div className="w-[320px] bg-[#f8f9fa] p-5 flex flex-col overflow-y-auto scrollbar-hide min-h-0 shrink-0">
+                <div className="w-[320px] bg-[#f8f9fa] p-5 flex flex-col overflow-y-scroll" style={{ maxHeight: '70vh', scrollbarWidth: 'auto' }}>
                   <div className="flex flex-col gap-1 mb-10">
                     {subs.map((s) => (
                       <button
@@ -826,7 +829,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 </div>
 
                 {/* Col 2: Level 2 Subcategories */}
-                <div className="w-[300px] border-l border-gray-100 p-5 flex flex-col bg-white overflow-y-auto scrollbar-hide min-h-0 shrink-0">
+                <div className="w-[300px] border-l border-gray-100 p-5 flex flex-col bg-white overflow-y-scroll" style={{ maxHeight: '70vh', scrollbarWidth: 'auto' }}>
                   {activeSub && (
                     <div className="flex flex-col gap-1">
                       <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 px-4">Categorías</h4>
@@ -848,7 +851,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 </div>
 
                 {/* Col 3: Level 3 Items */}
-                <div className="flex-1 p-10 bg-white overflow-y-auto scrollbar-hide border-l border-gray-100 min-h-0">
+                <div className="flex-1 p-10 bg-white overflow-y-auto custom-scrollbar border-l border-gray-100 min-h-0">
                   {activeThird ? (
                     <div className="flex flex-col gap-1">
                       <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 px-4">Productos</h4>

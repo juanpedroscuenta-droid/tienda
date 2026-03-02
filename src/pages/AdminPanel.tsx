@@ -77,6 +77,7 @@ const CompanyConfiguration = lazy(() => import('@/components/admin/CompanyConfig
 const ConfigurationPanel = lazy(() => import('@/components/admin/ConfigurationPanel').then(m => ({ default: m.ConfigurationPanel })));
 const ContactsManager = lazy(() => import('@/components/admin/ContactsManager').then(m => ({ default: m.ContactsManager })));
 const FilterManager = lazy(() => import('@/components/admin/FilterManager').then(m => ({ default: m.FilterManager })));
+const CredentialsManager = lazy(() => import('@/components/admin/CredentialsManager').then(m => ({ default: m.default })));
 // (ya importado arriba)
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { setDoc, doc } from "firebase/firestore";
@@ -1283,6 +1284,7 @@ export const AdminPanel: React.FC = () => {
                     <TabsTrigger value="revisiones">Revisiones</TabsTrigger>
                     <TabsTrigger value="analytics">Analytics</TabsTrigger>
                     <TabsTrigger value="employees">Empleados</TabsTrigger>
+                    <TabsTrigger value="credentials">Contraseñas</TabsTrigger>
                   </>
                 )}
               </TabsList>
@@ -2383,6 +2385,13 @@ export const AdminPanel: React.FC = () => {
               <TabsContent value="contacts" className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <ContactsManager />
+                </Suspense>
+              </TabsContent>
+
+              {/* Credentials tab */}
+              <TabsContent value="credentials" className="space-y-6">
+                <Suspense fallback={<LoadingFallback />}>
+                  <CredentialsManager />
                 </Suspense>
               </TabsContent>
 

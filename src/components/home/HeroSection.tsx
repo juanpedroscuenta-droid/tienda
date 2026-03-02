@@ -4,10 +4,33 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ShoppingBag, Star, Users, Truck } from 'lucide-react';
 
-export const HeroSection: React.FC = () => {
+interface HeroSectionProps {
+  isCatalog?: boolean;
+}
+
+export const HeroSection: React.FC<HeroSectionProps> = ({ isCatalog }) => {
   const scrollToProducts = () => {
     document.getElementById('productos')?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  if (isCatalog) {
+    return (
+      <section className="w-full flex flex-col mb-4">
+        <div className="w-full h-[250px] md:h-[400px] overflow-hidden">
+          <img
+            src="/7-CARGO_.webp"
+            alt="Catálogo completo"
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div className="w-full text-center py-4 bg-gray-50 border-b border-gray-200 shadow-sm">
+          <p className="text-sm md:text-base font-bold text-gray-800 uppercase tracking-widest">
+            Envíos Rápidos
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20">
@@ -26,16 +49,16 @@ export const HeroSection: React.FC = () => {
               <Badge className="gradient-orange text-white border-0 px-4 py-2">
                 ✨ ¡Nueva Tienda Online!
               </Badge>
-              
+
               <h1 className="text-4xl lg:text-6xl xl:text-7xl font-bold leading-tight">
                 Tu tienda
                 <span className="gradient-text-orange block">
                   Ultra Premium
                 </span>
               </h1>
-              
+
               <p className="text-xl text-muted-foreground max-w-lg leading-relaxed">
-                Descubre productos increíbles con la mejor calidad, precios competitivos y 
+                Descubre productos increíbles con la mejor calidad, precios competitivos y
                 entrega directa a tu departamento. ¡Compra fácil, paga por WhatsApp!
               </p>
             </div>
@@ -58,18 +81,18 @@ export const HeroSection: React.FC = () => {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 className="gradient-orange hover:opacity-90 transition-all transform hover:scale-105"
                 onClick={scrollToProducts}
               >
                 <ShoppingBag className="mr-2 h-5 w-5" />
                 Ver Productos
               </Button>
-              
-              <Button 
-                size="lg" 
-                variant="outline" 
+
+              <Button
+                size="lg"
+                variant="outline"
                 className="border-2 hover:bg-muted"
               >
                 <Users className="mr-2 h-5 w-5" />
@@ -92,7 +115,7 @@ export const HeroSection: React.FC = () => {
                     <p className="text-sm text-muted-foreground">Fácil y seguro</p>
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
@@ -100,14 +123,14 @@ export const HeroSection: React.FC = () => {
                     </div>
                     <span className="text-sm">Productos Premium</span>
                   </div>
-                  
+
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
                       <Truck className="h-4 w-4 text-blue-600" />
                     </div>
                     <span className="text-sm">Entrega Gratuita</span>
                   </div>
-                  
+
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
                       <ShoppingBag className="h-4 w-4 text-orange-600" />
@@ -121,7 +144,7 @@ export const HeroSection: React.FC = () => {
               <div className="absolute -top-4 -right-4 bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
                 ¡Nuevo!
               </div>
-              
+
               <div className="absolute -bottom-4 -left-4 bg-white dark:bg-card px-4 py-2 rounded-full shadow-lg border">
                 <div className="flex items-center gap-2 text-sm">
                   <Star className="h-4 w-4 text-yellow-500" />
