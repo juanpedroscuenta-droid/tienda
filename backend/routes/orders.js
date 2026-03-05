@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
     try {
         const userId = req.query.userId;
 
-        let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
+        let query = supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(200);
 
         if (userId) {
             query = query.eq('user_id', userId);
@@ -79,8 +79,53 @@ router.post('/', async (req, res) => {
             if (updateError) console.error(`[ORDERS] ❌ Error stock ${update.id}:`, updateError);
         }
 
+        // 3. Handle Coupon Usage if applicable
+        const couponCodeRaw_old = orderData.coupon_code || orderData.couponCode || null;
+        if (false) {
+            const couponCode = couponCodeRaw_old.trim().toUpperCase();
+            console.log(`[ORDERS] 🎫 Procesando cupón: ${couponCode}`);
+            const { data: coupon, error: couponError } = await supabase
+                .from('coupons')
+                .select('id, usage_count, code')
+                .eq('code', couponCode)
+                .eq('is_active', true)
+                .maybeSingle();
+
+            if (couponError) {
+                console.error(`[ORDERS] ❌ Error buscando cupón ${couponCode}:`, couponError);
+            }
+
+            if (!couponError && coupon) {
+                console.log(`[ORDERS] ✨ Aplicando uso a cupón ID: ${coupon.id}`);
+                // Increment usage count
+                const { error: updError } = await supabase
+                    .from('coupons')
+                    .update({ usage_count: (coupon.usage_count || 0) + 1 })
+                    .eq('id', coupon.id);
+
+                if (updError) console.error(`[ORDERS] ❌ Error incrementando uso:`, updError);
+
+                // Log detailed usage
+                const { error: insError } = await supabase
+                    .from('coupon_usage')
+                    .insert([{
+                        coupon_id: coupon.id,
+                        user_id: user_id || null,
+                        user_name: orderData.user_name || orderData.userName || 'Cliente',
+                        user_email: orderData.user_email || orderData.userEmail || null,
+                        order_id: null
+                    }]);
+
+                if (insError) console.error(`[ORDERS] ❌ Error registrando log de uso:`, insError);
+                else console.log(`[ORDERS] ✅ Uso de cupón registrado correctamente`);
+            } else if (!coupon) {
+                console.warn(`[ORDERS] ⚠️ Cupón ${couponCode} no encontrado o inactivo durante el checkout.`);
+            }
+        }
+
         // 3. Insert order
         console.log('[ORDERS] 📝 Guardando orden...');
+        const appliedCouponCode = orderData.coupon_code ? orderData.coupon_code.trim().toUpperCase() : (orderData.couponCode ? orderData.couponCode.trim().toUpperCase() : null);
         const payload = {
             user_id: user_id || null,
             user_name: orderData.user_name || orderData.userName || null,
@@ -95,6 +140,7 @@ router.post('/', async (req, res) => {
             payment_method: orderData.payment_method || orderData.paymentMethod || null,
             discount_type: orderData.discount_type || orderData.discountType || 'none',
             discount_value: Number(orderData.discount_value || 0),
+            coupon_code: appliedCouponCode,
             created_at: new Date().toISOString()
         };
 
@@ -106,6 +152,25 @@ router.post('/', async (req, res) => {
         if (insertError) {
             console.error('[ORDERS] ❌ Error insertando:', insertError);
             throw insertError;
+        }
+
+        // 4. Update usage log with order ID if we have it
+        if (appliedCouponCode && order?.[0]?.id) {
+            const { data: coupon } = await supabase
+                .from('coupons')
+                .select('id')
+                .eq('code', appliedCouponCode)
+                .single();
+
+            if (coupon) {
+                await supabase
+                    .from('coupon_usage')
+                    .update({ order_id: order[0].id })
+                    .eq('coupon_id', coupon.id)
+                    .is('order_id', null)
+                    .order('used_at', { ascending: false })
+                    .limit(1);
+            }
         }
 
         console.log('[ORDERS] ✅ Éxito:', order?.[0]?.id);

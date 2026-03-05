@@ -2,19 +2,17 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, X, AlertTriangle } from 'lucide-react';
-import { auth } from "@/firebase";
-import { useEffect } from 'react';
+import { Eye, EyeOff, ArrowLeft, X, Mail, Lock } from 'lucide-react';
+import { auth, supabase } from "@/firebase";
+
+type LoginView = 'selection' | 'form' | 'forgot';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const [view, setView] = useState<LoginView>('selection');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const [loginData, setLoginData] = useState({
     email: '',
@@ -34,224 +32,216 @@ export const LoginPage: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const newErrors = {
-      email: '',
-      password: ''
-    };
+    setErrors({ email: '', password: '' });
 
     if (!loginData.email || !validateEmail(loginData.email)) {
-      newErrors.email = 'Email inválido';
+      setErrors(prev => ({ ...prev, email: 'Email inválido' }));
+      return;
     }
-
     if (!loginData.password || loginData.password.length < 6) {
-      newErrors.password = 'Contraseña debe tener al menos 6 caracteres';
-    }
-
-    if (newErrors.email || newErrors.password) {
-      setErrors(newErrors);
+      setErrors(prev => ({ ...prev, password: 'Contraseña debe tener al menos 6 caracteres' }));
       return;
     }
 
     setIsLoading(true);
     try {
-      const { data, error } = await auth.signInWithPassword({
+      const { error } = await auth.signInWithPassword({
         email: loginData.email,
         password: loginData.password
       });
-
       if (error) throw error;
-
-      toast({
-        title: "¡Bienvenido!",
-        description: "Sesión iniciada correctamente",
-      });
-
-      setIsLoading(false);
+      toast({ title: "¡Bienvenido!", description: "Sesión iniciada correctamente" });
       navigate('/');
     } catch (error: any) {
-      toast({
-        title: "Error de login",
-        description: error.message || "No se pudo iniciar sesión",
-        variant: "destructive",
+      toast({ title: "Error", description: error.message || "No se pudo iniciar sesión", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOAuth = async (provider: 'google' | 'facebook') => {
+    setIsLoading(true);
+    try {
+      const { error } = await auth.signInWithOAuth({
+        provider,
+        options: {
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'select_account',
+          },
+          redirectTo: window.location.origin
+        }
       });
+      if (error) throw error;
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
       setIsLoading(false);
     }
   };
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!resetEmail || !validateEmail(resetEmail)) {
-      toast({
-        title: "Email inválido",
-        description: "Por favor ingresa un email válido",
-        variant: "destructive",
-      });
+      toast({ title: "Email inválido", variant: "destructive" });
       return;
     }
-
     setIsLoading(true);
     try {
-      const { data, error } = await auth.resetPasswordForEmail(resetEmail);
-
+      const { error } = await auth.resetPasswordForEmail(resetEmail);
       if (error) throw error;
-
-      toast({
-        title: "Email enviado",
-        description: "Revisa tu email para restablecer tu contraseña",
-      });
-      setShowForgotPassword(false);
-      setResetEmail('');
+      toast({ title: "Email enviado", description: "Revisa tu bandeja de entrada" });
+      setView('selection');
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    // No force background, we want to see the page behind
-    return () => { };
-  }, []);
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[9999] overflow-y-auto backdrop-blur-[1px]">
-      {/* Landscape Modal Content - Yamaha Style (Reduced Height) */}
-      <div className="bg-white rounded-[10px] shadow-2xl w-full max-w-[820px] min-h-[350px] overflow-hidden flex flex-col md:flex-row relative animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[9999] backdrop-blur-sm transition-all duration-300">
+      <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-[850px] min-h-[420px] overflow-hidden flex flex-col md:flex-row relative animate-in zoom-in-95 duration-300">
 
-        {/* Close Button */}
+        {/* Botón Cerrar */}
         <button
           onClick={() => navigate('/')}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-20 bg-gray-50 rounded-full p-1"
+          className="absolute top-6 right-6 text-gray-400 hover:text-gray-900 transition-all z-20 bg-gray-50 hover:bg-gray-100 rounded-full p-2"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {/* Left Side - Space to give it the landscape look */}
-        <div className="hidden md:flex md:w-[45%] bg-white items-center justify-center p-4 border-r border-gray-50">
-          <div className="w-full h-full flex items-center justify-center opacity-10">
-            {/* You could put a logo here if desired, but image shows white/empty */}
+        {/* Lado Izquierdo (Decorativo - Vacío como en la imagen) */}
+        <div className="hidden md:flex md:w-[45%] bg-slate-50 border-r border-gray-100 p-12 items-center justify-center">
+          <div className="opacity-10 grayscale">
+            <img src="/logo.webp" alt="" className="w-32" />
           </div>
         </div>
 
-        {/* Right Side - Form Content */}
-        <div className="w-full md:w-[55%] p-6 md:px-12 md:py-8 flex flex-col justify-center bg-white">
-          {!showForgotPassword ? (
-            <>
-              <div className="mb-6">
-                <h1 className="text-[22px] font-bold text-[#333] mb-4">Iniciar sesión</h1>
-                <p className="text-[14px] leading-relaxed text-[#555]">
-                  Elige alguna de las opciones para confirmar tu identidad
-                </p>
+        {/* Contenido Principal */}
+        <div className="w-full md:w-[55%] p-8 md:p-14 flex flex-col justify-center bg-white">
+          {view === 'selection' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+              <div>
+                <h1 className="text-[28px] font-black text-gray-900 tracking-tight mb-2">Iniciar sesión</h1>
+                <p className="text-[14px] text-gray-500 font-medium">Elige alguna de las opciones para confirmar tu identidad</p>
               </div>
 
-              <form onSubmit={handleLogin} className="space-y-5">
-                {/* Email */}
-                <div className="space-y-1.5">
-                  <label htmlFor="email" className="text-[13px] font-bold text-[#333] block">
-                    Email:
-                  </label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Ej.: ejemplo@mail.com"
-                    value={loginData.email}
-                    onChange={(e) => {
-                      setLoginData({ ...loginData, email: e.target.value });
-                      setErrors({ ...errors, email: '' });
-                    }}
-                    className="w-full border-gray-300 rounded-[5px] focus:ring-1 focus:ring-black h-11 px-4 text-[14px] placeholder:text-gray-300"
-                  />
-                  {errors.email && (
-                    <p className="text-red-500 text-[11px] mt-1">{errors.email}</p>
-                  )}
+              <div className="flex flex-col gap-3">
+                {/* Botón Google */}
+                <button
+                  onClick={() => handleOAuth('google')}
+                  disabled={isLoading}
+                  className="w-full group flex items-center justify-center gap-4 px-6 py-4 border-2 border-gray-100 rounded-2xl hover:border-gray-900 transition-all active:scale-[0.98] disabled:opacity-50"
+                >
+                  <img src="https://www.google.com/favicon.ico" className="w-5 h-5 grayscale group-hover:grayscale-0 transition-all" alt="" />
+                  <span className="text-[13px] font-bold text-gray-700 group-hover:text-gray-900">Ingresa con tu cuenta de Google</span>
+                </button>
+
+                {/* Botón Facebook */}
+                <button
+                  onClick={() => handleOAuth('facebook')}
+                  disabled={isLoading}
+                  className="w-full group flex items-center justify-center gap-4 px-6 py-4 border-2 border-gray-100 rounded-2xl hover:border-gray-900 transition-all active:scale-[0.98] disabled:opacity-50"
+                >
+                  <img src="https://www.facebook.com/favicon.ico" className="w-5 h-5 grayscale group-hover:grayscale-0 transition-all" alt="" />
+                  <span className="text-[13px] font-bold text-gray-700 group-hover:text-gray-900">Ingresa con tu cuenta de Facebook</span>
+                </button>
+
+                {/* Botón Password */}
+                <button
+                  onClick={() => setView('form')}
+                  className="w-full group flex items-center justify-center gap-4 px-6 py-4 border-2 border-gray-100 rounded-2xl hover:border-gray-900 transition-all active:scale-[0.98]"
+                >
+                  <Lock className="w-5 h-5 text-gray-400 group-hover:text-gray-900 transition-all" />
+                  <span className="text-[13px] font-bold text-gray-700 group-hover:text-gray-900">Ingresa con email y contraseña</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {view === 'form' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+              <button onClick={() => setView('selection')} className="text-gray-400 hover:text-gray-900 flex items-center gap-2 text-xs font-bold uppercase tracking-wider transition-all mb-4">
+                <ArrowLeft className="w-4 h-4" /> Volver
+              </button>
+
+              <div>
+                <h2 className="text-[24px] font-black text-gray-900 tracking-tight">Tus credenciales</h2>
+                <p className="text-[13px] text-gray-500 font-medium">Ingresa los datos de tu cuenta Yamaha</p>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-400">Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                    <Input
+                      type="email"
+                      placeholder="ejemplo@mail.com"
+                      value={loginData.email}
+                      onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                      className="h-12 pl-12 rounded-xl border-gray-200 focus:ring-black"
+                    />
+                  </div>
+                  {errors.email && <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">{errors.email}</p>}
                 </div>
 
-                {/* Password */}
-                <div className="space-y-1.5">
-                  <label htmlFor="password" className="text-[13px] font-bold text-[#333] block">
-                    Contraseña:
-                  </label>
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[11px] font-black uppercase tracking-widest text-gray-400">Contraseña</label>
+                    <button type="button" onClick={() => setView('forgot')} className="text-[10px] text-gray-400 hover:text-black font-bold uppercase tracking-wider">Olvidé mi clave</button>
+                  </div>
                   <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
                     <Input
-                      id="password"
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Ingrese su contraseña"
+                      placeholder="••••••••"
                       value={loginData.password}
-                      onChange={(e) => {
-                        setLoginData({ ...loginData, password: e.target.value });
-                        setErrors({ ...errors, password: '' });
-                      }}
-                      className="w-full border-gray-300 rounded-[5px] focus:ring-1 focus:ring-black h-11 px-4 pr-12 text-[14px] placeholder:text-gray-300"
+                      onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                      className="h-12 pl-12 pr-12 rounded-xl border-gray-200 focus:ring-black"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-800"
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-black transition-colors">
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  {errors.password && <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">{errors.password}</p>}
                 </div>
 
-                {/* Reset & Register Links (Top right of the button area) */}
-                <div className="flex flex-col items-end space-y-1 pt-1 opacity-80">
-                  <button type="button" onClick={() => setShowForgotPassword(true)} className="text-[11px] text-[#666] hover:underline">
-                    Olvidé mi contraseña
-                  </button>
-                  <button type="button" onClick={() => navigate('/register')} className="text-[12px] text-[#333] font-bold underline decoration-1 underline-offset-4">
-                    Registrarme
-                  </button>
-                </div>
-
-                {/* Action Block - Horizontal */}
-                <div className="pt-6 flex items-center justify-between border-t border-gray-100 mt-4">
-                  <button
-                    type="button"
-                    onClick={() => navigate('/')}
-                    className="text-[13px] text-[#333] hover:underline flex items-center gap-2"
-                  >
-                    <ArrowLeft className="w-4 h-4" /> Volver
-                  </button>
-
-                  <Button
-                    type="submit"
-                    disabled={isLoading}
-                    className="bg-[#333] hover:bg-black text-white rounded-[5px] h-12 px-10 text-[14px] font-bold uppercase tracking-widest transition-all"
-                  >
-                    {isLoading ? '...' : 'INGRESAR'}
-                  </Button>
-                </div>
+                <Button type="submit" disabled={isLoading} className="w-full h-14 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-black shadow-xl shadow-gray-200 transition-all active:scale-[0.98]">
+                  {isLoading ? 'Cargando...' : 'Iniciar Sesión'}
+                </Button>
               </form>
-            </>
-          ) : (
-            <>
-              <div className="mb-6">
-                <h1 className="text-[22px] font-bold text-[#333] mb-2 text-center md:text-left">Restablecer contraseña</h1>
+            </div>
+          )}
+
+          {view === 'forgot' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+              <button onClick={() => setView('form')} className="text-gray-400 hover:text-gray-900 flex items-center gap-2 text-xs font-bold uppercase tracking-wider transition-all mb-4">
+                <ArrowLeft className="w-4 h-4" /> Volver
+              </button>
+
+              <div>
+                <h2 className="text-[24px] font-black text-gray-900 tracking-tight">Recuperar cuenta</h2>
+                <p className="text-[13px] text-gray-500 font-medium">Te enviaremos un enlace para restablecer tu clave</p>
               </div>
-              <form onSubmit={handlePasswordReset} className="space-y-6">
-                <div className="space-y-2">
-                  <label htmlFor="reset-email" className="text-[13px] font-bold text-[#333] block">Email:</label>
+
+              <form onSubmit={handlePasswordReset} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-400">Email</label>
                   <Input
-                    id="reset-email"
                     type="email"
                     placeholder="ejemplo@mail.com"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
-                    className="w-full border-gray-300 rounded-[5px] h-11 text-[14px]"
+                    className="h-12 rounded-xl border-gray-200 focus:ring-black"
                   />
                 </div>
-                <div className="pt-6 flex items-center justify-between">
-                  <button type="button" onClick={() => setShowForgotPassword(false)} className="text-[13px] text-[#333] hover:underline">Cancelar</button>
-                  <Button type="submit" disabled={isLoading} className="bg-[#333] hover:bg-black text-white rounded-[5px] h-12 px-10 text-[14px] font-bold uppercase tracking-widest">ENVIAR</Button>
-                </div>
+                <Button type="submit" disabled={isLoading} className="w-full h-14 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-black transition-all">
+                  {isLoading ? '...' : 'Enviar correo'}
+                </Button>
               </form>
-            </>
+            </div>
           )}
         </div>
       </div>

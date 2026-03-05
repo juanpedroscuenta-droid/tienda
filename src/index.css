@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100;200;300;400;500;600;700;800;900&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -69,8 +70,8 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', sans-serif;
-    /* Clean sans-serif */
+    font-family: 'Outfit', sans-serif;
+    /* Clean, modern sans-serif */
   }
 
   h1,
@@ -79,16 +80,39 @@
   h4,
   h5,
   h6 {
+    font-family: 'Outfit', sans-serif;
     @apply tracking-tight;
   }
 }
 
 @layer utilities {
   .font-display {
-    font-family: 'Inter', sans-serif;
-    font-weight: 300;
-    /* Light for elegance */
-    letter-spacing: -0.02em;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 400;
+    /* Clean for elegance */
+    letter-spacing: -0.01em;
+  }
+
+  /* Professional section styling */
+  .section-divider {
+    @apply w-full h-[1px] bg-neutral-200 my-10;
+  }
+
+  .professional-header {
+    @apply text-center mb-12 relative flex flex-col items-center;
+  }
+
+  .professional-header h2 {
+    @apply text-2xl md:text-3xl font-semibold text-neutral-800 tracking-tight mb-2 capitalize;
+  }
+
+  .professional-header p {
+    @apply text-sm text-neutral-400 font-medium lowercase tracking-wide;
+  }
+
+  .professional-header::before {
+    content: '';
+    @apply absolute -top-8 left-1/2 -translate-x-1/2 w-full max-w-[1240px] h-[1px] bg-neutral-100;
   }
 
   .scrollbar-hide::-webkit-scrollbar {

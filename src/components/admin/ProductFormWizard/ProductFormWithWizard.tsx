@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Package, Edit, Trash2, Search, Plus, X, AlertTriangle, ShieldCheck,
   Loader2, Eye, Filter, ChevronDown, Tags, History, SlidersHorizontal, CreditCard,
-  FileSpreadsheet, Download
+  FileSpreadsheet, Download, LayoutGrid, ChevronLeft, ChevronRight, Star
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn, parseFormattedPrice } from '@/lib/utils';
@@ -61,6 +61,7 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
   const [hasMoreProducts, setHasMoreProducts] = useState<boolean>(false);
   const [loadingMoreProducts, setLoadingMoreProducts] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [liberta, setLiberta] = useState("no");
@@ -516,7 +517,6 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
     }
   };
 
-  // Si el wizard está abierto, mostrar solo el wizard
   if (showWizard) {
     return (
       <div className="space-y-4 max-w-full overflow-x-hidden">
@@ -532,15 +532,131 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
   }
 
   return (
-    <div className="space-y-3 -mt-2">
-      {/* Page Header */}
-      <div className="mb-2">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">
-          Gestión de Productos
-        </h1>
-        <p className="text-slate-600">
-          Administra el inventario y la información de tus productos
-        </p>
+    <div className="space-y-4 -mt-2">
+      {/* ERP Style Header Toolbar */}
+      <div className="bg-white border-b border-slate-200 -mx-6 px-6 py-2 mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-30 shadow-sm">
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-medium text-slate-500">Productos</h1>
+          <Button
+            onClick={handleAddProduct}
+            className="bg-[#00A09D] hover:bg-[#00817e] text-white font-bold uppercase text-xs px-6 py-1.5 h-auto rounded transition-colors"
+          >
+            CREAR
+          </Button>
+        </div>
+
+        <div className="flex flex-1 max-w-2xl items-center gap-2">
+          <div className="relative flex-1 group">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Filter className="h-3.5 w-3.5 text-slate-400" />
+            </div>
+            <Input
+              placeholder="Productos / Buscar..."
+              className="bg-slate-50 border-slate-200 pl-9 pr-10 h-9 text-sm focus:bg-white transition-all rounded"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm ? (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : (
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-slate-300" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center border border-slate-200 rounded divide-x divide-slate-200">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 text-xs font-medium flex items-center gap-1.5 outline-none">
+                  <Filter className="h-3 w-3" /> Filtros {selectedCategory && <span className="ml-1 text-[#00A09D]">•</span>}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56 max-h-[300px] overflow-y-auto">
+                <DropdownMenuItem onClick={() => setSelectedCategory('')} className={!selectedCategory ? 'bg-slate-100 text-slate-900' : ''}>
+                  <span className="h-4 w-4 mr-2 opacity-70">🏠</span> Todas las categorías
+                </DropdownMenuItem>
+                {categories
+                  .filter(category => !category.parentId)
+                  .map((category) => (
+                    <DropdownMenuItem
+                      key={category.id}
+                      onClick={() => setSelectedCategory(category.id)}
+                      className={selectedCategory === category.id ? 'bg-slate-100 text-slate-900' : ''}
+                    >
+                      <Tags className="h-4 w-4 mr-2 opacity-70" /> {category.name}
+                    </DropdownMenuItem>
+                  ))
+                }
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 text-xs font-medium flex items-center gap-1.5 outline-none">
+                  <SlidersHorizontal className="h-3 w-3" /> Agrupar por
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem onClick={() => setSortOrder('recent')} className={sortOrder === 'recent' ? 'bg-slate-100' : ''}>Más recientes</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortOrder('price-high')} className={sortOrder === 'price-high' ? 'bg-slate-100' : ''}>Precio: Mayor a menor</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortOrder('price-low')} className={sortOrder === 'price-low' ? 'bg-slate-100' : ''}>Precio: Menor a mayor</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <button className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 text-xs font-medium flex items-center gap-1.5">
+              <Star className="h-3 w-3" /> Favoritos
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+            <span>{Math.min(1, sortedProducts.length)}-{paginatedProducts.length} / {sortedProducts.length}</span>
+            <div className="flex items-center border border-slate-200 rounded bg-white overflow-hidden">
+              <button
+                onClick={() => setVisibleProducts(Math.max(20, visibleProducts - 20))}
+                disabled={visibleProducts <= 20}
+                className="p-1.5 hover:bg-slate-50 disabled:opacity-30 border-r border-slate-200"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={loadMoreProducts}
+                disabled={!hasMoreProducts}
+                className="p-1.5 hover:bg-slate-50 disabled:opacity-30"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center border border-slate-200 rounded bg-white overflow-hidden">
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={cn(
+                "p-2 transition-colors",
+                viewMode === 'kanban' ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+              )}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={cn(
+                "p-2 transition-colors border-l border-slate-200",
+                viewMode === 'list' ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+              )}
+            >
+              <History className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Aviso del estado de libertad */}
@@ -563,408 +679,217 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
         </div>
       )}
 
-      {/* Lista de Productos */}
-      <Card className="shadow-sm border border-slate-200">
-        <CardHeader className="bg-white border-b border-slate-200 py-4">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <CardTitle className="text-lg sm:text-xl font-semibold text-slate-900">
-                Inventario de Productos ({sortedProducts.length})
-              </CardTitle>
-              <div className="flex flex-wrap gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  className="hidden"
-                  onChange={handleImportExcel}
-                />
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-slate-200 flex-1 sm:flex-none"
-                        disabled={importing || categories.length === 0}
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        {importing ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <FileSpreadsheet className="h-4 w-4 mr-2" />
+      <div className="px-2">
+        {loadingProducts ? (
+          <div className="flex justify-center items-center py-24">
+            <div className="flex flex-col items-center">
+              <Loader2 className="h-10 w-10 animate-spin text-[#00A09D] mb-3" />
+              <p className="text-slate-500 font-medium animate-pulse">Cargando catálogo...</p>
+            </div>
+          </div>
+        ) : sortedProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+            <Package className="h-16 w-16 text-slate-300 mb-4" />
+            <h3 className="text-lg font-bold text-slate-900">No se encontraron productos</h3>
+            <p className="text-slate-500 mt-1 max-w-sm text-center px-4">
+              {searchTerm
+                ? `No hay resultados para "${searchTerm}". Intenta con otros términos.`
+                : "Aún no tienes productos en tu inventario. ¡Haz clic en CREAR para empezar!"}
+            </p>
+          </div>
+        ) : viewMode === 'kanban' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+            {paginatedProducts.map((product) => {
+              const stockStatus = getStockStatus(product.stock || 0);
+              return (
+                <div
+                  key={product.id}
+                  className="group bg-white border border-slate-200 rounded-sm hover:shadow-md transition-all duration-200 relative overflow-hidden"
+                >
+                  <div className="flex p-3 gap-3">
+                    {/* Image Area */}
+                    <div className="w-20 h-20 bg-slate-50 rounded flex-shrink-0 relative overflow-hidden flex items-center justify-center border border-slate-100 group-hover:border-slate-300 transition-colors">
+                      {loadingImages[product.id] && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-50 z-10">
+                          <Loader2 className="h-4 w-4 text-[#00A09D] animate-spin" />
+                        </div>
+                      )}
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className={cn(
+                          "w-full h-full object-contain transition-transform duration-300 group-hover:scale-105",
+                          loadingImages[product.id] ? "opacity-0" : "opacity-100"
                         )}
-                        Importar
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs">
-                      <p className="text-xs">Columna A: nombre, Columna B: precio. Los productos se crean con stock 1 y publicados.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-slate-200 flex-1 sm:flex-none"
-                        onClick={handleExportExcel}
-                        disabled={products.length === 0}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Exportar
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs">
-                      <p className="text-xs">Exporta todos los productos actualmente cargados a un archivo Excel.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="flex-1 sm:flex-none"
-                      disabled={products.length === 0 || loadingProducts}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Borrar Todos
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>¿Estás completamente seguro?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Esta acción no se puede deshacer. Se eliminarán permanentemente todos
-                        ({products.length}) los productos de tu inventario.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDeleteAllProducts} className="bg-red-600 hover:bg-red-700">
-                        Sí, eliminar todos
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-                <Button
-                  onClick={handleAddProduct}
-                  className="bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-none"
-                  size="sm"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nuevo Producto
-                </Button>
-              </div>
-            </div>
+                        onLoad={() => handleImageLoadEnd(product.id)}
+                        onLoadStart={() => handleImageLoadStart(product.id)}
+                        onError={(e) => {
+                          handleImageLoadEnd(product.id);
+                          e.currentTarget.src = 'https://via.placeholder.com/150?text=No+Image';
+                        }}
+                      />
+                    </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Filtro por categoría */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 px-3 gap-1 text-slate-700 border-slate-200 hover:bg-slate-50">
-                    <Filter className="h-4 w-4" />
-                    <span>Categoría</span>
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 max-h-[300px] overflow-y-auto">
-                  <DropdownMenuItem onClick={() => setSelectedCategory('')} className={!selectedCategory ? 'bg-slate-100 text-slate-900' : ''}>
-                    <span className="h-4 w-4 mr-2 opacity-70">🏠</span> Todas las categorías
-                  </DropdownMenuItem>
-                  {categories
-                    .filter(category => !category.parentId)
-                    .map((category) => (
-                      <DropdownMenuItem
-                        key={category.id}
-                        onClick={() => setSelectedCategory(category.id)}
-                        className={selectedCategory === category.id ? 'bg-slate-100 text-slate-900' : ''}
-                      >
-                        <Tags className="h-4 w-4 mr-2 opacity-70" /> {category.name}
-                      </DropdownMenuItem>
-                    ))
-                  }
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Ordenamiento */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 px-3 gap-1 text-slate-700 border-slate-200 hover:bg-slate-50">
-                    <SlidersHorizontal className="h-4 w-4" />
-                    <span>Ordenar por</span>
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => setSortOrder('recent')} className={sortOrder === 'recent' ? 'bg-slate-100 text-slate-900' : ''}>
-                    <CustomClock className="h-4 w-4 mr-2 opacity-70" /> Más recientes
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('oldest')} className={sortOrder === 'oldest' ? 'bg-slate-100 text-slate-900' : ''}>
-                    <History className="h-4 w-4 mr-2 opacity-70" /> Más antiguos
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('name-asc')} className={sortOrder === 'name-asc' ? 'bg-slate-100 text-slate-900' : ''}>
-                    <Tags className="h-4 w-4 mr-2 opacity-70" /> Nombre (A-Z)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('name-desc')} className={sortOrder === 'name-desc' ? 'bg-slate-100 text-slate-900' : ''}>
-                    <Tags className="h-4 w-4 mr-2 opacity-70" /> Nombre (Z-A)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('price-high')} className={sortOrder === 'price-high' ? 'bg-slate-100 text-slate-900' : ''}>
-                    <CreditCard className="h-4 w-4 mr-2 opacity-70" /> Precio (Mayor a menor)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('price-low')} className={sortOrder === 'price-low' ? 'bg-slate-100 text-slate-900' : ''}>
-                    <CreditCard className="h-4 w-4 mr-2 opacity-70" /> Precio (Menor a mayor)
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Indicador de filtro activo */}
-              {selectedCategory && (
-                <Badge className="bg-slate-100 text-slate-800 hover:bg-slate-200 gap-1">
-                  {categories.find(cat => cat.id === selectedCategory)?.name || "Categoría"}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSelectedCategory('')}
-                    className="h-4 w-4 p-0 ml-1 hover:bg-slate-300 rounded-full"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </Badge>
-              )}
-            </div>
-          </div>
-
-          <div className="relative mt-4">
-            <div className="flex items-center bg-white border rounded-lg overflow-hidden shadow-sm focus-within:ring-2 focus-within:ring-sky-500/20 focus-within:border-sky-500 transition-all">
-              <div className="pl-3 py-2">
-                <Search className="h-5 w-5 text-sky-500" />
-              </div>
-              <Input
-                placeholder="Buscar por nombre, descripción, categoría o precio"
-                className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-10 flex-1"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              {searchTerm && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setSearchTerm('')}
-                  className="h-8 w-8 mr-1 rounded-full hover:bg-sky-50 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          {loadingProducts ? (
-            <div className="flex justify-center items-center py-12">
-              <div className="flex flex-col items-center text-sky-600">
-                <Loader2 className="h-10 w-10 animate-spin mb-2" />
-                <p className="text-sm font-medium">Cargando productos...</p>
-              </div>
-            </div>
-          ) : sortedProducts.length === 0 ? (
-            <div className="text-center py-10 bg-sky-50/50 rounded-lg border border-dashed border-sky-200">
-              <div className="flex flex-col items-center">
-                <Package className="h-12 w-12 text-sky-300 mb-3" />
-                <p className="text-sky-700 font-medium">No se encontraron productos</p>
-                {searchTerm ? (
-                  <p className="text-sm text-sky-600/70 mt-1">Prueba con otros términos de búsqueda</p>
-                ) : selectedCategory ? (
-                  <p className="text-sm text-sky-600/70 mt-1">No hay productos en esta categoría</p>
-                ) : (
-                  <p className="text-sm text-sky-600/70 mt-1">Añade tu primer producto</p>
-                )}
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="grid gap-4">
-                {paginatedProducts.map((product) => {
-                  const stockStatus = getStockStatus(product.stock || 0);
-                  return (
-                    <div key={product.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 border rounded-xl hover:shadow-lg transition-all duration-200 hover:border-sky-200 bg-white gap-4">
-                      {/* Product image + info */}
-                      <div className="flex items-start sm:items-center gap-4 flex-1 min-w-0">
-                        <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0">
-                          {loadingImages[product.id] && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-xl">
-                              <Loader2 className="h-5 w-5 text-sky-600 animate-spin" />
-                            </div>
-                          )}
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className={cn(
-                              "w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-xl shadow-md transition-opacity duration-300",
-                              loadingImages[product.id] ? "opacity-0" : "opacity-100"
-                            )}
-                            onLoad={() => handleImageLoadEnd(product.id)}
-                            onError={(e) => {
-                              handleImageLoadEnd(product.id);
-                              e.currentTarget.src = '/placeholder.svg';
-                            }}
-                            onLoadStart={() => handleImageLoadStart(product.id)}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-sm sm:text-base leading-tight truncate">{product.name}</h4>
-                          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mt-0.5">{product.description}</p>
-                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                            <Badge variant="outline" className="font-medium bg-orange-50 text-orange-700 border-orange-200 text-[10px] sm:text-xs">
-                              <span className="text-gray-400 mr-1">Cat:</span> {product.categoryName || product.category}
-                            </Badge>
-                            {product.subcategoryName && (
-                              <Badge variant="outline" className="font-medium bg-blue-50 text-blue-700 border-blue-200 text-[10px] sm:text-xs">
-                                {product.subcategoryName}
-                              </Badge>
-                            )}
-                            <span className="text-sm font-bold text-green-600">
-                              ${(product.price || 0).toLocaleString('es-CO')}
-                            </span>
-                            <Badge className={cn(
-                              stockStatus.color,
-                              "flex items-center gap-1 text-[10px] sm:text-xs"
-                            )}>
-                              <span className={cn(
-                                "w-1.5 h-1.5 rounded-full",
-                                stockStatus.text === "En Stock" ? "bg-green-400" :
-                                  stockStatus.text === "Stock Bajo" ? "bg-yellow-400" :
-                                    "bg-red-400"
-                              )}></span>
-                              {stockStatus.text}: {product.stock || 0}
-                            </Badge>
-                            <Badge className={cn(
-                              "flex items-center gap-1 text-[10px] sm:text-xs",
-                              product.isPublished !== false
-                                ? "bg-green-100 text-green-800 hover:bg-green-200"
-                                : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                            )}>
-                              <Eye className="h-3 w-3" />
-                              {product.isPublished !== false ? "Publicado" : "No publicado"}
-                            </Badge>
-                            {product.updated_at && (
-                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 ml-2">
-                                <CustomClock className="h-3 w-3 mr-1 opacity-70" />
-                                {new Date(product.updated_at).toLocaleDateString()}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
+                    {/* Content Area */}
+                    <div className="flex-1 min-w-0 pr-6">
+                      <h4 className="font-bold text-sm text-slate-800 leading-tight mb-1 group-hover:text-[#00A09D] transition-colors line-clamp-2" title={product.name}>
+                        {product.name}
+                      </h4>
+                      <div className="space-y-0.5">
+                        <p className="text-xs text-slate-600 font-medium">
+                          Precio: <span className="text-slate-900">${(product.price || 0).toLocaleString('es-CO')}</span>
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          A mano: <span className={cn(
+                            "font-bold",
+                            product.stock > 10 ? "text-green-600" :
+                              product.stock > 0 ? "text-orange-600" :
+                                "text-red-600"
+                          )}>{product.stock || 0},00 Unidades</span>
+                        </p>
                       </div>
-                      <div className="flex gap-2 self-end sm:self-auto flex-shrink-0">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleEdit(product)}
-                                className="hover:bg-blue-50 hover:border-blue-300 transition-colors text-blue-600"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="left" className="bg-blue-600">
-                              <p className="text-xs">{liberta === "si" ? "Editar producto" : "Enviar cambios a revisión"}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
 
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  const slug = slugify(product.name || 'producto');
-                                  const newWindow = window.open(`/producto/${slug}`, '_blank');
-                                  newWindow?.focus();
-                                }}
-                                className="hover:bg-sky-50 hover:border-sky-300 transition-colors text-sky-600"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="left" className="bg-sky-600">
-                              <p className="text-xs">Ver producto</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 hover:bg-red-50 hover:border-red-300 transition-colors"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle className="flex items-center gap-2">
-                                <AlertTriangle className="h-5 w-5 text-red-500" />
-                                {liberta === "si" ? "¿Eliminar producto?" : "¿Enviar solicitud de eliminación?"}
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                {liberta === "si" ?
-                                  `Esta acción es irreversible y eliminará el producto "${product.name}" del sistema.` :
-                                  `Se enviará una solicitud para eliminar el producto "${product.name}" que requerirá aprobación del administrador.`
-                                }
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(product.id)}
-                                className="bg-red-600 hover:bg-red-700"
-                              >
-                                {liberta === "si" ? "Eliminar" : "Enviar solicitud"}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                      {/* Badges/Tags */}
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-[2px] bg-slate-100 text-slate-600 text-[9px] uppercase font-bold tracking-tight">
+                          {product.categoryName || product.category || 'Sin Cat'}
+                        </span>
+                        {!product.isPublished && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-[2px] bg-red-50 text-red-600 text-[9px] uppercase font-bold tracking-tight">
+                            Borrador
+                          </span>
+                        )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
 
-              {hasMoreProducts && (
-                <div className="flex justify-center mt-6">
-                  <Button
-                    onClick={loadMoreProducts}
-                    variant="outline"
-                    className="border-sky-200 text-sky-700 hover:bg-sky-50"
-                    disabled={loadingMoreProducts}
-                  >
-                    {loadingMoreProducts ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Cargando...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Cargar más productos
-                      </>
-                    )}
-                  </Button>
+                    {/* Action Float Area (Right top corner) */}
+                    <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleEdit(product)}
+                        className="p-1.5 bg-white shadow-sm border border-slate-200 rounded hover:bg-[#00A09D] hover:text-white transition-colors text-slate-500"
+                        title="Editar"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          const slug = slugify(product.name || 'producto');
+                          window.open(`/producto/${slug}`, '_blank')?.focus();
+                        }}
+                        className="p-1.5 bg-white shadow-sm border border-slate-200 rounded hover:bg-blue-600 hover:text-white transition-colors text-slate-500"
+                        title="Vista previa"
+                      >
+                        <Eye className="h-3 w-3" />
+                      </button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            className="p-1.5 bg-white shadow-sm border border-slate-200 rounded hover:bg-red-600 hover:text-white transition-colors text-slate-500"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar producto?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Se eliminará permanentemente "{product.name}".
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(product.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
                 </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="bg-white border rounded shadow-sm overflow-hidden">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-medium">
+                <tr>
+                  <th className="px-4 py-2 font-semibold">Producto</th>
+                  <th className="px-4 py-2 font-semibold">Categoría</th>
+                  <th className="px-4 py-2 font-semibold text-right">Precio</th>
+                  <th className="px-4 py-2 font-semibold text-right">Stock</th>
+                  <th className="px-4 py-2 font-semibold text-center">Estado</th>
+                  <th className="px-4 py-2 font-semibold text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedProducts.map((product) => (
+                  <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <img src={product.image || 'https://via.placeholder.com/40'} alt="" className="w-8 h-8 rounded object-cover border border-slate-100" />
+                        <span className="font-bold text-slate-800">{product.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{product.categoryName || 'General'}</td>
+                    <td className="px-4 py-3 text-right font-medium">${(product.price || 0).toLocaleString('es-CO')}</td>
+                    <td className="px-4 py-3 text-right">
+                      <span className={cn(
+                        "font-bold",
+                        product.stock > 10 ? "text-green-600" : "text-orange-600"
+                      )}>{product.stock || 0}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge variant="outline" className={cn(
+                        "text-[10px] uppercase font-bold tracking-tight rounded-[2px]",
+                        product.isPublished !== false ? "bg-green-50 text-green-700 border-green-200" : "bg-slate-50 text-slate-500 border-slate-200"
+                      )}>
+                        {product.isPublished !== false ? 'Publicado' : 'Borrador'}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600" onClick={() => handleEdit(product)}>
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => {
+                          setDeletingProductId(product.id);
+                          handleDelete(product.id);
+                        }}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {hasMoreProducts && (
+          <div className="flex justify-center mt-8 pb-10">
+            <Button
+              onClick={loadMoreProducts}
+              variant="outline"
+              className="border-slate-200 text-[#00A09D] hover:bg-slate-50"
+              disabled={loadingMoreProducts}
+            >
+              {loadingMoreProducts ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
               )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+              Cargar más productos
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

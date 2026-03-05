@@ -45,6 +45,7 @@ const ContactoPage = lazy(() => import("./pages/ContactoPage"));
 const FacturacionPage = lazy(() => import("./pages/FacturacionPage"));
 const SICPage = lazy(() => import("./pages/SICPage"));
 const CambiosPage = lazy(() => import("./pages/CambiosPage"));
+const SupplierCatalogForm = lazy(() => import("./pages/SupplierCatalogForm"));
 
 const queryClient = new QueryClient();
 
@@ -138,6 +139,7 @@ const App = () => {
                       <Route path="/sic" element={<SICPage />} />
                       <Route path="/cambios" element={<CambiosPage />} />
                       <Route path="/devoluciones" element={<CambiosPage />} />
+                      <Route path="/supplier-upload/:supplierId" element={<SupplierCatalogForm />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>

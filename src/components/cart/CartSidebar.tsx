@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
-import { ShoppingCart, Plus, Minus, Trash2, MessageCircle, X } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, MessageCircle, X, Info, Ticket } from 'lucide-react';
 import { db } from "@/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { createOrder } from '@/lib/api';
@@ -18,7 +18,7 @@ interface CartSidebarProps {
 }
 
 export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => {
-  const { items, updateQuantity, removeFromCart, getTotal, clearCart } = useCart();
+  const { items, updateQuantity, removeFromCart, getTotal, getDiscountedTotal, clearCart, appliedCoupon } = useCart();
   const { user, isAuthenticated } = useAuth();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [orderNotes, setOrderNotes] = useState('');
@@ -30,7 +30,6 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
     const fetchUserData = async () => {
       const isSupabase = typeof (db as any)?.from === 'function';
       if (isAuthenticated && user?.id) {
-        // Initial values from context
         setUserName(user.name || '');
         setUserPhone(user.phone || '');
         setUserEmail(user.email || '');
@@ -67,60 +66,50 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
 
   const handleCheckout = async () => {
     if (!isAuthenticated || !user) {
-      toast({
-        title: "Inicia sesión",
-        description: "Debes iniciar sesión para realizar un pedido",
-        variant: "destructive"
-      });
+      toast({ title: "Inicia sesión", description: "Debes iniciar sesión para realizar un pedido", variant: "destructive" });
       return;
     }
 
     if (items.length === 0) {
-      toast({
-        title: "Carrito vacío",
-        description: "Agrega productos a tu carrito antes de continuar",
-        variant: "destructive"
-      });
+      toast({ title: "Carrito vacío", description: "Agrega productos a tu carrito antes de continuar", variant: "destructive" });
       return;
     }
 
-    // Validar que los datos del usuario estén completos
     if (!userName || !userEmail) {
-      toast({
-        title: "Datos incompletos",
-        description: "No se pudo obtener tu nombre o email. Por favor cierra sesión y vuelve a iniciar.",
-        variant: "destructive"
-      });
+      toast({ title: "Datos incompletos", description: "No se pudo obtener tu nombre o email.", variant: "destructive" });
       return;
     }
 
     setIsCheckingOut(true);
+    const subtotalValue = getTotal();
+    const discountedSubtotal = getDiscountedTotal();
+    const deliveryLimit = 133000;
+    const deliveryFee = subtotalValue >= deliveryLimit ? 0 : 7000;
+    const finalTotal = discountedSubtotal + deliveryFee;
+    const discountValue = subtotalValue - discountedSubtotal;
 
-    // Mensaje con datos del usuario
     const message =
       `🛒 *NUEVO PEDIDO - TIENDA 24-7*\n\n` +
       `👤 *Nombre:* ${userName}\n` +
       `📧 *Email:* ${userEmail}\n` +
       `📱 *Teléfono:* ${userPhone || 'No especificado'}\n` +
       `\n*📦 PRODUCTOS SOLICITADOS:*\n${items.map(item => {
-        let itemText = `${item.name} x${item.quantity}`;
-        if (item.selectedColor) {
-          itemText += ` (Color: ${item.selectedColor.name})`;
-        }
+        let itemText = `- ${item.name} x${item.quantity}`;
+        if (item.selectedColor) itemText += ` (Color: ${item.selectedColor.name})`;
         return itemText;
-      }).join('\n')}\n\n` +
-      (orderNotes ? `*📝 Notas adicionales:*\n${orderNotes}\n\n` : '') +
-      `💰 *TOTAL A PAGAR: $${total.toLocaleString('es-CO')}*\n\n` +
+      }).join('\n')}\n` +
+      (appliedCoupon ? `\n🎫 *Cupón:* ${appliedCoupon.code} (-$${discountValue.toLocaleString('es-CO')})\n` : '') +
+      (orderNotes ? `\n*📝 Notas adicionales:*\n${orderNotes}\n` : '') +
+      `\n💰 *TOTAL A PAGAR: $${finalTotal.toLocaleString('es-CO')}*\n\n` +
       `⏰ Fecha: ${new Date().toLocaleDateString('es-CO')} - ${new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}\n\n` +
       `✅ Por favor confirma la disponibilidad y tiempo de entrega.\n`;
 
-    const storeWhatsApp = '573212619434'; // Número de WhatsApp de la tienda en Colombia
+    const storeWhatsApp = '573212619434';
     const whatsappUrl = `https://wa.me/${storeWhatsApp}?text=${encodeURIComponent(message)}`;
 
     try {
-      // Guarda el pedido usando la API del backend
-      await createOrder({
-        user_id: isAuthenticated ? user.id : null,
+      const orderPayload = {
+        user_id: user?.id || null,
         user_name: userName,
         user_email: userEmail,
         user_phone: userPhone,
@@ -129,40 +118,47 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
           name: item.name,
           price: item.price,
           quantity: item.quantity,
-          image: item.image
+          image: item.image,
+          selectedColor: item.selectedColor
         })),
         order_notes: orderNotes,
-        total: total,
+        total: finalTotal,
+        coupon_code: appliedCoupon?.code || null,
+        discount_value: discountValue,
         status: "pending"
-      });
+      };
+
+      console.log("[CartSidebar] Enviando payload:", orderPayload);
+      await createOrder(orderPayload);
+
+      // Solo continuar si la orden se guardó exitosamente
+      window.open(whatsappUrl, '_blank');
+      setTimeout(() => {
+        clearCart();
+        setOrderNotes('');
+        setIsCheckingOut(false);
+        onClose();
+        toast({ title: "¡Pedido enviado!", description: "Tu pedido ha sido enviado por WhatsApp." });
+      }, 500);
+
     } catch (error) {
-      console.error("Error saving order:", error);
+      console.error("[CartSidebar] Error guardando pedido:", error);
       toast({
-        title: "Error",
-        description: "No se pudo guardar el pedido en la base de datos.",
+        title: "Error al guardar el pedido",
+        description: "Hubo un fallo registrando tu pedido o el cupón. Por favor verifica los datos.",
         variant: "destructive"
       });
-      // Continuamos con el WhatsApp de todos modos
-    }
-
-    window.open(whatsappUrl, '_blank');
-
-    setTimeout(() => {
-      clearCart();
-      setOrderNotes('');
       setIsCheckingOut(false);
-      onClose();
-
-      toast({
-        title: "¡Pedido enviado!",
-        description: "Tu pedido ha sido enviado por WhatsApp. Te contactaremos pronto.",
-      });
-    }, 1000);
+    }
   };
 
-  const subtotal = getTotal();
-  const deliveryFee = subtotal >= 60000 ? 0 : 2000;
-  const total = subtotal + deliveryFee;
+  const subtotalValue = getTotal();
+  const discountedSubtotal = getDiscountedTotal();
+  const deliveryLimit = 133000;
+  const deliveryFee = subtotalValue >= deliveryLimit ? 0 : 7000;
+  const total = discountedSubtotal + deliveryFee;
+  const deliveryProgress = Math.min(100, (subtotalValue / deliveryLimit) * 100);
+  const deliveryRemaining = Math.max(0, deliveryLimit - subtotalValue);
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -255,11 +251,36 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
                 />
               </div>
 
+              {/* Barra de envío gratis */}
+              <div className="mb-6 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1 h-2 bg-gray-100 rounded-full border border-gray-200 overflow-hidden">
+                    <div
+                      className="absolute top-0 left-0 h-full bg-[#067d62] rounded-full transition-all duration-1000 flex items-center justify-end"
+                      style={{ width: `${deliveryProgress}%` }}
+                    >
+                      <div className="w-1 h-1 bg-white rounded-full mr-0.5" />
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-bold text-gray-500">COP {deliveryLimit.toLocaleString('es-CO')}</span>
+                </div>
+                <div className="flex gap-2 bg-blue-50/50 p-2.5 rounded-md border border-blue-100">
+                  <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-[11px] leading-tight text-blue-900">
+                    {subtotalValue >= deliveryLimit ? (
+                      <span className="font-bold text-green-700">¡Tu pedido califica para envío GRATIS!</span>
+                    ) : (
+                      <span>Agrega <span className="text-red-600 font-bold">COP {deliveryRemaining.toLocaleString('es-CO')}</span> más para <span className="font-bold">envío gratis</span>.</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
               {/* Resumen de costos */}
               <div className="space-y-3 bg-muted/30 p-4 rounded-lg mb-6">
                 <div className="flex justify-between text-sm">
                   <span>Subtotal:</span>
-                  <span>${subtotal.toLocaleString('es-CO')}</span>
+                  <span>${subtotalValue.toLocaleString('es-CO')}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Domicilio:</span>
@@ -272,7 +293,7 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
                   <span>Total:</span>
                   <span className="gradient-text-orange">${total.toLocaleString('es-CO')}</span>
                 </div>
-                {subtotal < 60000 && (
+                {subtotalValue < 60000 && (
                   <p className="text-xs text-muted-foreground mt-2 text-center">
                     *Domicilio gratis en compras superiores a $60,000
                   </p>

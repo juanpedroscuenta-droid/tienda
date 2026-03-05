@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, HelpCircle, Search, Menu, X, ChevronDown, ChevronRight, SlidersHorizontal, ChevronLeft, Heart, Bike } from 'lucide-react';
+import { ShoppingCart, User, HelpCircle, Search, Menu, X, ChevronDown, ChevronRight, SlidersHorizontal, ChevronLeft, Heart, Bike, ShieldCheck, QrCode, CreditCard } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useFavorites } from '@/contexts/FavoritesContext';
@@ -151,7 +151,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
     <div className="w-full font-sans selection:bg-blue-800 selection:text-white" >
       {/* Top Header - Black Theme */}
       <header className="bg-black text-white w-full border-b border-zinc-800 overflow-visible relative z-[60]">
-        <div className="w-full max-w-[1400px] mx-auto px-4 md:px-8 py-3 flex items-center justify-between overflow-visible">
+        <div className="w-full max-w-[1400px] mx-auto px-4 md:px-8 py-1.5 flex items-center justify-between overflow-visible">
           {/* Logo */}
           <div
             className="flex-shrink-0 cursor-pointer flex items-center gap-3 overflow-visible"
@@ -159,13 +159,13 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
             role="banner"
             aria-label="Ir a inicio de 24/7"
           >
-            <div className="h-10 md:h-12 flex items-center overflow-visible">
+            <div className="h-8 md:h-10 flex items-center overflow-visible">
               <img
                 src="/logo.webp"
                 alt="24/7"
-                width="140"
-                height="70"
-                className="h-[50px] md:h-[70px] w-auto object-contain"
+                width="120"
+                height="60"
+                className="h-[40px] md:h-[55px] w-auto object-contain"
               />
             </div>
           </div>
@@ -182,7 +182,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
               placeholder="¿Qué estás buscando?"
               value={localSearchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full py-2.5 px-5 pr-12 text-sm text-gray-800 bg-white border-2 border-transparent rounded-lg focus:outline-none focus:border-white/50 transition-all placeholder:text-gray-500"
+              className="w-full py-2.5 px-6 pr-14 text-sm text-gray-800 bg-white border-2 border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all placeholder:text-gray-500 shadow-sm"
               aria-label="Buscador de productos"
             />
             <button
@@ -196,6 +196,16 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
           {/* Icons - Clean & Minimal */}
           <div className="flex items-center space-x-6">
+            {/* QR Payment - As requested */}
+            <div className="hidden lg:flex items-center gap-6 mr-4 border-r border-white/10 pr-6">
+              <button className="flex items-center gap-2 group hover:opacity-80 transition-opacity">
+                <div className="w-8 h-8 bg-white/5 flex items-center justify-center border border-white/10">
+                  <CreditCard className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-[13px] font-black uppercase tracking-tight">Pagar con QR</span>
+              </button>
+            </div>
+
             {/* Help */}
             <div className="relative group/help hidden sm:block">
               <button
@@ -507,7 +517,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
               placeholder="¿Qué estás buscando?"
               value={localSearchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full py-2 px-4 pr-10 text-sm text-white bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-white/40 placeholder:text-gray-400"
+              className="w-full py-2.5 px-5 pr-12 text-sm text-white bg-white/10 border border-white/20 rounded-full focus:outline-none focus:border-white/40 placeholder:text-gray-400 backdrop-blur-sm"
             />
             <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70">
               <Search className="w-5 h-5" />

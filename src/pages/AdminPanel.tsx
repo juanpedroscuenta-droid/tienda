@@ -78,6 +78,9 @@ const ConfigurationPanel = lazy(() => import('@/components/admin/ConfigurationPa
 const ContactsManager = lazy(() => import('@/components/admin/ContactsManager').then(m => ({ default: m.ContactsManager })));
 const FilterManager = lazy(() => import('@/components/admin/FilterManager').then(m => ({ default: m.FilterManager })));
 const CredentialsManager = lazy(() => import('@/components/admin/CredentialsManager').then(m => ({ default: m.default })));
+const CouponManager = lazy(() => import('@/components/admin/CouponManager').then(m => ({ default: m.CouponManager })));
+const ChatBotManager = lazy(() => import('@/components/admin/ChatBotManager'));
+const SupplierManager = lazy(() => import('@/components/admin/SupplierManager').then(m => ({ default: m.SupplierManager })));
 // (ya importado arriba)
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { setDoc, doc } from "firebase/firestore";
@@ -1271,6 +1274,7 @@ export const AdminPanel: React.FC = () => {
                 {!isSubAdmin && <TabsTrigger value="dashboard">Dashboard</TabsTrigger>}
                 <TabsTrigger value="products">Products</TabsTrigger>
                 <TabsTrigger value="orders">Orders</TabsTrigger>
+                <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
                 <TabsTrigger value="categories">Categories</TabsTrigger>
                 {/* Tabs comunes entre admin y subadmin */}
                 <TabsTrigger value="info">Info</TabsTrigger>
@@ -1474,6 +1478,12 @@ export const AdminPanel: React.FC = () => {
               <TabsContent value="categories" className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <CategoryManager />
+                </Suspense>
+              </TabsContent>
+
+              <TabsContent value="coupons" className="space-y-6">
+                <Suspense fallback={<LoadingFallback />}>
+                  <CouponManager />
                 </Suspense>
               </TabsContent>
 
@@ -1864,6 +1874,12 @@ export const AdminPanel: React.FC = () => {
                   {/* TabsContent de subcuentas - usa la función reutilizable */}
                   <TabsContent value="subaccounts" className="space-y-6">
                     {renderSubaccountsContent()}
+                  </TabsContent>
+
+                  <TabsContent value="suppliers" className="space-y-6">
+                    <Suspense fallback={<LoadingFallback />}>
+                      <SupplierManager />
+                    </Suspense>
                   </TabsContent>
 
                   {/* Código original de subcuentas (comentado para referencia) */}
@@ -2414,117 +2430,9 @@ export const AdminPanel: React.FC = () => {
 
               {/* AI Assistant - disponible para todos (admin y subadmin) */}
               <TabsContent value="ai-assistant" className="space-y-6">
-                <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 md:p-8 overflow-hidden">
-                  {/* Encabezado */}
-                  <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-10">
-                    <div className="w-14 h-14 rounded-xl bg-[hsl(214,100%,38%)] flex items-center justify-center shadow-sm">
-                      <BrainCog className="w-7 h-7 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
-                        Asistente IA Avanzado
-                      </h2>
-                      <p className="mt-1 text-slate-600">
-                        Potencia tu negocio con nuestra plataforma de inteligencia artificial de última generación
-                      </p>
-                    </div>
-                    <Button
-                      onClick={() => setShowPlanIADialog(true)}
-                      className="gradient-orange hover:opacity-90 px-6 py-3 rounded-xl font-medium shadow-sm"
-                    >
-                      <Sparkles className="w-5 h-5 mr-2" />
-                      Activar IA Pro
-                    </Button>
-                  </div>
-
-                  {/* Características */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
-                      <div className="w-12 h-12 rounded-xl bg-[hsl(214,100%,38%)]/10 flex items-center justify-center mb-3">
-                        <MessagesSquare className="w-6 h-6 text-[hsl(214,100%,38%)]" />
-                      </div>
-                      <h3 className="text-lg font-bold text-slate-800 mb-2">Atención al Cliente 24/7</h3>
-                      <p className="text-slate-600 text-sm mb-3">Respuestas instantáneas a consultas de clientes con personalidad y empatía.</p>
-                      <ul className="space-y-1.5 text-sm text-slate-600">
-                        <li className="flex items-center"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0" />Respuestas instantáneas</li>
-                        <li className="flex items-center"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0" />Solución de problemas</li>
-                        <li className="flex items-center"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0" />Seguimiento personalizado</li>
-                      </ul>
-                    </div>
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
-                      <div className="w-12 h-12 rounded-xl bg-[hsl(214,100%,38%)]/10 flex items-center justify-center mb-3">
-                        <ChartBar className="w-6 h-6 text-[hsl(214,100%,38%)]" />
-                      </div>
-                      <h3 className="text-lg font-bold text-slate-800 mb-2">Análisis Inteligente</h3>
-                      <p className="text-slate-600 text-sm mb-3">Obtén insights valiosos de tus datos de ventas y comportamiento de clientes.</p>
-                      <ul className="space-y-1.5 text-sm text-slate-600">
-                        <li className="flex items-center"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0" />Patrones de compra</li>
-                        <li className="flex items-center"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0" />Predicción de tendencias</li>
-                        <li className="flex items-center"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0" />Optimización de inventario</li>
-                      </ul>
-                    </div>
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
-                      <div className="w-12 h-12 rounded-xl bg-[hsl(214,100%,38%)]/10 flex items-center justify-center mb-3">
-                        <PenTool className="w-6 h-6 text-[hsl(214,100%,38%)]" />
-                      </div>
-                      <h3 className="text-lg font-bold text-slate-800 mb-2">Generador de Contenido</h3>
-                      <p className="text-slate-600 text-sm mb-3">Crea descripciones de productos, posts para redes sociales y más.</p>
-                      <ul className="space-y-1.5 text-sm text-slate-600">
-                        <li className="flex items-center"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0" />Descripciones SEO</li>
-                        <li className="flex items-center"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0" />Contenido para redes</li>
-                        <li className="flex items-center"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0" />Emails de marketing</li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* Chat */}
-                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="p-4 md:p-5 border-b border-slate-200 bg-slate-50/50">
-                      <h3 className="text-lg font-bold text-slate-800">Consulta al Asistente IA</h3>
-                      <p className="text-slate-600 text-sm mt-0.5">Haz preguntas sobre tu negocio, productos o estrategias</p>
-                    </div>
-                    <div className="p-4 md:p-5 max-h-[340px] overflow-y-auto">
-                      {aiAssistantMessages.map((m, i) => (
-                        <div
-                          key={i}
-                          className={cn(
-                            "mb-4 rounded-xl p-4 max-w-[85%]",
-                            m.role === 'user'
-                              ? "ml-auto bg-[hsl(214,100%,38%)] text-white"
-                              : "bg-slate-100 text-slate-800 border border-slate-200"
-                          )}
-                        >
-                          <p className="text-sm">{m.content}</p>
-                        </div>
-                      ))}
-                      {aiTyping && (
-                        <div className="mb-4 rounded-xl p-4 max-w-[85%] bg-slate-100 text-slate-800 border border-slate-200">
-                          <p className="text-sm">
-                            {aiTypedText}
-                            <span className="inline-block w-2 h-4 ml-0.5 bg-slate-500 animate-pulse" />
-                          </p>
-                        </div>
-                      )}
-                      <div className="flex gap-2 mt-4">
-                        <Input
-                          placeholder="Escribe tu consulta aquí..."
-                          className="flex-1 border-slate-200 focus:border-[hsl(214,100%,38%)] focus:ring-[hsl(214,100%,38%)]/20 rounded-lg"
-                          value={aiAssistantInput}
-                          onChange={(e) => setAiAssistantInput(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleAiAssistantSend()}
-                        />
-                        <Button
-                          onClick={handleAiAssistantSend}
-                          disabled={aiTyping || !aiAssistantInput.trim()}
-                          className="gradient-orange hover:opacity-90 rounded-lg px-5"
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          Enviar
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <Suspense fallback={<LoadingFallback />}>
+                  <ChatBotManager />
+                </Suspense>
               </TabsContent>
             </Tabs>
 

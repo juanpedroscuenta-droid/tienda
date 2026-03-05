@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Truck, CircleDollarSign, ShieldCheck, ShoppingCart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ProductCard } from './ProductCard';
 import { NewProductsCarousel } from './NewProductsCarousel';
 import { GenericProductCarousel } from './GenericProductCarousel';
 import { FilterSidebar } from './FilterSidebar';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { HomeCategoryGrid } from '@/components/home/HomeCategoryGrid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,7 +52,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [sortBy, setSortBy] = useState('relevance');
   const [products, setProducts] = useState<Product[]>([]);
-  const { getCategoryByName } = useCategories();
+  const { getCategoryByName, getBreadcrumbPath } = useCategories();
   const { filters, loading: filtersLoading } = useFilters();
   const [loading, setLoading] = useState(true);
 
@@ -66,7 +65,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   const [showAllForFilter, setShowAllForFilter] = useState<{ [filterId: string]: boolean }>({});
 
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12;
+  const itemsPerPage = 10;
 
   useEffect(() => {
     setSearchTerm(initialSearchTerm || '');
@@ -390,175 +389,296 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
     <section ref={sectionRef} id="products-section" className="py-8 bg-white w-full max-w-[1400px] mx-auto px-4 md:px-8 min-h-screen">
       <div className="flex flex-col md:flex-row gap-10">
         {/* Placeholder — reserves sidebar space; position:relative lets absolute child anchor here */}
-        <div
-          ref={sidebarPlaceholderRef}
-          className="w-full md:w-64 flex-shrink-0 hidden md:block"
-          style={{ position: 'relative' }}
-        >
-          {/* Actual sidebar — repositioned via JS */}
-          <div ref={sidebarContentRef} style={sidebarStyle} className="scrollbar-hide">
-            <FilterSidebar
-              filters={filters}
-              filtersLoading={filtersLoading}
-              selectedFilterOptions={selectedFilterOptions}
-              toggleFilterOption={toggleFilterOption}
-              filterOptionCounts={filterOptionCounts}
-              priceFrom={priceFrom}
-              setPriceFrom={setPriceFrom}
-              priceTo={priceTo}
-              setPriceTo={setPriceTo}
-              applyPrice={applyPrice}
-              className="w-full pt-2 border-r pr-6"
-            />
+        {(isFiltering || showCatalog) && (
+          <div
+            ref={sidebarPlaceholderRef}
+            className="w-full md:w-64 flex-shrink-0 hidden md:block"
+            style={{ position: 'relative' }}
+          >
+            {/* Actual sidebar — repositioned via JS */}
+            <div ref={sidebarContentRef} style={sidebarStyle} className="scrollbar-hide">
+              <FilterSidebar
+                filters={filters}
+                filtersLoading={filtersLoading}
+                selectedFilterOptions={selectedFilterOptions}
+                toggleFilterOption={toggleFilterOption}
+                filterOptionCounts={filterOptionCounts}
+                priceFrom={priceFrom}
+                setPriceFrom={setPriceFrom}
+                priceTo={priceTo}
+                setPriceTo={setPriceTo}
+                applyPrice={applyPrice}
+                className="w-full pt-2"
+                selectedCategory={selectedCategory}
+                setSelectedCategory={setSelectedCategory}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex-1">
+          {/* Vista inicial Limpia - Solo Carrusel de novedades y luego el Grid */}
           {!isFiltering && !showCatalog && (
-            <div className="mb-6 -mt-4">
-              <div className="md:hidden">
-                <HomeCategoryGrid onSelect={setSelectedCategory} />
-              </div>
-              {/* negative margin to escape parent px-4 md:px-8 so carousel buttons aren't clipped */}
-              <div className="-mx-4 md:-mx-8">
-                <NewProductsCarousel />
-              </div>
+            <div className="mb-12">
+              <NewProductsCarousel />
             </div>
           )}
-          {!isFiltering && !showCatalog && (
-            <div className="space-y-2">
-              <h3 className="text-[#1a2b3c] font-bold text-xl mb-4 tracking-tight uppercase px-6 sm:px-8">PRODUCTOS</h3>
-              {/* negative margin escape trick so right button isn't clipped by parent px-8 */}
-              <div className="-mx-4 md:-mx-8">
-                <GenericProductCarousel title="" products={carouselGroups.productos1} />
+
+          {/* Breadcrumbs */}
+          {(isFiltering || showCatalog) && (
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider mb-8 text-gray-400">
+              <span className="text-orange-500 cursor-pointer hover:underline" onClick={() => setSelectedCategory("Todos")}>Home</span>
+              {getBreadcrumbPath(selectedCategory).slice(1).map((part, i) => (
+                <React.Fragment key={i}>
+                  <ChevronRight className="w-3 h-3" />
+                  <span className={i === getBreadcrumbPath(selectedCategory).slice(1).length - 1 ? 'text-black' : 'text-orange-500 cursor-pointer hover:underline'} onClick={() => setSelectedCategory(part)}>
+                    {part}
+                  </span>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-4 border-b gap-4">
+            <div className="flex items-center gap-8">
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-bold uppercase text-gray-400 whitespace-nowrap">Ordenar por:</span>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-[180px] h-9 border rounded-none shadow-none focus:ring-0 font-bold text-[12px] text-gray-700">
+                    <SelectValue placeholder="Orden por defecto" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none border-gray-200">
+                    <SelectItem value="relevance">Orden por defecto</SelectItem>
+                    <SelectItem value="name">Alfabético</SelectItem>
+                    <SelectItem value="price-asc">Menor precio</SelectItem>
+                    <SelectItem value="price-desc">Mayor precio</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="-mx-4 md:-mx-8">
-                <GenericProductCarousel title="" products={carouselGroups.productos2} />
+            </div>
+
+            <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-bold uppercase text-gray-400 whitespace-nowrap">Mostrar:</span>
+                <Select defaultValue="12">
+                  <SelectTrigger className="w-[70px] h-9 border rounded-none shadow-none focus:ring-0 font-bold text-[12px] text-gray-700">
+                    <SelectValue placeholder="12" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none border-gray-200">
+                    <SelectItem value="12">12</SelectItem>
+                    <SelectItem value="24">24</SelectItem>
+                    <SelectItem value="48">48</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="flex justify-center w-full py-8 mb-4">
-                <button
-                  onClick={() => setShowCatalog(true)}
-                  className="text-gray-900 font-black uppercase tracking-[0.25em] text-sm hover:text-[#005cb9] transition-all pb-2 px-4"
-                >
-                  Ver todo el catálogo
+              <div className="flex items-center gap-1 border-l pl-6 border-gray-100">
+                <button className="p-2 text-black bg-gray-50 border border-gray-200">
+                  <Search className="w-4 h-4" strokeWidth={3} />
+                </button>
+                <button className="p-2 text-gray-400 hover:text-black border border-transparent">
+                  <div className="grid grid-cols-3 gap-0.5">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => <div key={i} className="w-1 h-1 bg-current" />)}
+                  </div>
                 </button>
               </div>
-
-              <HomeBanners />
-
-              <div className="-mx-4 md:-mx-8">
-                <GenericProductCarousel
-                  title="Ofertas"
-                  products={carouselGroups.ofertas}
-                  emptyMessage="Lo sentimos aun no tenemos productos en promocion"
-                />
-              </div>
             </div>
-          )}
+          </div>
 
-          {(isFiltering || showCatalog) && (
-            <>
-              <div className="flex justify-between items-center mb-6 pb-4 border-b">
-                <div>
-                  <h2 className="text-2xl font-bold">
-                    {isFiltering ? (selectedCategory !== 'Todos' ? selectedCategory : 'Resultados de búsqueda') : 'Catálogo Completo'}
-                  </h2>
-                  <p className="text-sm text-gray-500">{filteredAndSortedProducts.length} encontrados</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  {showCatalog && !isFiltering && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => setShowCatalog(false)}
-                      className="text-gray-500 hover:text-black font-bold uppercase tracking-tight text-xs"
-                    >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
-                      Volver
-                    </Button>
-                  )}
-                  <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="Ordenar por" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="relevance">Relevancia</SelectItem>
-                      <SelectItem value="name">Nombre</SelectItem>
-                      <SelectItem value="price-asc">Menor precio</SelectItem>
-                      <SelectItem value="price-desc">Mayor precio</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          {loading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              {Array.from({ length: 10 }).map((_, i) => <div key={i} className="h-80 bg-gray-50 animate-pulse rounded-[2rem]" />)}
+            </div>
+          ) : paginatedProducts.length > 0 ? (
+            <div className="space-y-16">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-12">
+                {paginatedProducts.map(p => <ProductCard key={p.id} product={p} />)}
               </div>
 
-              {loading ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-80 bg-gray-100 animate-pulse rounded-2xl" />)}
-                </div>
-              ) : paginatedProducts.length > 0 ? (
-                <div className="space-y-12">
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-2 sm:gap-x-6 gap-y-4 sm:gap-y-10">
-                    {paginatedProducts.map(p => <ProductCard key={p.id} product={p} />)}
-                  </div>
-
-                  {/* Catalog Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex justify-center items-center gap-2 pb-12">
-                      <Button
-                        variant="outline"
-                        disabled={currentPage === 1}
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        className="h-10 w-10 p-0 rounded-lg"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-
-                      {Array.from({ length: totalPages }).map((_, i) => {
-                        const pageNum = i + 1;
-                        if (totalPages > 7 && Math.abs(pageNum - currentPage) > 2 && pageNum !== 1 && pageNum !== totalPages) {
-                          if (pageNum === 2 || pageNum === totalPages - 1) return <span key={pageNum} className="px-1">...</span>;
-                          return null;
-                        }
-                        return (
-                          <Button
-                            key={pageNum}
-                            variant={currentPage === pageNum ? "default" : "outline"}
-                            onClick={() => setCurrentPage(pageNum)}
-                            className={`h-10 w-10 p-0 rounded-lg ${currentPage === pageNum ? 'bg-black text-white border-black' : ''}`}
-                          >
-                            {pageNum}
-                          </Button>
-                        );
-                      })}
-
-                      <Button
-                        variant="outline"
-                        disabled={currentPage === totalPages}
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        className="h-10 w-10 p-0 rounded-lg"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
+              {/* Trust Bar Section */}
+              {!isFiltering && !showCatalog && (
+                <div className="mb-14 grid grid-cols-1 md:grid-cols-3 bg-gray-50/50 rounded-xl overflow-hidden border border-gray-100">
+                  <div className="flex items-center gap-4 p-6 border-b md:border-b-0 md:border-r border-gray-100">
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-orange-500">
+                      <Truck className="w-6 h-6" />
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-20 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
-                  <div className="bg-white p-4 rounded-full shadow-sm mb-4">
-                    <Search className="w-8 h-8 text-gray-300" />
+                    <div>
+                      <h4 className="text-sm font-black text-gray-900 uppercase leading-tight">Envío gratis ↑ $60.000</h4>
+                      <p className="text-[11px] text-gray-400 font-bold uppercase mt-0.5">Más de 1000 autopartes</p>
+                    </div>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">No encontramos coincidencias</h3>
-                  <p className="text-gray-500 max-w-xs mb-6">
-                    Intenta ajustar o eliminar algunos filtros para encontrar lo que buscas.
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={clearAllFilters}
-                    className="rounded-full px-8 hover:bg-black hover:text-white transition-all"
-                  >
-                    Limpiar todos los filtros
-                  </Button>
+                  <div className="flex items-center gap-4 p-6 border-b md:border-b-0 md:border-r border-gray-100">
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-orange-500">
+                      <CircleDollarSign className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-gray-900 uppercase leading-tight">Autopartes y repuestos</h4>
+                      <p className="text-[11px] text-gray-400 font-bold uppercase mt-0.5">Para todas las marcas</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 p-6">
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-orange-500">
+                      <ShieldCheck className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-gray-900 uppercase leading-tight">Pago y envío 100% seguro</h4>
+                      <p className="text-[11px] text-gray-400 font-bold uppercase mt-0.5">A toda Colombia</p>
+                    </div>
+                  </div>
                 </div>
               )}
-            </>
+
+              {/* Allied Brands Section */}
+              {!isFiltering && !showCatalog && (
+                <div className="mb-16">
+                  <div className="professional-header">
+                    <h2>Nuestros aliados</h2>
+                    <p>el respaldo de las mejores marcas</p>
+                  </div>
+
+                  <div className="relative flex items-center gap-4 px-10">
+                    <button className="absolute left-0 p-2 text-gray-300 hover:text-black transition-colors">
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                    <div className="flex-1 grid grid-cols-2 md:grid-cols-6 items-center gap-8 py-4 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-700">
+                      <div className="font-black text-xl text-center tracking-tighter italic">TOTUS</div>
+                      <div className="font-black text-xl text-center tracking-tighter text-red-600">Florio</div>
+                      <div className="font-black text-xl text-center tracking-tighter">KTC</div>
+                      <div className="font-black text-xl text-center tracking-tighter text-blue-800">GPM</div>
+                      <div className="font-black text-xl text-center tracking-tighter text-yellow-500">GPC</div>
+                      <div className="font-black text-xl text-center tracking-tighter text-indigo-900 font-serif italic text-2xl">Ci</div>
+                    </div>
+                    <button className="absolute right-0 p-2 text-gray-300 hover:text-black transition-colors">
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Enhanced Pagination Bar with 'Envíos a toda Colombia' Info */}
+              {totalPages > 1 && (isFiltering || showCatalog) && (
+                <div className="mt-12 pt-8 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-8">
+                  <div className="flex items-center gap-6">
+                    {/* Envíos a toda Colombia Block */}
+                    <div className="flex items-center gap-4">
+                      <div className="flex flex-col">
+                        <span className="text-[24px] font-black text-gray-900 leading-none">Envíos a toda</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[28px] font-black text-gray-900 leading-none uppercase tracking-tighter">Colombia</span>
+                          <div className="w-8 h-8 flex items-center justify-center text-orange-500">
+                            <Truck className="w-6 h-6" />
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Repuestos y autopartes</span>
+                      </div>
+                    </div>
+
+                    <div className="hidden md:flex items-center gap-3 border-l pl-8 border-gray-100">
+                      <span className="text-[11px] font-bold uppercase text-gray-400 whitespace-nowrap">Mostrar:</span>
+                      <Select defaultValue="12">
+                        <SelectTrigger className="w-[70px] h-9 border border-gray-200 rounded-none shadow-none focus:ring-0 font-bold text-[12px] text-gray-700">
+                          <SelectValue placeholder="12" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-none border-gray-200 shadow-xl">
+                          <SelectItem value="12">12</SelectItem>
+                          <SelectItem value="24">24</SelectItem>
+                          <SelectItem value="48">48</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: totalPages }).map((_, i) => {
+                      const pageNum = i + 1;
+                      if (totalPages > 5 && Math.abs(pageNum - currentPage) > 1 && pageNum !== 1 && pageNum !== totalPages) {
+                        if (pageNum === 2 || pageNum === totalPages - 1) return <span key={pageNum} className="px-1 text-gray-200">...</span>;
+                        return null;
+                      }
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`h-9 w-9 flex items-center justify-center border text-[12px] font-bold transition-all ${currentPage === pageNum
+                            ? 'border-orange-500 text-orange-500 bg-white'
+                            : 'border-gray-100 text-gray-400 hover:border-gray-300 hover:text-black'
+                            }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      className="h-9 w-9 flex items-center justify-center border border-gray-100 text-gray-400 hover:border-gray-300 hover:text-black disabled:opacity-30"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!isFiltering && !showCatalog && (
+                <>
+                  <div className="pt-4 pb-12">
+                    <div className="w-full bg-orange-600 bg-gradient-to-r from-orange-600 to-orange-500 rounded-none overflow-hidden relative min-h-[120px] flex items-center px-4 md:px-10 py-6">
+                      <div className="flex flex-col md:flex-row items-center justify-between w-full gap-8 z-10">
+                        <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
+                          <div className="bg-white/10 backdrop-blur-sm px-6 py-3 rounded-none border border-white/20">
+                            <span className="text-white font-bold text-xl md:text-2xl uppercase tracking-wider">Autopartes</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <h2 className="text-white font-bold text-lg md:text-2xl uppercase tracking-tight leading-none">
+                              Y Repuestos para tu vehículo
+                            </h2>
+                            <p className="text-white/80 text-[10px] md:text-[11px] font-medium mt-2 uppercase tracking-[0.2em]">
+                              Manijas internas y externas, limpiaparabrisas, pines, alarmas, seguridad y más
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setShowCatalog(true)}
+                          className="bg-white text-black font-bold px-12 py-4 rounded-none text-xs uppercase tracking-[0.2em] shadow-2xl hover:bg-neutral-900 hover:text-white transition-all transform hover:scale-105 active:scale-95 whitespace-nowrap"
+                        >
+                          Ver Todo
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-8">
+                    <div className="professional-header">
+                      <h2>Los mas vendidos</h2>
+                      <p>De todas las marcas</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-12">
+                      {carouselGroups.productos1.slice(0, 10).map(p => (
+                        <ProductCard key={`best-${p.id}`} product={p} />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <div className="bg-gray-50 p-6 rounded-full mb-6">
+                <Search className="w-10 h-10 text-gray-200" />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 mb-2 uppercase tracking-tight">Sin coincidencias</h3>
+              <p className="text-gray-400 max-w-xs mb-8 font-medium">
+                No encontramos lo que buscas. Intenta con otros términos o limpia los filtros.
+              </p>
+              <Button
+                onClick={clearAllFilters}
+                className="rounded-full px-10 bg-black text-white font-black uppercase text-xs tracking-[0.2em] h-14"
+              >
+                Limpiar filtros
+              </Button>
+            </div>
           )}
         </div>
       </div>

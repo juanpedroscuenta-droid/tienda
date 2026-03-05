@@ -73,7 +73,9 @@ const AdvancedIndex = () => {
         allCategoriesData={categoriesData}
       />
 
-      <HeroBanner isCatalog={showCatalog} />
+      {!showCatalog && !searchParam && (
+        <HeroBanner isCatalog={showCatalog} setShowCatalog={setShowCatalog} />
+      )}
 
       <main className="relative z-10 w-full pt-4">
         <ProductsSection

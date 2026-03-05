@@ -101,8 +101,7 @@ export const recordWebsiteVisit = async (
       return false;
     }
 
-    console.log('[recordWebsiteVisit] 📊 Iniciando registro de visita al sitio web...');
-    console.log('[recordWebsiteVisit] 📄 Página:', { pageUrl, pageTitle, userId: userId || 'Anónimo' });
+    // console.log('[recordWebsiteVisit] 📊 Registro de visita...');
 
     const sessionId = getSessionId();
     const today = new Date().toISOString().split('T')[0];
@@ -170,11 +169,7 @@ export const recordProductView = async (
   userName?: string | null
 ) => {
   try {
-    console.log('[recordProductView] 🛍️ ========================================');
-    console.log('[recordProductView] 🛍️ INICIANDO REGISTRO DE VISTA DE PRODUCTO');
-    console.log('[recordProductView] 🛍️ ========================================');
-    console.log('[recordProductView] 📦 Producto:', { productId, productName });
-    console.log('[recordProductView] 👤 Usuario:', { userId: userId || 'Anónimo', userEmail, userName });
+    // console.log('[recordProductView] 🛍️ Registro de vista de producto:', productId);
 
     const isSupabase = typeof (db as any)?.from === 'function';
     if (!isSupabase) {
@@ -212,7 +207,6 @@ export const recordProductView = async (
         device_info: deviceInfo
       };
 
-      console.log('[recordProductView] 💾 Datos de vista:', viewData);
 
       const { data: viewResult, error: viewError } = await (db as any)
         .from('product_views')

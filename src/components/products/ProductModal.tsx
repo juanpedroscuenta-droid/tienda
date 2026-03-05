@@ -22,6 +22,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
   const { user } = useAuth();
   const [quantity, setQuantity] = useState(1);
   const [viewRecorded, setViewRecorded] = useState(false);
+  const [activeImage, setActiveImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Reset image when product changes
+    if (product) {
+      setActiveImage(product.image);
+    }
+  }, [product]);
 
   useEffect(() => {
     // Registrar vista solo cuando el modal se abre y tenemos un producto
@@ -64,28 +72,47 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 bg-slate-50 dark:bg-slate-900 rounded-xl">
         <div className="grid md:grid-cols-2 gap-0">
           {/* Imagen del producto con galería */}
-          <div className="relative bg-white dark:bg-slate-800 h-full">
-            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent to-black/20 z-10 opacity-50"></div>
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-full h-[26rem] md:h-full object-cover transition-transform duration-300 hover:scale-105"
-            />
-            <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
-              <Badge
-                className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-medium py-1.5 px-3"
-              >
-                {product.category}
-              </Badge>
+          <div className="relative bg-white dark:bg-slate-800 h-full flex flex-col">
+            <div className="relative flex-1 flex items-center justify-center p-4">
+              <img
+                src={activeImage || product.image}
+                alt={product.name}
+                className="max-w-full max-h-[400px] object-contain transition-transform duration-300 hover:scale-105"
+              />
+              <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
+                <Badge
+                  className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-medium py-1.5 px-3"
+                >
+                  {product.category}
+                </Badge>
+              </div>
+              {product.stock < 5 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute top-4 left-4 z-20 animate-pulse py-1.5 px-3 bg-red-500/90 backdrop-blur-sm"
+                >
+                  ¡Últimas {product.stock} unidades!
+                </Badge>
+              )}
             </div>
-            {product.stock < 5 && (
-              <Badge
-                variant="destructive"
-                className="absolute top-4 left-4 z-20 animate-pulse py-1.5 px-3 bg-red-500/90 backdrop-blur-sm"
-              >
-                ¡Últimas {product.stock} unidades!
-              </Badge>
-            )}
+
+            {/* Miniaturas */}
+            <div className="flex justify-center gap-2 p-4 pt-0 overflow-x-auto">
+              {[product.image, ...(product.additionalImages || []), ...(product.additional_images || [])]
+                .filter(Boolean)
+                .filter((url, index, self) => self.indexOf(url) === index) // Unique
+                .map((url, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveImage(url as string)}
+                    className={`w-16 h-16 rounded-md border-2 overflow-hidden transition-all ${(activeImage || product.image) === url ? 'border-blue-500 scale-105' : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                  >
+                    <img src={url as string} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))
+              }
+            </div>
           </div>
 
           {/* Detalles del producto */}
@@ -208,8 +235,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
                       <div className="flex items-center">
                         <button
                           className={`h-10 w-10 rounded-l-lg border border-slate-300 dark:border-slate-600 flex items-center justify-center transition-colors ${quantity <= 1
-                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
-                              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                             }`}
                           onClick={decrementQuantity}
                           disabled={quantity <= 1}
@@ -225,8 +252,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
 
                         <button
                           className={`h-10 w-10 rounded-r-lg border border-slate-300 dark:border-slate-600 flex items-center justify-center transition-colors ${quantity >= product.stock
-                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
-                              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                             }`}
                           onClick={incrementQuantity}
                           disabled={quantity >= product.stock}
@@ -262,8 +289,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
                   <Button
                     onClick={handleAddToCart}
                     className={`relative overflow-hidden h-14 text-white font-medium shadow-lg ${product.stock === 0
-                        ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600'
+                      ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600'
                       }`}
                     disabled={product.stock === 0}
                   >

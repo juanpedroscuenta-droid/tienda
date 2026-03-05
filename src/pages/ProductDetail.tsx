@@ -354,15 +354,18 @@ const ProductDetailPage = () => {
                 />
               </div>
               <div className="flex justify-center gap-3 mt-8 flex-wrap">
-                {[product.image, ...(product.additionalImages || [])].filter(Boolean).map((url, i) => (
-                  <button
-                    key={i}
-                    onClick={() => { setActiveImageIndex(i); setActiveImageUrl(url); }}
-                    className={`w-20 h-20 rounded-lg border-2 overflow-hidden transition-all ${activeImageIndex === i ? 'border-black shadow-md scale-110' : 'border-neutral-200 hover:border-neutral-400'}`}
-                  >
-                    <img src={url} alt="" className="w-full h-full object-contain" />
-                  </button>
-                ))}
+                {[product.image, ...(product.additionalImages || []), ...(product.additional_images || [])]
+                  .filter(Boolean)
+                  .filter((url, index, self) => self.indexOf(url) === index) // Unique
+                  .map((url, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setActiveImageIndex(i); setActiveImageUrl(url); }}
+                      className={`w-20 h-20 rounded-lg border-2 overflow-hidden transition-all ${activeImageIndex === i ? 'border-black shadow-md scale-110' : 'border-neutral-200 hover:border-neutral-400'}`}
+                    >
+                      <img src={url} alt="" className="w-full h-full object-contain" />
+                    </button>
+                  ))}
               </div>
             </div>
           </div>

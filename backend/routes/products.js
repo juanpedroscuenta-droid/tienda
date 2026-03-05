@@ -71,7 +71,8 @@ router.get('/admin/all', async (req, res) => {
         const { data, error } = await supabase
             .from('products')
             .select('*')
-            .order('updated_at', { ascending: false });
+            .order('updated_at', { ascending: false })
+            .limit(300);
 
         if (error) throw error;
         res.json(data);

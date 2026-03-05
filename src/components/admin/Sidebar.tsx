@@ -32,7 +32,8 @@ import {
   Share2,
   Building2,
   ChevronLeft,
-  Key
+  Key,
+  Ticket
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -177,7 +178,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'products', icon: <Package className="h-5 w-5" />, label: 'Productos', description: 'Gestión de inventario' },
     { id: 'contacts', icon: <Contact className="h-5 w-5" />, label: 'Contactos', description: 'Gestión de contactos' },
     { id: 'orders', icon: <ShoppingCart className="h-5 w-5" />, label: 'Pedidos', description: 'Control de ventas' },
+    { id: 'suppliers', icon: <Building2 className="h-5 w-5" />, label: 'Proveedores', description: 'Gestión de proveedores' },
     { id: 'categories', icon: <Tag className="h-5 w-5" />, label: 'Categorías', description: 'Organizar productos' },
+    { id: 'coupons', icon: <Ticket className="h-5 w-5" />, label: 'Cupones', description: 'Códigos de descuento' },
     { id: 'ai-assistant', icon: <Bot className="h-5 w-5" />, label: 'Asistente IA', description: 'Inteligencia artificial' },
     { id: 'help-manual', icon: <HelpCircle className="h-5 w-5" />, label: 'Ayuda', description: 'Manual de usuario' },
     { id: 'credentials', icon: <Key className="h-5 w-5" />, label: 'Contraseñas', description: 'Gestión de accesos' },
