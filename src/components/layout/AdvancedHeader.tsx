@@ -5,6 +5,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useFavorites } from '@/contexts/FavoritesContext';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import type { Category } from '@/hooks/use-categories';
 import { FilterSidebar } from '@/components/products/FilterSidebar';
 import { slugify } from '@/lib/utils';
@@ -198,12 +205,37 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
           <div className="flex items-center space-x-6">
             {/* QR Payment - As requested */}
             <div className="hidden lg:flex items-center gap-6 mr-4 border-r border-white/10 pr-6">
-              <button className="flex items-center gap-2 group hover:opacity-80 transition-opacity">
-                <div className="w-8 h-8 bg-white/5 flex items-center justify-center border border-white/10">
-                  <CreditCard className="w-4 h-4 text-white" />
-                </div>
-                <span className="text-[13px] font-black uppercase tracking-tight">Pagar con QR</span>
-              </button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <button className="flex items-center gap-2 group hover:opacity-80 transition-opacity">
+                    <div className="w-8 h-8 bg-white/5 flex items-center justify-center border border-white/10">
+                      <CreditCard className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-[13px] font-black uppercase tracking-tight">Pagar con QR</span>
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl max-h-[90vh] bg-white border-2 border-slate-900 rounded-none p-0 overflow-hidden flex flex-col">
+                  <DialogHeader className="bg-[#ffd814] p-3 border-b-2 border-slate-900 flex-shrink-0">
+                    <DialogTitle className="text-[14px] font-black uppercase tracking-[0.15em] text-[#0f1111] flex items-center gap-2">
+                      <QrCode className="w-5 h-5" />
+                      Pagar con QR
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="p-2 flex flex-col items-center justify-center bg-white overflow-y-auto">
+                    <div className="w-full flex items-center justify-center bg-white">
+                      <img
+                        src="/Picsart_26-03-06_12-21-01-693.jpg (1).webp"
+                        alt="QR de Pago"
+                        className="w-full h-auto max-h-[75vh] object-contain"
+                      />
+                    </div>
+                    <div className="mt-6 text-center space-y-2">
+                      <p className="text-[14px] font-black uppercase tracking-tight text-slate-900">Escanea para pagar</p>
+                      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Tienda 24/7 Digital</p>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {/* Help */}
@@ -705,7 +737,42 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
         </div>
 
         {/* WhatsApp Link at bottom of menu */}
-        <div className="p-6 border-t border-gray-100">
+        <div className="p-6 border-t border-gray-100 space-y-4">
+          <Dialog>
+            <DialogTrigger asChild>
+              <button className="flex items-center gap-3 w-full text-slate-900 group hover:opacity-80 transition-opacity">
+                <div className="w-10 h-10 bg-slate-100 flex items-center justify-center rounded-xl">
+                  <QrCode className="w-5 h-5 text-slate-900" />
+                </div>
+                <div className="text-left">
+                  <p className="text-[13px] font-black uppercase tracking-tight">Pagar con QR</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pago rápido digital</p>
+                </div>
+              </button>
+            </DialogTrigger>
+            <DialogContent className="w-[95vw] sm:max-w-xl max-h-[85vh] bg-white border-2 border-slate-900 rounded-none p-0 overflow-hidden z-[200] flex flex-col">
+              <DialogHeader className="bg-[#ffd814] p-3 border-b-2 border-slate-900 flex-shrink-0">
+                <DialogTitle className="text-[13px] font-black uppercase tracking-[0.15em] text-[#0f1111] flex items-center gap-2">
+                  <QrCode className="w-5 h-5" />
+                  Pagar con QR
+                </DialogTitle>
+              </DialogHeader>
+              <div className="p-1 flex flex-col items-center justify-center bg-white overflow-y-auto">
+                <div className="w-full flex items-center justify-center bg-white">
+                  <img
+                    src="/Picsart_26-03-06_12-21-01-693.jpg (1).webp"
+                    alt="QR de Pago"
+                    className="w-full h-auto max-h-[70vh] object-contain"
+                  />
+                </div>
+                <div className="mt-6 text-center space-y-2">
+                  <p className="text-[14px] font-black uppercase tracking-tight text-slate-900">Escanea para pagar</p>
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Tienda 24/7 Digital</p>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <a
             href="https://wa.me/573212619434"
             target="_blank"

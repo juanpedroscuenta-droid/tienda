@@ -24,9 +24,18 @@ import {
   Facebook,
   Twitter,
   Instagram,
+  ChevronLeft,
   ChevronRight,
-  Info
+  Info,
+  Package,
+  CheckCircle2,
+  BadgeCheck,
+  Zap,
+  ShoppingCart,
+  ArrowRight
 } from 'lucide-react';
+import { FilterSidebar } from '@/components/products/FilterSidebar';
+import { useFilters } from '@/hooks/use-filters';
 
 import { Product } from '@/contexts/CartContext';
 
@@ -62,6 +71,20 @@ const ProductDetailPage = () => {
   const { user } = useAuth();
   const { categories, categoriesData, mainCategories, subcategoriesByParent, thirdLevelBySubcategory } = useCategories();
   const [selectedMililitros, setSelectedMililitros] = useState<'2.5' | '5' | '10'>('2.5');
+
+  // Hook de filtros para el sidebar - gestión local para el detalle
+  const { filters, loading: filtersLoading } = useFilters();
+  const [selectedFilterOptions, setSelectedFilterOptions] = useState({});
+  const [priceFrom, setPriceFrom] = useState('');
+  const [priceTo, setPriceTo] = useState('');
+
+  const toggleFilterOption = (fId: string, oId: string) => {
+    // En el detalle, filtrar podría llevarte de vuelta a la tienda
+    navigate(`/categoria/${encodeURIComponent(product?.category || 'Todos')}`);
+  };
+
+  const applyPrice = () => navigate(`/categoria/${encodeURIComponent(product?.category || 'Todos')}`);
+  const filterOptionCounts = {};
 
   // Estados para sistema de reseñas - simplified as we are moving to backend
   const [reviews, setReviews] = useState<any[]>([]);
@@ -320,6 +343,9 @@ const ProductDetailPage = () => {
     );
   }
 
+  const originalPrice = (product as any).oldPrice || (product as any).originalPrice || Math.round(product.price * 1.15); // Mocked if not present
+
+
   return (
     <div className="flex flex-col min-h-screen">
       <AdvancedHeader
@@ -333,258 +359,230 @@ const ProductDetailPage = () => {
       />
 
       <main className="w-full bg-white px-0 sm:px-4 pt-6 pb-16 md:pt-8 md:pb-24">
-        <div className="max-w-6xl mx-auto px-4 mb-3">
-          <nav className="flex flex-wrap items-center text-sm text-neutral-500">
-            <button type="button" onClick={() => navigate('/')} className="hover:text-black transition-colors">Inicio</button>
-            <span className="mx-2">/</span>
-            <span className="text-black font-medium truncate">{product.name}</span>
-          </nav>
-        </div>
+        <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-8 lg:gap-12 px-4">
 
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 mb-12 px-4">
-          <div className="flex flex-col">
-            <div className="relative bg-white flex flex-col items-center">
-              <div className="relative w-full flex justify-center min-h-[450px] md:min-h-[550px] items-center">
-                {imageLoading && <div className="absolute inset-0 flex items-center justify-center z-10 bg-white/80"><Loader2 className="h-12 w-12 text-black animate-spin" /></div>}
+          {/* Sidebar - Desktop */}
+          <aside className="hidden lg:block w-[280px] flex-shrink-0 animate-in fade-in slide-in-from-left-4 duration-500">
+            <FilterSidebar
+              filters={filters}
+              filtersLoading={filtersLoading}
+              selectedFilterOptions={selectedFilterOptions}
+              toggleFilterOption={toggleFilterOption}
+              filterOptionCounts={filterOptionCounts}
+              priceFrom={priceFrom}
+              setPriceFrom={setPriceFrom}
+              priceTo={priceTo}
+              setPriceTo={setPriceTo}
+              applyPrice={applyPrice}
+              selectedCategory={product.category}
+              setSelectedCategory={(cat) => navigate('/categoria/' + encodeURIComponent(cat))}
+            />
+
+            {/* Promo Banner under filters */}
+            <div className="mt-8 group cursor-pointer hover:scale-[1.02] transition-transform duration-500">
+              <div className="bg-white p-3 rounded-[32px] border border-neutral-100 shadow-sm hover:shadow-xl transition-shadow">
                 <img
-                  src={activeImageUrl || product.image}
-                  alt={product.name}
-                  className={`max-h-[450px] md:max-h-[550px] w-full object-contain ${imageLoading ? 'opacity-50' : ''} transition-all duration-500`}
-                  onLoad={() => setImageLoading(false)}
+                  src="/pics/Picsart_26-03-02_13-05-18-052.jpg"
+                  alt="Envíos a toda Colombia"
+                  className="w-full h-auto rounded-[24px]"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "https://placehold.co/400x400/white/black?text=Envios+a+Toda+Colombia";
+                  }}
                 />
               </div>
-              <div className="flex justify-center gap-3 mt-8 flex-wrap">
-                {[product.image, ...(product.additionalImages || []), ...(product.additional_images || [])]
-                  .filter(Boolean)
-                  .filter((url, index, self) => self.indexOf(url) === index) // Unique
-                  .map((url, i) => (
-                    <button
-                      key={i}
-                      onClick={() => { setActiveImageIndex(i); setActiveImageUrl(url); }}
-                      className={`w-20 h-20 rounded-lg border-2 overflow-hidden transition-all ${activeImageIndex === i ? 'border-black shadow-md scale-110' : 'border-neutral-200 hover:border-neutral-400'}`}
-                    >
-                      <img src={url} alt="" className="w-full h-full object-contain" />
-                    </button>
-                  ))}
-              </div>
             </div>
-          </div>
+          </aside>
 
-          <div className="bg-white border rounded-2xl p-6 md:p-8 shadow-sm h-fit">
-            <div className="flex justify-between items-start mb-4">
-              <h1 className="text-2xl md:text-3xl font-black text-[#1a2b3c] leading-tight uppercase tracking-tight pr-4">
-                {product.name}
-              </h1>
-              <Button variant="ghost" size="icon" className="hover:bg-red-50 hover:text-red-500 rounded-full transition-colors flex-shrink-0">
-                <Heart className="h-6 w-6" />
-              </Button>
+          {/* Product Detail Content */}
+          <div className="flex-1 min-w-0">
+            <div className="mb-6">
+              <nav className="flex flex-wrap items-center text-xs font-bold uppercase tracking-widest text-[#f15a24]">
+                <button type="button" onClick={() => navigate('/')} className="hover:opacity-80 transition-opacity">Home</button>
+                <ChevronRight className="w-3 h-3 mx-2 text-neutral-300" />
+                <button type="button" onClick={() => navigate('/categoria/' + encodeURIComponent(product.category))} className="hover:opacity-80 transition-opacity truncate max-w-[150px]">{product.category}</button>
+                <ChevronRight className="w-3 h-3 mx-2 text-neutral-300" />
+                <span className="text-neutral-900 truncate max-w-[200px]">{product.name}</span>
+              </nav>
             </div>
 
-            <div className="flex flex-col gap-1 mb-4">
-              <div className="flex items-center justify-between text-xs font-semibold text-neutral-400">
-                <span className="uppercase tracking-widest">{product.category || 'Yamalube'}</span>
-                <span className="tracking-wide">Referencia: {(product as any).barcode || product.id.slice(0, 8)}</span>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12">
+              {/* Image Section */}
+              <div className="md:col-span-7 flex flex-col">
+                <div className="relative bg-white flex flex-col items-center group">
+                  <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
+                    <span className="bg-black text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-1 shadow-lg">
+                      <Zap className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                      Flash Sale
+                    </span>
+                  </div>
 
-              <div className="flex items-center gap-2 mt-1">
-                <div className="flex text-amber-400">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} className={`h-4 w-4 ${s <= Number(calculateAverageRating()) ? 'fill-current' : 'text-neutral-200'}`} />
-                  ))}
+                  <div className="relative w-full flex justify-center min-h-[400px] md:min-h-[500px] items-center p-4 border rounded-2xl bg-white/50 backdrop-blur-sm overflow-hidden group-hover:shadow-xl transition-all duration-500 border-neutral-100">
+                    {imageLoading && (
+                      <div className="absolute inset-0 flex items-center justify-center z-10 bg-white/80">
+                        <Loader2 className="h-12 w-12 text-black animate-spin" />
+                      </div>
+                    )}
+                    <img
+                      src={activeImageUrl || product.image}
+                      alt={product.name}
+                      className={`max-h-[400px] md:max-h-[500px] w-full object-contain ${imageLoading ? 'opacity-50' : 'opacity-100'} transition-all duration-500 transform group-hover:scale-105`}
+                      onLoad={() => setImageLoading(false)}
+                    />
+                  </div>
+
+                  {/* Thumbnails */}
+                  <div className="flex justify-start gap-3 mt-6 w-full overflow-x-auto pb-2 scrollbar-hide">
+                    {[product.image, ...(product.additionalImages || []), ...(product.additional_images || [])]
+                      .filter(Boolean)
+                      .filter((url, index, self) => self.indexOf(url) === index)
+                      .map((url, i) => (
+                        <button
+                          key={i}
+                          onClick={() => { setActiveImageIndex(i); setActiveImageUrl(url); }}
+                          className={`min-w-[70px] h-[70px] rounded-xl border-2 overflow-hidden transition-all flex-shrink-0 ${activeImageIndex === i ? 'border-orange-500 shadow-md scale-105' : 'border-neutral-100 hover:border-neutral-300'}`}
+                        >
+                          <img src={url} alt="" className="w-full h-full object-contain p-1" />
+                        </button>
+                      ))}
+                  </div>
                 </div>
-                <span className="text-xs text-neutral-400 font-bold ml-1">{reviews.length}</span>
               </div>
-            </div>
 
-            <div className="text-4xl font-black text-[#1a2b3c] mb-6">
-              $ {product.price.toLocaleString('es-AR')}
-            </div>
+              {/* Info Section */}
+              <div className="md:col-span-5 flex flex-col">
+                <div className="sticky top-24">
+                  <h1 className="text-[28px] md:text-[34px] font-black text-[#0f1111] leading-[1.1] mb-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                    {product.name}
+                  </h1>
 
-            <div className="mb-8">
-              <span className="text-xs font-bold text-neutral-500 uppercase block mb-3">Cantidad:</span>
-              <div className="flex items-center bg-[#f7f8f9] border border-neutral-200 rounded-lg w-fit">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="h-10 w-10 flex items-center justify-center text-neutral-500 hover:text-black transition-colors"
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <div className="h-10 min-w-[3rem] flex items-center justify-center font-bold text-[#1a2b3c]">
-                  {quantity}
-                </div>
-                <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="h-10 w-10 flex items-center justify-center text-neutral-500 hover:text-black transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
+                  <div className="flex items-center gap-4 mb-6">
+                    <span className="text-2xl font-bold text-gray-400 line-through decoration-2">
+                      $ {originalPrice.toLocaleString('es-AR')}
+                    </span>
+                    <span className="text-4xl font-black text-[#0f1111]">
+                      $ {product.price.toLocaleString('es-AR')}
+                    </span>
+                  </div>
 
-            {/* Banner de compatibilidad */}
-            <div className="bg-[#f0f2f5] p-4 rounded-xl flex items-center gap-4 mb-8 border-l-4 border-black group cursor-pointer hover:bg-[#e8ebf0] transition-all">
-              <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
-                <Shield className="h-5 w-5 text-black" />
-              </div>
-              <div className="flex-1">
-                <p className="text-[13px] leading-tight text-neutral-700 font-medium">
-                  Se adapta a su: <span className="font-bold text-black">Encuentra el repuesto ideal</span>
-                </p>
-              </div>
-              <button className="text-[13px] font-black underline text-black uppercase tracking-tighter">
-                Agregar vehículo
-              </button>
-            </div>
+                  <p className="text-[14px] text-gray-500 mb-8 leading-relaxed line-clamp-3">
+                    {product.description || 'Sin descripción disponible.'}
+                  </p>
 
-            <div className="flex flex-col gap-3 mb-8">
-              <Button
-                onClick={handleAddToCart}
-                variant="outline"
-                className="w-full border-black border-2  text-black h-12 rounded-xl font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all shadow-sm"
-              >
-                Añadir al carrito
-              </Button>
-
-              <Button
-                onClick={() => navigate('/checkout')}
-                className="w-full bg-[#005cb9] hover:bg-[#004a96] text-white h-12 rounded-xl font-black uppercase tracking-widest transition-all shadow-md shadow-blue-100"
-              >
-                Comprar ahora
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-neutral-100 mb-6">
-              <div className="flex items-center gap-2 text-neutral-500 group cursor-pointer">
-                <Truck className="h-4 w-4 group-hover:text-black transition-colors" />
-                <span className="text-[11px] font-bold underline decoration-neutral-200 group-hover:text-black transition-all">Tiempo de entrega</span>
-              </div>
-              <div className="flex items-center gap-2 text-neutral-500 group cursor-pointer">
-                <Shield className="h-4 w-4 group-hover:text-black transition-colors" />
-                <span className="text-[11px] font-bold underline decoration-neutral-200 group-hover:text-black transition-all">Condiciones Generales</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 pt-2">
-              <span className="text-[11px] font-black text-neutral-400 uppercase tracking-widest">Compartir:</span>
-              <div className="flex gap-3">
-                <button className="p-2 bg-[#f7f8f9] rounded-full text-[#1a2b3c] hover:bg-black hover:text-white transition-all shadow-sm">
-                  <Facebook className="h-4 w-4" />
-                </button>
-                <button className="p-2 bg-[#f7f8f9] rounded-full text-[#1a2b3c] hover:bg-black hover:text-white transition-all shadow-sm">
-                  <Twitter className="h-4 w-4" />
-                </button>
-                <button className="p-2 bg-[#f7f8f9] rounded-full text-[#1a2b3c] hover:bg-black hover:text-white transition-all shadow-sm">
-                  <Info className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <section className="max-w-6xl mx-auto px-4 mt-12 border-t pt-10">
-          <div className="flex border-b mb-6">
-            <button onClick={() => setActiveTab('descripcion')} className={`pb-3 px-6 text-sm font-medium border-b-2 ${activeTab === 'descripcion' ? 'border-black' : 'border-transparent'}`}>Descripción</button>
-            <button onClick={() => setActiveTab('especificaciones')} className={`pb-3 px-6 text-sm font-medium border-b-2 ${activeTab === 'especificaciones' ? 'border-black' : 'border-transparent'}`}>Especificaciones</button>
-          </div>
-          <div className="text-neutral-700">
-            {activeTab === 'descripcion' ? (
-              <p className="whitespace-pre-wrap">{product.description || 'Sin descripción.'}</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {getSpecs().length > 0 ? (
-                  getSpecs().map((spec: any, i: number) => (
-                    <div key={i} className="flex justify-between border-b py-2">
-                      <span className="font-medium">{spec.name}</span>
-                      <span>{String(spec.value)}</span>
+                  <div className="space-y-4 mb-8">
+                    <div className="flex items-center gap-4 group">
+                      <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <Truck className="h-6 w-6 text-[#f15a24]" />
+                      </div>
+                      <div>
+                        <p className="text-[15px] font-black text-gray-900 uppercase tracking-tight">Envío gratis</p>
+                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Por compras superiores a $60.000</p>
+                      </div>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500 italic">No hay especificaciones disponibles.</p>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
 
-        <section className="max-w-6xl mx-auto px-4 my-12">
-          <h2 className="text-2xl font-bold mb-6">Reseñas</h2>
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            {reviews.length === 0 ? (
-              <p className="text-gray-500 italic mt-2">Aún no hay reseñas para este artículo. ¡Sé el primero en opinar!</p>
-            ) : (
-              reviews.map((review) => (
-                <div key={review.id} className="min-w-[280px] bg-white border p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-bold">{review.userName.charAt(0)}</div>
-                    <span className="font-medium text-sm">{review.userName}</span>
+                    <div className="flex items-center gap-4 group">
+                      <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <Star className="h-6 w-6 text-[#f15a24] fill-[#f15a24]" />
+                      </div>
+                      <div>
+                        <p className="text-[15px] font-black text-gray-900 uppercase tracking-tight">Condición: NUEVO</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex text-amber-500 mb-2">
-                    {[1, 2, 3, 4, 5].map((s) => <Star key={s} className={`h-4 w-4 ${s <= review.rating ? 'fill-current' : ''}`} />)}
-                  </div>
-                  <p className="text-sm line-clamp-3">{review.comment}</p>
-                </div>
-              ))
-            )}
-          </div>
 
-          <div className="mt-8 border-t pt-8">
-            {user ? (
-              showReviewForm ? (
-                <div className="max-w-2xl bg-neutral-50 p-6 rounded-xl border border-neutral-100">
-                  <h3 className="font-bold mb-4">Escribir una reseña</h3>
-                  <div className="flex mb-4">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star
-                        key={s}
-                        className={`h-6 w-6 cursor-pointer ${s <= reviewRating ? 'fill-amber-500 text-amber-500' : 'text-neutral-300'}`}
-                        onClick={() => setReviewRating(s)}
-                      />
-                    ))}
+                  <div className="space-y-1 mb-8">
+                    <p className="text-[13px] font-bold text-neutral-700">
+                      Disponibilidad: <span className="text-emerald-600">Hay existencias</span>
+                    </p>
+                    <p className="text-[12px] font-bold text-neutral-400 uppercase tracking-widest">
+                      SKU: {(product as any).barcode || product.id.slice(0, 8)}
+                    </p>
                   </div>
-                  <textarea
-                    className="w-full border rounded-lg p-3 mb-4 min-h-[100px] text-sm"
-                    placeholder="Cuéntanos qué te pareció el producto..."
-                    value={reviewComment}
-                    onChange={(e) => setReviewComment(e.target.value)}
-                  />
-                  <div className="flex gap-2 justify-end">
-                    <Button variant="outline" onClick={() => setShowReviewForm(false)}>Cancelar</Button>
+
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center bg-white border-2 border-neutral-100 rounded-xl overflow-hidden shadow-sm">
+                        <button
+                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                          className="h-12 w-12 flex items-center justify-center text-neutral-400 hover:bg-neutral-50 active:text-black transition-all"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <div className="h-12 min-w-[3rem] flex items-center justify-center font-black text-black">
+                          {quantity}
+                        </div>
+                        <button
+                          onClick={() => setQuantity(quantity + 1)}
+                          className="h-12 w-12 flex items-center justify-center text-neutral-400 hover:bg-neutral-50 active:text-black transition-all"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <Button
+                        onClick={handleAddToCart}
+                        className="flex-1 bg-[#1a1a1a] hover:bg-black text-white h-12 rounded-xl font-black uppercase tracking-[0.1em] text-[13px] flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg shadow-black/10"
+                      >
+                        <ShoppingCart className="w-5 h-5" />
+                        Añadir al carrito
+                      </Button>
+                    </div>
+
                     <Button
-                      className="bg-black text-white"
-                      onClick={handleSubmitReview}
-                      disabled={submittingReview || reviewComment.trim().length < 10}
+                      onClick={() => navigate('/checkout')}
+                      className="w-full bg-[#f15a24] hover:bg-[#e0501d] text-white h-12 rounded-xl font-black uppercase tracking-[0.1em] text-[13px] transition-all shadow-md shadow-orange-100"
                     >
-                      {submittingReview ? 'Enviando...' : 'Publicar'}
+                      Comprar ahora
                     </Button>
                   </div>
                 </div>
-              ) : (
-                <Button onClick={() => setShowReviewForm(true)} variant="outline" className="font-medium border-black font-bold">
-                  Escribir una reseña
-                </Button>
-              )
-            ) : (
-              <p className="text-sm text-neutral-600 bg-neutral-50 p-4 rounded-lg inline-block border">Debes <button onClick={() => navigate('/perfil')} className="font-bold underline text-black">iniciar sesión</button> para dejar una reseña.</p>
-            )}
-          </div>
-        </section>
+              </div>
+            </div>
 
-        <section className="max-w-6xl mx-auto px-4 my-12">
-          <h2 className="text-2xl font-bold mb-6">Productos relacionados</h2>
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            {similarProducts.length > 0 ? (
-              similarProducts.map((p) => (
-                <div key={p.id} className="min-w-[240px] w-[240px] border p-4 rounded-lg cursor-pointer flex flex-col hover:border-black transition-colors" onClick={() => goToProduct(p)}>
-                  <img src={p.image} alt={p.name} className="h-40 w-full object-contain mb-4" />
-                  <h3 className="font-medium text-sm mb-2 line-clamp-2">{p.name}</h3>
-                  <p className="font-bold text-lg mt-auto">${p.price.toLocaleString('es-AR')}</p>
+            {/* Related Products Section - Full Width Grid */}
+            <div className="mt-20 pt-12 border-t border-neutral-100">
+              <div className="flex items-center justify-between mb-10">
+                <h2 className="text-[22px] font-black text-gray-900 uppercase tracking-tighter">Productos Relacionados</h2>
+                <div className="flex gap-2">
+                  <button className="w-10 h-10 rounded-full border border-neutral-100 flex items-center justify-center hover:bg-black hover:text-white transition-all shadow-sm active:scale-95">
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button className="w-10 h-10 rounded-full border border-neutral-100 flex items-center justify-center hover:bg-black hover:text-white transition-all shadow-sm active:scale-95">
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
                 </div>
-              ))
-            ) : (
-              <p className="text-gray-500 italic mt-2">No hay productos relacionados para este artículo.</p>
-            )}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 xl:gap-8">
+                {similarProducts.slice(0, 6).map((p) => (
+                  <div
+                    key={p.id}
+                    className="group cursor-pointer flex flex-col p-4 bg-white hover:shadow-xl hover:shadow-neutral-200/40 rounded-3xl border border-transparent hover:border-neutral-100 transition-all duration-500 animate-in fade-in zoom-in-95 duration-700"
+                    onClick={() => goToProduct(p)}
+                  >
+                    <div className="aspect-square w-full mb-5 overflow-hidden rounded-2xl relative bg-neutral-50 px-2">
+                      <img
+                        src={p.image}
+                        alt={p.name}
+                        className="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-700"
+                      />
+                    </div>
+                    <div className="space-y-2 flex flex-col items-center text-center">
+                      <span className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] line-clamp-1">{p.category}</span>
+                      <h3 className="text-[13px] font-black text-gray-900 line-clamp-2 min-h-[38px] leading-tight uppercase tracking-tight">{p.name}</h3>
+                      <div className="flex items-center justify-center pt-2">
+                        <span className="text-lg font-black text-[#0f1111]">$ {p.price.toLocaleString('es-AR')}</span>
+                      </div>
+                      <button className="mt-5 w-full flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-neutral-500 group-hover:text-black transition-all border border-neutral-100 px-4 py-3 rounded-xl hover:border-black hover:bg-neutral-50 shadow-sm active:scale-[0.98]">
+                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1.5 transition-transform" />
+                        Leer más
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </section>
+        </div>
       </main>
 
       <Footer />

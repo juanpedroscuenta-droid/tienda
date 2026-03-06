@@ -52,23 +52,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
+    console.log('🔵 [AUTH] useEffect iniciado — pidiendo sesión a Supabase...');
 
     const applySession = async (supabaseUser: any) => {
       if (!mounted) return;
+      console.log('🔵 [AUTH] applySession llamado, usuario:', supabaseUser?.email || 'ninguno');
       await handleAuthStateChange(supabaseUser);
     };
 
     auth.getSession()
-      .then(({ data: { session } }) => session?.user || null)
+      .then(({ data: { session } }) => {
+        console.log('🟢 [AUTH] getSession OK — sesión:', session ? `usuario ${session.user?.email}` : 'sin sesión');
+        return session?.user || null;
+      })
       .then(user => { if (mounted) applySession(user); })
-      .catch(() => { if (mounted) setLoading(false); });
+      .catch((err) => {
+        console.error('🔴 [AUTH] getSession FALLÓ:', err);
+        if (mounted) setLoading(false);
+      });
 
     const { data: { subscription } } = auth.onAuthStateChange(async (event, session) => {
+      console.log('🔵 [AUTH] onAuthStateChange evento:', event, '| usuario:', session?.user?.email || 'ninguno');
       if (!mounted) return;
       await applySession(session?.user || null);
     });
 
     const timeout = setTimeout(() => {
+      console.warn('⏰ [AUTH] TIMEOUT 5s — forzando setLoading(false). Si ves esto, Supabase no respondió.');
       if (mounted) setLoading(false);
     }, 5000);
 
@@ -80,8 +90,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const handleAuthStateChange = async (supabaseUser: any) => {
+    console.log('🔵 [AUTH] handleAuthStateChange — usuario:', supabaseUser?.email || 'null');
     setCurrentUser(supabaseUser);
     if (supabaseUser) {
+      const isAdmin = supabaseUser.email === "admin@gmail.com" || supabaseUser.email === "admin@tienda.com";
+      console.log('🟢 [AUTH] Usuario autenticado. isAdmin:', isAdmin, '| subCuenta:', supabaseUser.user_metadata?.sub_cuenta);
       const baseUser = {
         id: supabaseUser.id,
         email: supabaseUser.email || "",
@@ -89,21 +102,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         departmentNumber: "",
         phone: supabaseUser.user_metadata?.phone || "",
         address: supabaseUser.user_metadata?.address || "",
-        isAdmin: supabaseUser.email === "admin@gmail.com" || supabaseUser.email === "admin@tienda.com",
+        isAdmin,
         subCuenta: supabaseUser.user_metadata?.sub_cuenta || undefined,
         liberta: undefined as string | undefined,
       };
       setUser(baseUser);
+      console.log('✅ [AUTH] setUser(baseUser) llamado — llamando setLoading(false) AHORA');
+      // ✅ Liberar la pantalla de carga INMEDIATAMENTE con los datos básicos de Supabase
+      // El fetch al backend enriquece los datos en segundo plano sin bloquear la UI
+      setLoading(false);
+      console.log('✅ [AUTH] setLoading(false) ejecutado — el panel debería mostrarse ya');
 
+      // Enriquecer datos desde el backend en segundo plano (sin bloquear)
       try {
         const { data: sessionData } = await auth.getSession();
         const token = sessionData?.session?.access_token;
 
+        const controller = new AbortController();
+        const fetchTimeout = setTimeout(() => controller.abort(), 5000); // timeout 5s
+
         const response = await fetch(`${API_BASE_URL}/users/${supabaseUser.id}`, {
+          signal: controller.signal,
           headers: {
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           }
         });
+        clearTimeout(fetchTimeout);
+
         if (response.ok) {
           const dbData = await response.json();
           console.log("User data fetched from backend:", dbData);
@@ -111,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(prev => {
               const updated = prev ? {
                 ...prev,
-                ...dbData, // Spread all data from DB
+                ...dbData,
                 name: dbData.name || dbData.nombre || prev.name,
                 phone: dbData.phone || dbData.telefono || prev.phone,
                 address: dbData.address || dbData.direccion || prev.address,
@@ -131,10 +156,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           console.warn("Failed to fetch user data from backend:", response.status);
         }
-      } catch (e) {
-        console.error("Error fetching user data from backend:", e);
+      } catch (e: any) {
+        if (e?.name === 'AbortError') {
+          console.warn("Backend fetch timeout – usando datos de Supabase solamente");
+        } else {
+          console.error("Error fetching user data from backend:", e);
+        }
       }
-      setLoading(false);
     } else {
       setUser(null);
       setLoading(false);
@@ -200,8 +228,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    await auth.signOut();
-    setUser(null);
+    console.log("⚠️ Iniciando proceso de cierre de sesión...");
+
+    // Establecer un timeout de seguridad para forzar la recarga si algo se cuelga
+    const safetyTimeout = setTimeout(() => {
+      console.log("⏰ Timeout de seguridad: Forzando recarga...");
+      window.location.href = '/';
+    }, 3000);
+
+    try {
+      // 1. Limpieza de estado React
+      setLoading(true);
+      setUser(null);
+      setCurrentUser(null);
+
+      // 2. Firmar salida de Supabase (sin esperar indefinidamente)
+      console.log("⏳ Notificando al servidor...");
+      try {
+        // Intentamos el signOut pero con un límite de tiempo
+        await Promise.race([
+          auth.signOut(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout Supabase')), 1500))
+        ]).catch(err => console.log("Supabase signOut result:", err.message));
+      } catch (e) {
+        console.warn("Error silenciado en signOut:", e);
+      }
+
+      // 3. Limpieza manual del Storage (usando Object.keys para evitar problemas de índice dinámico)
+      console.log("🧹 Limpiando almacenamiento local...");
+      const allKeys = Object.keys(localStorage);
+      allKeys.forEach(key => {
+        const lowerKey = key.toLowerCase();
+        if (
+          key.startsWith('sb-') ||
+          lowerKey.includes('auth-token') ||
+          lowerKey.includes('fuego_user_data') ||
+          lowerKey.includes('supabase.auth') ||
+          key === 'user' ||
+          key === 'token'
+        ) {
+          // NO BORRAR chatbot_config ni settings similares
+          if (!lowerKey.includes('chatbot')) {
+            localStorage.removeItem(key);
+          }
+        }
+      });
+
+      sessionStorage.clear();
+
+      // 4. Limpieza de cookies
+      console.log("🍪 Limpiando cookies...");
+      document.cookie.split(";").forEach((c) => {
+        document.cookie = c
+          .replace(/^ +/, "")
+          .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+
+      console.log("✅ Cierre de sesión satisfactorio. Redirigiendo...");
+      clearTimeout(safetyTimeout);
+
+      // 5. Redirección final
+      window.location.href = '/';
+
+    } catch (error) {
+      console.error("❌ Error crítico en logout:", error);
+      clearTimeout(safetyTimeout);
+      window.location.href = '/';
+    }
   };
 
   if (loading) {

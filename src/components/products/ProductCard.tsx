@@ -127,7 +127,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) 
             className="w-full bg-white border border-gray-200 text-gray-700 rounded-sm text-[10px] font-bold py-2 hover:bg-black hover:text-white transition-all duration-200 flex items-center justify-center gap-2 uppercase"
             onClick={handleAddToCart}
           >
-            SELECCIONAR OPCIONES
+            AÑADIR AL CARRITO
           </button>
         </div>
       </div>

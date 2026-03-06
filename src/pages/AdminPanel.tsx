@@ -57,7 +57,16 @@ import {
   Trash2,
   Edit,
   UserX,
-  Eye
+  Eye,
+  Building2,
+  Ticket,
+  Key,
+  Truck,
+  BadgePercent,
+  ShieldCheck,
+  FolderTree,
+  ClipboardCheck,
+  ArrowRight
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { CustomClock } from '@/components/ui/CustomClock';
@@ -103,13 +112,109 @@ const LoadingFallback = () => (
   </div>
 );
 
+const ManagementGrid = ({ setActiveTab }: { setActiveTab: (tab: string) => void }) => {
+  const items = [
+    {
+      id: 'suppliers',
+      label: 'Proveedores',
+      description: 'Gestiona tus proveedores',
+      Icon: Truck,
+      gradient: 'from-blue-500 to-blue-700',
+      glow: 'shadow-blue-200',
+      ring: 'ring-blue-100',
+    },
+    {
+      id: 'coupons',
+      label: 'Cupones',
+      description: 'Descuentos y promociones',
+      Icon: BadgePercent,
+      gradient: 'from-rose-500 to-pink-600',
+      glow: 'shadow-rose-200',
+      ring: 'ring-rose-100',
+    },
+    {
+      id: 'credentials',
+      label: 'Contraseñas',
+      description: 'Accesos y claves seguras',
+      Icon: ShieldCheck,
+      gradient: 'from-violet-500 to-purple-700',
+      glow: 'shadow-violet-200',
+      ring: 'ring-violet-100',
+    },
+    {
+      id: 'categories',
+      label: 'Categorías',
+      description: 'Organiza tu catálogo',
+      Icon: FolderTree,
+      gradient: 'from-amber-400 to-orange-500',
+      glow: 'shadow-amber-200',
+      ring: 'ring-amber-100',
+    },
+    {
+      id: 'revisiones',
+      label: 'Revisiones',
+      description: 'Aprueba cambios pendientes',
+      Icon: ClipboardCheck,
+      gradient: 'from-emerald-500 to-teal-600',
+      glow: 'shadow-emerald-200',
+      ring: 'ring-emerald-100',
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-5 pt-2 pb-8">
+      {items.map((item) => (
+        <button
+          key={item.id}
+          onClick={() => setActiveTab(item.id)}
+          className={cn(
+            "group relative flex flex-col items-start p-5 bg-white border border-slate-100 rounded-2xl",
+            "hover:shadow-lg hover:-translate-y-1 transition-all duration-300 overflow-hidden text-left",
+            `hover:ring-2 ${item.ring}`
+          )}
+        >
+          {/* Gradient background blob */}
+          <div className={cn("absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-10 blur-xl bg-gradient-to-br transition-all duration-500 group-hover:opacity-30 group-hover:scale-150", item.gradient)} />
+
+          {/* Icon */}
+          <div className={cn(
+            "w-12 h-12 rounded-xl flex items-center justify-center mb-4 shadow-md",
+            `bg-gradient-to-br ${item.gradient}`,
+            `shadow-lg ${item.glow} group-hover:shadow-xl group-hover:scale-105 transition-all duration-300`
+          )}>
+            <item.Icon className="w-6 h-6 text-white" strokeWidth={1.8} />
+          </div>
+
+          {/* Text */}
+          <p className="text-sm font-bold text-slate-800 mb-0.5 group-hover:text-slate-900">{item.label}</p>
+          <p className="text-xs text-slate-400 leading-snug group-hover:text-slate-500 transition-colors">{item.description}</p>
+
+          {/* Arrow */}
+          <ArrowRight className="absolute bottom-4 right-4 w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-300" />
+        </button>
+      ))}
+    </div>
+  );
+};
+
+
 export const AdminPanel: React.FC = () => {
   const isSupabase = typeof (db as any)?.from === 'function';
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isSubAdmin, setIsSubAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // ✅ FIX PRINCIPAL: Derivar isAdmin e isSubAdmin DIRECTAMENTE del user (sin estado separado)
+  // Esto elimina el useEffect que causaba el loop de loading
+  const isAdmin = isSupabase
+    ? !!user?.isAdmin
+    : false; // En modo Firebase, el mock devuelve false (ruta legacy)
+  const isSubAdmin = isSupabase
+    ? user?.subCuenta === "si"
+    : false;
+
+  // Loading solo existe para el caso Firebase legacy (Supabase ya lo maneja el AuthContext)
+  const [loading, setLoading] = useState(!isSupabase); // false si Supabase, true si Firebase
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [orders, setOrders] = useState<any[]>([]);
   const [subName, setSubName] = useState('');
@@ -149,6 +254,14 @@ export const AdminPanel: React.FC = () => {
   const [totalVisits, setTotalVisits] = useState<number>(0);
   const [totalVisitsLoading, setTotalVisitsLoading] = useState<boolean>(true);
   const [visitsDiffPercentage, setVisitsDiffPercentage] = useState<number>(0);
+
+  // Aplicar notranslate si es subcuenta
+  useEffect(() => {
+    if (isSubAdmin) {
+      document.documentElement.classList.add('notranslate');
+      document.body.setAttribute('translate', 'no');
+    }
+  }, [isSubAdmin]);
 
   // Implementar el hook para prevenir problemas de pantalla blanca en subcuentas
   const { hasRenderIssues, manualRefresh } = useSubAccountRenderFix(user?.subCuenta === "si");
@@ -249,66 +362,36 @@ export const AdminPanel: React.FC = () => {
     return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
   };
 
+  // Solo necesitamos el useEffect de Firebase para el caso legacy (cuando no es Supabase)
   useEffect(() => {
-    if (isSupabase) {
-      setIsAdmin(!!user?.isAdmin);
-      setIsSubAdmin(user?.subCuenta === "si");
-      if (user?.subCuenta === "si") {
-        document.documentElement.classList.add('notranslate');
-        document.body.setAttribute('translate', 'no');
-      }
-      setSessionStart(new Date());
-      setLoading(false);
-      return;
-    }
+    if (isSupabase) return; // Supabase: isAdmin/isSubAdmin ya son derivados de user, no necesitamos nada
 
+    // Rama Firebase legacy (mock) — solo si no es Supabase
     const unsubscribe = (auth as any).onAuthStateChanged(async (firebaseUser: any) => {
       if (firebaseUser) {
         try {
           const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
           const userData = userDoc.data();
           if (firebaseUser.email === "admin@gmail.com") {
-            setIsAdmin(true);
-            setIsSubAdmin(false);
+            // noop - en Firebase legacy no usamos isAdmin derivado
           } else if (userData?.subCuenta === "si") {
-            setIsAdmin(false);
-            setIsSubAdmin(true);
-
-            // Prevenir traducción automática que causa pantallas blancas
             document.documentElement.classList.add('notranslate');
             document.body.setAttribute('translate', 'no');
-
-            // Forzar refresh del layout para prevenir problemas de renderizado
-            setTimeout(() => {
-              const layoutElements = document.querySelectorAll('.admin-layout, .content-container, table');
-              layoutElements.forEach(el => {
-                if (el instanceof HTMLElement) {
-                  const currentDisplay = el.style.display;
-                  el.style.display = 'none';
-                  setTimeout(() => { el.style.display = currentDisplay; }, 5);
-                }
-              });
-            }, 500);
-          } else {
-            setIsAdmin(false);
-            setIsSubAdmin(false);
           }
           setSessionStart(new Date());
         } catch (error) {
           console.error("Error al verificar permisos de usuario:", error);
-          setIsAdmin(false);
-          setIsSubAdmin(false);
         } finally {
           setLoading(false);
         }
       } else {
-        setIsAdmin(false);
-        setIsSubAdmin(false);
         setLoading(false);
       }
     });
     return () => unsubscribe();
-  }, [isSupabase, user]);
+  }, [isSupabase]);
+
+
 
   // Efecto para controlar el tiempo de sesión
   useEffect(() => {
@@ -992,8 +1075,14 @@ export const AdminPanel: React.FC = () => {
     );
   };
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Cargando...</div>;
+  // Para Supabase: si user aún no está disponible, mostrar cargando brevemente
+  if (loading || (isSupabase && !user)) {
+    return <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="text-center">
+        <div className="w-10 h-10 mx-auto mb-3 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-slate-500 text-sm">Cargando panel...</p>
+      </div>
+    </div>;
   }
 
   if (!isAdmin && !isSubAdmin) {
@@ -1083,6 +1172,17 @@ export const AdminPanel: React.FC = () => {
               title="Anuncios Websy"
             >
               <Megaphone className="h-4 w-4" />
+            </button>
+
+            {/* Gestión - Menu Quick Access */}
+            <button
+              onClick={() => setActiveTab('management')}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 cursor-pointer touch-manipulation ${activeTab === 'management' ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+              type="button"
+              title="Gestión de Recursos"
+            >
+              <LayoutGrid className="h-4 w-4" />
             </button>
 
             {/* Bell - Orange */}
@@ -2424,6 +2524,28 @@ export const AdminPanel: React.FC = () => {
                     <Suspense fallback={<LoadingFallback />}>
                       <EmployeeManager />
                     </Suspense>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Management tab - nueva sección organizada como cuadrícula */}
+              <TabsContent value="management" className="space-y-6">
+                <Card className="shadow-lg border-0 bg-slate-50/50">
+                  <CardHeader className="bg-white border-b px-8 py-6 rounded-t-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-50 rounded-lg">
+                        <LayoutGrid className="h-6 w-6 text-blue-600" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-2xl font-black text-slate-800 tracking-tight uppercase">
+                          Gestión de Recursos
+                        </CardTitle>
+                        <p className="text-slate-500 text-sm mt-0.5">Administra los componentes clave de tu plataforma</p>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-8">
+                    <ManagementGrid setActiveTab={setActiveTab} />
                   </CardContent>
                 </Card>
               </TabsContent>

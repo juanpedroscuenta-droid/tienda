@@ -3,7 +3,7 @@ import { Bot, X, Send, ShoppingCart, ArrowRight, CheckCircle2 } from 'lucide-rea
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { fetchProducts } from '@/lib/api';
+import { fetchProducts, fetchChatBotSettings } from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
@@ -33,17 +33,39 @@ export const ChatWidget: React.FC = () => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const savedConfig = localStorage.getItem('fuego_bot_settings');
-        if (savedConfig) {
+        const loadConfig = async () => {
+            // Intentar cargar del backend primero
             try {
-                const parsed = JSON.parse(savedConfig);
-                if (parsed.isUnlocked && parsed.apiKey) {
-                    setConfig(parsed);
+                const backendSettings = await fetchChatBotSettings();
+                if (backendSettings && backendSettings.is_unlocked && backendSettings.api_key) {
+                    setConfig({
+                        isUnlocked: backendSettings.is_unlocked,
+                        provider: backendSettings.provider,
+                        apiKey: backendSettings.api_key,
+                        prompt: backendSettings.prompt,
+                        allowProductAccess: backendSettings.allow_product_access
+                    });
+                    return;
                 }
             } catch (e) {
-                console.error('Error loading chat config', e);
+                console.warn('[ChatWidget] Backend config load failed, using local fallback');
             }
-        }
+
+            // Fallback a localStorage
+            const savedConfig = localStorage.getItem('fuego_bot_settings');
+            if (savedConfig) {
+                try {
+                    const parsed = JSON.parse(savedConfig);
+                    if (parsed.isUnlocked && parsed.apiKey) {
+                        setConfig(parsed);
+                    }
+                } catch (e) {
+                    console.error('Error loading chat config local', e);
+                }
+            }
+        };
+
+        loadConfig();
         fetchProducts().then(setAllProducts).catch(console.error);
     }, []);
 

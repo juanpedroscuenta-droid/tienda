@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { fetchProducts } from '@/lib/api';
+import { fetchProducts, fetchChatBotSettings, updateChatBotSettings } from '@/lib/api';
 
 const ChatBotManager = () => {
     const [isUnlocked, setIsUnlocked] = useState(false);
@@ -32,28 +32,63 @@ const ChatBotManager = () => {
 
     useEffect(() => {
         // Cargar configuración guardada
-        const savedConfigStr = localStorage.getItem('fuego_bot_settings');
-        if (savedConfigStr) {
+        const loadConfig = async () => {
+            // Primero intentar cargar del backend
             try {
-                const savedConfig = JSON.parse(savedConfigStr);
-                setIsUnlocked(savedConfig.isUnlocked || false);
-                setProvider(savedConfig.provider || 'deepseek');
-                setApiKey(savedConfig.apiKey || '');
-                setPrompt(savedConfig.prompt || 'Eres un asistente de ventas amable y persuasivo. Tu objetivo principal es ayudar a los clientes a encontrar y comprar los mejores productos.');
-                setAllowProductAccess(savedConfig.allowProductAccess ?? true);
+                const backendSettings = await fetchChatBotSettings();
+                if (backendSettings && Object.keys(backendSettings).length > 0) {
+                    setIsUnlocked(backendSettings.is_unlocked || false);
+                    setProvider(backendSettings.provider || 'deepseek');
+                    setApiKey(backendSettings.api_key || '');
+                    setPrompt(backendSettings.prompt || 'Eres un asistente de ventas amable y persuasivo. Tu objetivo principal es ayudar a los clientes a encontrar y comprar los mejores productos.');
+                    setAllowProductAccess(backendSettings.allow_product_access ?? true);
 
-                // Si ya tiene una API Key configurada, ir directamente al chat al recargar
-                // a menos que el usuario haya estado explícitamente en la vista de ajustes
-                const lastView = localStorage.getItem('fuego_bot_active_view');
-                if (savedConfig.apiKey && lastView !== 'settings') {
-                    setActiveView('test');
-                } else if (lastView === 'settings') {
-                    setActiveView('settings');
+                    // Sincronizar con localStorage para compatibilidad
+                    saveToLocalStorage(
+                        backendSettings.is_unlocked,
+                        backendSettings.provider,
+                        backendSettings.api_key,
+                        backendSettings.prompt,
+                        backendSettings.allow_product_access
+                    );
+
+                    // Si ya tiene una API Key configurada, ir directamente al chat al recargar
+                    const lastView = localStorage.getItem('fuego_bot_active_view');
+                    if (backendSettings.api_key && lastView !== 'settings') {
+                        setActiveView('test');
+                    } else if (lastView === 'settings') {
+                        setActiveView('settings');
+                    }
+                    return; // Terminamos carga exitosa del backend
                 }
             } catch (e) {
-                console.error("Error al cargar configuración", e);
+                console.warn("[ChatBotManager] Backend load failed, trying localStorage:", e);
             }
-        }
+
+            // Fallback a localStorage (como estaba antes)
+            const savedConfigStr = localStorage.getItem('fuego_bot_settings');
+            if (savedConfigStr) {
+                try {
+                    const savedConfig = JSON.parse(savedConfigStr);
+                    setIsUnlocked(savedConfig.isUnlocked || false);
+                    setProvider(savedConfig.provider || 'deepseek');
+                    setApiKey(savedConfig.apiKey || '');
+                    setPrompt(savedConfig.prompt || 'Eres un asistente de ventas amable y persuasivo. Tu objetivo principal es ayudar a los clientes a encontrar y comprar los mejores productos.');
+                    setAllowProductAccess(savedConfig.allowProductAccess ?? true);
+
+                    const lastView = localStorage.getItem('fuego_bot_active_view');
+                    if (savedConfig.apiKey && lastView !== 'settings') {
+                        setActiveView('test');
+                    } else if (lastView === 'settings') {
+                        setActiveView('settings');
+                    }
+                } catch (e) {
+                    console.error("Error al cargar configuración", e);
+                }
+            }
+        };
+
+        loadConfig();
     }, []);
 
     // Persistir la vista activa cuando cambie
@@ -63,7 +98,7 @@ const ChatBotManager = () => {
         }
     }, [activeView, isUnlocked]);
 
-    const handleUnlock = () => {
+    const handleUnlock = async () => {
         setIsUnlocked(true);
         saveSettings(true, provider, apiKey, prompt, allowProductAccess);
         toast({
@@ -98,7 +133,27 @@ const ChatBotManager = () => {
         }
     };
 
-    const saveSettings = (unlocked: boolean, prov: string, key: string, pr: string, access: boolean) => {
+    const saveSettings = async (unlocked: boolean, prov: string, key: string, pr: string, access: boolean) => {
+        // Guardar en localStorage
+        saveToLocalStorage(unlocked, prov, key, pr, access);
+
+        // Guardar en Backend para persistencia real
+        try {
+            await updateChatBotSettings({
+                id: 1, // ID único para las configuraciones globales del bot
+                is_unlocked: unlocked,
+                provider: prov,
+                api_key: key,
+                prompt: pr,
+                allow_product_access: access
+            });
+            console.log("[ChatBotManager] Backend save success");
+        } catch (e) {
+            console.error("[ChatBotManager] Backend save failed:", e);
+        }
+    };
+
+    const saveToLocalStorage = (unlocked: boolean, prov: string, key: string, pr: string, access: boolean) => {
         localStorage.setItem('fuego_bot_settings', JSON.stringify({
             isUnlocked: unlocked,
             provider: prov,

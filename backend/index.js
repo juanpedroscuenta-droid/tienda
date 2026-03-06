@@ -25,6 +25,7 @@ const infoRouter = require('./routes/info');
 const usersRouter = require('./routes/users');
 const filtersRouter = require('./routes/filters');
 const storageRouter = require('./routes/storage');
+const chatbotRouter = require('./routes/chatbot');
 
 app.use('/api/products', productsRouter);
 app.use('/api/categories', categoriesRouter);
@@ -34,6 +35,7 @@ app.use('/api/info', infoRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/filters', filtersRouter);
 app.use('/api/storage', storageRouter);
+app.use('/api/chatbot', chatbotRouter);
 
 // Basic health check endpoint
 app.get('/api/health', (req, res) => {

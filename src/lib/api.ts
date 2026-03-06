@@ -529,3 +529,22 @@ export const updateInfoSection = async (sectionData: any) => {
         throw error;
     }
 }
+export const fetchChatBotSettings = async () => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/chatbot`, { timeout: 10000 });
+        return response.ok ? await response.json() : null;
+    } catch {
+        return null;
+    }
+}
+
+export const updateChatBotSettings = async (settingsData: any) => {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/chatbot`, {
+        method: 'POST',
+        timeout: 20000,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settingsData),
+    });
+    if (!response.ok) throw new Error('Error guardando configuración del bot');
+    return await response.json();
+}

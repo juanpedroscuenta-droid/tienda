@@ -65,13 +65,17 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
   console.log('[AdminLayout] Render - showUserMenu:', showUserMenu, 'user:', user?.name);
 
   const handleLogout = async () => {
-    console.log('[AdminLayout] handleLogout called');
-    const confirmed = window.confirm('¿Cerrar sesión?');
+    console.log('[AdminLayout] handleLogout initiated');
+    const confirmed = window.confirm('¿Estás seguro de que deseas cerrar sesión?');
     if (!confirmed) return;
+
     setShowUserMenu(false);
     try {
       await logout();
-    } finally {
+      // El logout de AuthContext ya redirige a '/', 
+      // pero por si acaso forzamos un segundo intento si falla el primero
+    } catch (err) {
+      console.error('[AdminLayout] Logout error:', err);
       window.location.href = '/';
     }
   };
@@ -425,6 +429,7 @@ const sidebarItems = [
   { id: 'orders', label: 'Pedidos', description: 'Control de ventas' },
   { id: 'categories', label: 'Categorías', description: 'Organizar productos' },
   { id: 'subaccounts', label: 'Subcuentas', description: 'Gestión de accesos' },
+  { id: 'management', label: 'Gestión', description: 'Administración de recursos' },
   { id: 'analytics', label: 'Analítica', description: 'Estadísticas avanzadas' },
   { id: 'info', label: 'Info Secciones', description: 'Configuración general' },
   { id: 'ai-assistant', label: 'Asistente IA', description: 'Inteligencia artificial' },

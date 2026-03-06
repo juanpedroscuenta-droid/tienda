@@ -623,7 +623,18 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
               {!isFiltering && !showCatalog && (
                 <>
                   <div className="pt-4 pb-12">
-                    <div className="w-full bg-orange-600 bg-gradient-to-r from-orange-600 to-orange-500 rounded-none overflow-hidden relative min-h-[120px] flex items-center px-4 md:px-10 py-6">
+                    <div className="w-full bg-orange-600 bg-gradient-to-r from-orange-600 to-orange-500 rounded-none overflow-hidden relative min-h-[140px] flex items-center px-4 md:px-10 py-8 group">
+                      {/* Background Car Image Overlay */}
+                      <div
+                        className="absolute inset-0 z-0 opacity-20 pointer-events-none transition-transform duration-700 group-hover:scale-110"
+                        style={{
+                          backgroundImage: 'url("https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1932&auto=format&fit=crop")',
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          mixBlendMode: 'luminosity'
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-r from-orange-600/60 to-transparent z-[1]" />
                       <div className="flex flex-col md:flex-row items-center justify-between w-full gap-8 z-10">
                         <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
                           <div className="bg-white/10 backdrop-blur-sm px-6 py-3 rounded-none border border-white/20">
