@@ -19,7 +19,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ isCatalog, setShowCatalo
             <div className="absolute bottom-[10%] left-[10%] sm:bottom-[15%] sm:left-[18%] md:bottom-[20%] md:left-[22%] z-20">
               <button
                 onClick={() => setShowCatalog(true)}
-                className="bg-[#ffd814] hover:bg-[#f7ca00] text-[#0f1111] font-bold px-10 sm:px-14 py-3 sm:py-4 rounded-full text-[10px] sm:text-xs uppercase tracking-[0.2em] shadow-xl transition-all transform hover:scale-105 active:scale-95 whitespace-nowrap border border-[#fcd200]"
+                className="bg-[#ffd814] hover:bg-[#f7ca00] text-[#0f1111] font-bold px-6 sm:px-14 py-2.5 sm:py-4 rounded-full text-[9px] sm:text-xs uppercase tracking-[0.2em] shadow-xl transition-all transform hover:scale-105 active:scale-95 whitespace-nowrap border border-[#fcd200]"
               >
                 Ver Todo
               </button>

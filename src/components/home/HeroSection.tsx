@@ -51,15 +51,15 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ isCatalog }) => {
               </Badge>
 
               <h1 className="text-4xl lg:text-6xl xl:text-7xl font-bold leading-tight">
-                Tu tienda
+                Repuestos para
                 <span className="gradient-text-orange block">
-                  Ultra Premium
+                  Todas las Marcas
                 </span>
               </h1>
 
               <p className="text-xl text-muted-foreground max-w-lg leading-relaxed">
-                Descubre productos increíbles con la mejor calidad, precios competitivos y
-                entrega directa a tu departamento. ¡Compra fácil, paga por WhatsApp!
+                Repuestos genéricos y homologados con la mejor calidad del mercado.
+                Variedad para todos los modelos, precios competitivos y entrega rápida.
               </p>
             </div>
 

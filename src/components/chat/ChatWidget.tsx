@@ -182,7 +182,7 @@ export const ChatWidget: React.FC = () => {
     if (!config) return null;
 
     return (
-        <div className="fixed bottom-[96px] right-6 z-50 flex flex-col items-end gap-4 max-w-[95vw]">
+        <div className="fixed bottom-[76px] right-6 z-50 flex flex-col items-end gap-4 max-w-[95vw]">
 
             {/* Ventana de Chat */}
             {isOpen && (
@@ -313,10 +313,9 @@ export const ChatWidget: React.FC = () => {
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="group bg-[#ffd814] text-[#0f1111] p-3 rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:scale-110 active:scale-95 transition-all flex items-center justify-center relative h-[56px] w-[56px] border-2 border-slate-900"
+                    className="group bg-[#ffd814] text-[#0f1111] p-2.5 rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:scale-110 active:scale-95 transition-all flex items-center justify-center relative h-[48px] w-[48px] border-2 border-slate-900"
                 >
-                    <Bot className="w-7 h-7" />
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 border-2 border-white rounded-full animate-pulse"></span>
+                    <Bot className="w-6 h-6" />
                 </button>
             )}
 

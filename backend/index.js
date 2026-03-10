@@ -6,15 +6,15 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const port = process.env.PORT || 3001;
 
+// Basic logger before anything else
+app.use((req, res, next) => {
+  console.log(`[EARLY DEBUG] Incoming: ${req.method} ${req.url}`);
+  next();
+});
+
 // Middlewares
 app.use(cors());
 app.use(express.json());
-
-// Request logger
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  next();
-});
 
 // Routes
 const productsRouter = require('./routes/products');
@@ -26,6 +26,8 @@ const usersRouter = require('./routes/users');
 const filtersRouter = require('./routes/filters');
 const storageRouter = require('./routes/storage');
 const chatbotRouter = require('./routes/chatbot');
+const paymentsRouter = require('./routes/payments');
+const mailRouter = require('./routes/mail');
 
 app.use('/api/products', productsRouter);
 app.use('/api/categories', categoriesRouter);
@@ -36,13 +38,33 @@ app.use('/api/users', usersRouter);
 app.use('/api/filters', filtersRouter);
 app.use('/api/storage', storageRouter);
 app.use('/api/chatbot', chatbotRouter);
+app.use('/api/payments', paymentsRouter);
+app.use('/api/mail', mailRouter);
 
 // Basic health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Backend is running' });
+  console.log('>>> [DEBUG] Health check hit!');
+  res.json({ status: 'ok', message: 'Backend is running', timestamp: new Date() });
 });
 
 // Start the server
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Backend server listening at http://0.0.0.0:${port}`);
+const server = app.listen(port, '127.0.0.1', () => {
+  console.log(`Backend server listening at http://127.0.0.1:${port}`);
+});
+
+// Manejo de errores del servidor (ej. puerto ocupado)
+server.on('error', (err) => {
+  console.error('>>> [CRITICAL] Server error:', err.message);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`>>> El puerto ${port} ya está ocupado. Intenta cerrar otros procesos de Node.`);
+  }
+});
+
+// Capturar errores que normalmente cerrarían el proceso silenciosamente
+process.on('uncaughtException', (err) => {
+  console.error('>>> [CRITICAL] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('>>> [CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
 });

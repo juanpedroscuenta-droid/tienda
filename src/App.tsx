@@ -8,7 +8,6 @@ import { CartProvider } from "@/contexts/CartContext";
 import { Suspense, lazy, useEffect } from "react";
 import { CacheProvider } from "@/contexts/CacheContext";
 import { SimulationNotice } from "@/components/ui/SimulationNotice";
-import { WebsiteVisitTracker } from "@/components/analytics/WebsiteVisitTracker";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 
 // Lazy loading de las páginas para mejorar el rendimiento
@@ -46,6 +45,9 @@ const FacturacionPage = lazy(() => import("./pages/FacturacionPage"));
 const SICPage = lazy(() => import("./pages/SICPage"));
 const CambiosPage = lazy(() => import("./pages/CambiosPage"));
 const SupplierCatalogForm = lazy(() => import("./pages/SupplierCatalogForm"));
+const SupplierCatalogView = lazy(() => import("./pages/SupplierCatalogView"));
+const NewArrivalsPage = lazy(() => import("./pages/NewArrivalsPage"));
+const PaymentResultPage = lazy(() => import("./pages/PaymentResultPage").then(m => ({ default: m.PaymentResultPage })));
 
 const queryClient = new QueryClient();
 
@@ -98,7 +100,6 @@ const App = () => {
                 <Sonner />
                 <SimulationNotice />
                 <BrowserRouter>
-                  <WebsiteVisitTracker />
                   <Suspense fallback={<div className="min-h-screen bg-white"></div>}>
                     <Routes>
                       {/* Define home page as a base for many views if needed */}
@@ -140,6 +141,10 @@ const App = () => {
                       <Route path="/cambios" element={<CambiosPage />} />
                       <Route path="/devoluciones" element={<CambiosPage />} />
                       <Route path="/supplier-upload/:supplierId" element={<SupplierCatalogForm />} />
+                      <Route path="/supplier-catalog/:supplierId" element={<SupplierCatalogView />} />
+                      <Route path="/nuevos" element={<NewArrivalsPage />} />
+                      <Route path="/pago-resultado" element={<PaymentResultPage />} />
+                      <Route path="/carrito" element={<CartPage />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>

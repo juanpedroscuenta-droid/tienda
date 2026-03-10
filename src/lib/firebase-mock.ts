@@ -23,6 +23,8 @@ export const createUserWithEmailAndPassword = async () => ({ user: {} });
 export const signInWithEmailAndPassword = async () => ({ user: {} });
 export const signOut = async () => ({});
 export const onAuthStateChanged = () => () => { };
+export const sendPasswordResetEmail = async () => { };
+export const sendEmailVerification = async () => { };
 
 export const ref = () => ({});
 export const uploadBytesResumable = () => ({ on: () => { }, then: async () => ({}) });

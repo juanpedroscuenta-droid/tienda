@@ -515,7 +515,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
             {/* Cart */}
             <button
-              className="flex flex-col items-center gap-1 hover:opacity-80 transition-opacity relative"
+              className="hidden md:flex flex-col items-center gap-1 hover:opacity-80 transition-opacity relative"
               onClick={() => navigate('/cart')}
               aria-label={`Ver carrito de compras, ${itemCount} productos`}
             >
@@ -907,24 +907,38 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
                 {/* Col 2: Level 2 Subcategories */}
                 <div className="w-[300px] border-l border-gray-100 p-5 flex flex-col bg-white overflow-y-scroll" style={{ maxHeight: '70vh', scrollbarWidth: 'auto' }}>
-                  {activeSub && (
-                    <div className="flex flex-col gap-1">
-                      <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 px-4">Categorías</h4>
-                      {(thirdLevelBySubcategory[activeSub.id || ''] || []).map((t) => (
-                        <button
-                          key={t.id}
-                          onMouseEnter={() => setActiveThird(t)}
-                          onClick={() => goToCategory(t.name)}
-                          className={`flex items-center justify-between px-5 py-3.5 rounded-xl transition-all text-left group ${activeThird?.id === t.id ? 'bg-[#f8f9fa] text-black shadow-sm' : 'text-gray-500 hover:text-black hover:bg-[#f8f9fa]/50'}`}
-                        >
-                          <span className="text-[14px] font-bold tracking-tight">{t.name}</span>
-                          {getFourthLevel(t.id || '').length > 0 && (
-                            <ChevronRight className={`w-4 h-4 transition-all ${activeThird?.id === t.id ? 'translate-x-1 opacity-100' : 'opacity-100 text-gray-300'}`} />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {activeSub && (() => {
+                    const thirdLevels = thirdLevelBySubcategory[activeSub.id || ''] || [];
+                    return (
+                      <div className="flex flex-col gap-1 h-full">
+                        <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 px-4">Categorías</h4>
+                        {thirdLevels.length > 0 ? (
+                          thirdLevels.map((t) => (
+                            <button
+                              key={t.id}
+                              onMouseEnter={() => setActiveThird(t)}
+                              onClick={() => goToCategory(t.name)}
+                              className={`flex items-center justify-between px-5 py-3.5 rounded-xl transition-all text-left group ${activeThird?.id === t.id ? 'bg-[#f8f9fa] text-black shadow-sm' : 'text-gray-500 hover:text-black hover:bg-[#f8f9fa]/50'}`}
+                            >
+                              <span className="text-[14px] font-bold tracking-tight">{t.name}</span>
+                              {getFourthLevel(t.id || '').length > 0 && (
+                                <ChevronRight className={`w-4 h-4 transition-all ${activeThird?.id === t.id ? 'translate-x-1 opacity-100' : 'opacity-100 text-gray-300'}`} />
+                              )}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-5 py-8 mt-2 text-center border overflow-hidden bg-slate-50 border-gray-100 rounded-2xl flex-1 flex flex-col items-center justify-center group cursor-pointer hover:border-black/10 transition-colors" onClick={() => goToCategory(activeSub.name)}>
+                            <p className="text-gray-400 text-sm font-medium">Sin más clasificaciones en <br /><span className="font-bold text-black text-base mt-2 block">{activeSub.name}</span></p>
+                            <button
+                              className="mt-6 w-[85%] py-2.5 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-md group-hover:scale-105 group-hover:bg-blue-600 transition-all"
+                            >
+                              Ver Productos
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Col 3: Level 3 Items */}
@@ -947,13 +961,31 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                             <p className="text-gray-400 text-sm">Explora toda la sección de <br /><span className="font-bold text-black">{activeThird.name}</span></p>
                             <button
                               onClick={() => goToCategory(activeThird.name)}
-                              className="mt-4 text-xs font-black uppercase underline decoration-2 underline-offset-4"
+                              className="mt-4 text-xs font-black uppercase underline decoration-2 underline-offset-4 pointer-events-auto"
                             >
                               Ver catálogo completo
                             </button>
                           </div>
                         )}
                       </div>
+                    </div>
+                  ) : activeSub ? (
+                    <div className="h-full w-full flex flex-col items-center justify-center text-center space-y-4 max-w-sm mx-auto transition-all duration-300 animate-in fade-in zoom-in-95">
+                      <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-gray-100">
+                        <Search className="w-8 h-8 text-gray-300" />
+                      </div>
+                      <h4 className="text-xl font-black text-gray-800">Sección {activeSub.name}</h4>
+                      <p className="text-sm text-gray-500 font-medium leading-relaxed">
+                        {(thirdLevelBySubcategory[activeSub.id || ''] || []).length > 0
+                          ? "Selecciona una categoría de la izquierda para ver más detalles y productos específicos."
+                          : "No existen más subcategorías para este departamento. Selecciona el botón para ver todo el inventario de esta sección."}
+                      </p>
+                      <button
+                        onClick={() => goToCategory(activeSub.name)}
+                        className="px-8 py-3 bg-gray-100 hover:bg-gray-200 text-black text-xs font-black uppercase tracking-widest rounded-full transition-colors mt-4 shadow-sm"
+                      >
+                        Ir al catálogo
+                      </button>
                     </div>
                   ) : null}
                 </div>

@@ -9,14 +9,16 @@ preventAutomaticTranslation();
 
 // Registrar Service Worker para mejoras de rendimiento
 if ('serviceWorker' in navigator) {
+  // DESACTIVADO PARA DESARROLLO: El service worker está cacheando versiones antiguas de los chunks y causando el error "Invalid hook call"
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
-      .then(registration => {
-        console.log('Service Worker registrado con éxito:', registration.scope);
-      })
-      .catch(error => {
-        console.log('Error al registrar Service Worker:', error);
-      });
+    navigator.serviceWorker.getRegistrations().then(function (registrations) {
+      for (let registration of registrations) {
+        registration.unregister().then(
+          function (boolean) { console.log('Service Worker desregistrado:', boolean); },
+          function (error) { console.log('Error desregistrando:', error); }
+        );
+      }
+    });
   });
 }
 

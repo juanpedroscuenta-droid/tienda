@@ -23,7 +23,7 @@ export interface User {
   };
 }
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:3001/api';
 
 interface AuthContextType {
   user: User | null;
@@ -49,6 +49,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  // Ref para poder cancelar el timeout desde handleAuthStateChange
+  const authTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -77,19 +79,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await applySession(session?.user || null);
     });
 
-    const timeout = setTimeout(() => {
-      console.warn('⏰ [AUTH] TIMEOUT 5s — forzando setLoading(false). Si ves esto, Supabase no respondió.');
-      if (mounted) setLoading(false);
-    }, 5000);
+    // Timeout de seguridad: cancelado automáticamente cuando el auth resuelve
+    authTimeoutRef.current = setTimeout(() => {
+      if (mounted) {
+        console.warn('⏰ [AUTH] TIMEOUT 3s — el auth tardó más de lo esperado, liberando pantalla.');
+        setLoading(false);
+      }
+    }, 3000);
 
     return () => {
       mounted = false;
-      clearTimeout(timeout);
+      if (authTimeoutRef.current) clearTimeout(authTimeoutRef.current);
       subscription?.unsubscribe();
     };
   }, []);
 
+
   const handleAuthStateChange = async (supabaseUser: any) => {
+    // Cancelar el timeout de seguridad en cuanto el auth resuelve
+    if (authTimeoutRef.current) {
+      clearTimeout(authTimeoutRef.current);
+      authTimeoutRef.current = null;
+    }
     console.log('🔵 [AUTH] handleAuthStateChange — usuario:', supabaseUser?.email || 'null');
     setCurrentUser(supabaseUser);
     if (supabaseUser) {
@@ -154,13 +165,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
           }
         } else {
-          console.warn("Failed to fetch user data from backend:", response.status);
+          console.warn("Failed to fetch user data from backend. Status:", response.status);
         }
       } catch (e: any) {
         if (e?.name === 'AbortError') {
-          console.warn("Backend fetch timeout – usando datos de Supabase solamente");
+          console.warn("Backend fetch timeout (5s) – usando datos de Supabase solamente");
         } else {
-          console.error("Error fetching user data from backend:", e);
+          console.error("Error crítico al conectar con el backend en AuthContext:", e);
         }
       }
     } else {

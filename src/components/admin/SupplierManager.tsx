@@ -221,7 +221,7 @@ export const SupplierManager: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-                        <Building2 className="h-8 w-8 text-orange-500" />
+                        <Building2 className="h-8 w-8 text-blue-600" />
                         Proveedores
                     </h1>
                     <p className="text-slate-500 mt-1">
@@ -235,7 +235,7 @@ export const SupplierManager: React.FC = () => {
                     </Button>
                     <Button
                         onClick={() => setIsAddDialogOpen(true)}
-                        className="bg-orange-500 hover:bg-orange-600 text-white font-bold transition-all shadow-md active:scale-95"
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-md active:scale-95"
                     >
                         <Plus className="h-4 w-4 mr-2" />
                         Nuevo Proveedor
@@ -250,14 +250,14 @@ export const SupplierManager: React.FC = () => {
                         placeholder="Buscar por nombre, email o categoría..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 border-slate-200 focus:ring-orange-500"
+                        className="pl-10 border-slate-200 focus:ring-blue-500"
                     />
                 </div>
             </div>
 
             {loading ? (
                 <div className="flex items-center justify-center p-20">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
                 </div>
             ) : filteredSuppliers.length === 0 ? (
                 <Card className="border-dashed border-2 border-slate-200 py-20 text-center">
@@ -268,11 +268,11 @@ export const SupplierManager: React.FC = () => {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredSuppliers.map((supplier) => (
-                        <Card key={supplier.id} className="overflow-hidden border border-slate-200 hover:border-orange-200 hover:shadow-lg transition-all group">
+                        <Card key={supplier.id} className="overflow-hidden border border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all group">
                             <CardContent className="p-0">
                                 <div className="p-6">
                                     <div className="flex items-start justify-between mb-4">
-                                        <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600 font-bold text-xl border border-orange-100">
+                                        <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-xl border border-blue-100">
                                             {supplier.name.charAt(0).toUpperCase()}
                                         </div>
                                         <DropdownMenu>
@@ -292,6 +292,10 @@ export const SupplierManager: React.FC = () => {
                                                     <ExternalLink className="h-4 w-4 mr-2 text-sky-500" />
                                                     Abrir Formulario
                                                 </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => window.open(`/supplier-catalog/${supplier.id}`, '_blank')}>
+                                                    <Briefcase className="h-4 w-4 mr-2 text-indigo-500" />
+                                                    Catálogo
+                                                </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteSupplier(supplier.id)}>
                                                     <Trash2 className="h-4 w-4 mr-2" />
@@ -303,7 +307,7 @@ export const SupplierManager: React.FC = () => {
 
                                     <h3 className="text-lg font-bold text-slate-900 truncate mb-1">{supplier.name}</h3>
                                     {supplier.category && (
-                                        <Badge variant="secondary" className="bg-orange-50 text-orange-600 border-orange-100 mb-4">
+                                        <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-blue-100 mb-4">
                                             {supplier.category}
                                         </Badge>
                                     )}
@@ -359,7 +363,7 @@ export const SupplierManager: React.FC = () => {
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-                            <Plus className="h-6 w-6 text-orange-500" />
+                            <Plus className="h-6 w-6 text-blue-600" />
                             Nuevo Proveedor
                         </DialogTitle>
                     </DialogHeader>
@@ -433,7 +437,7 @@ export const SupplierManager: React.FC = () => {
                                 id="status"
                                 checked={newSupplier.status === 'active'}
                                 onChange={(e) => setNewSupplier({ ...newSupplier, status: e.target.checked ? 'active' : 'inactive' })}
-                                className="rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                             />
                             <Label htmlFor="status" className="text-slate-700 font-bold">Proveedor Activo</Label>
                         </div>
@@ -445,7 +449,7 @@ export const SupplierManager: React.FC = () => {
                         <Button
                             onClick={handleSaveSupplier}
                             disabled={isSaving}
-                            className="bg-orange-500 hover:bg-orange-600 text-white font-bold"
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
                         >
                             {isSaving ? 'Guardando...' : 'Guardar Proveedor'}
                         </Button>

@@ -13,7 +13,7 @@ export interface Filter {
   options: FilterOption[];
 }
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:3001/api';
 
 export function useFilters() {
   const [filters, setFilters] = useState<Filter[]>([]);

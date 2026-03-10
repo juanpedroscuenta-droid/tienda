@@ -5,11 +5,13 @@ import { Users, Building2 } from 'lucide-react';
 interface ConfigurationPanelProps {
   onNavigateToSubaccounts: () => void;
   onNavigateToProfile: () => void;
+  onNavigateToMailConfig: () => void;
 }
 
 export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
   onNavigateToSubaccounts,
-  onNavigateToProfile
+  onNavigateToProfile,
+  onNavigateToMailConfig
 }) => {
   return (
     <div className="space-y-6">
@@ -26,7 +28,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
       {/* Menú de opciones de configuración */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Opción: Perfil de empresa */}
-        <Card 
+        <Card
           className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-blue-300"
           onClick={onNavigateToProfile}
         >
@@ -46,7 +48,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
         </Card>
 
         {/* Opción: Subcuentas */}
-        <Card 
+        <Card
           className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-green-300"
           onClick={onNavigateToSubaccounts}
         >
@@ -61,6 +63,26 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           <CardContent>
             <p className="text-sm text-slate-600">
               Administrar subcuentas con accesos privilegiados
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Opción: Configuración de Correo */}
+        <Card
+          className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-indigo-300"
+          onClick={onNavigateToMailConfig}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-100 rounded-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>
+              </div>
+              <span className="text-lg">Correos y SMTP</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-slate-600">
+              Credenciales de aplicación para envíos
             </p>
           </CardContent>
         </Card>

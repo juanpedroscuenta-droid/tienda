@@ -55,7 +55,7 @@ export const WebsiteVisitTracker = () => {
       const timer = setTimeout(recordVisit, 2000);
       return () => clearTimeout(timer);
     }
-  }, [location.pathname, user?.id]);
+  }, [location?.pathname, user?.id]);
 
   return null; // Este componente no renderiza nada
 };

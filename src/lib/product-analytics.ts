@@ -96,12 +96,7 @@ export const recordWebsiteVisit = async (
 ) => {
   try {
     const isSupabase = typeof (db as any)?.from === 'function';
-    if (!isSupabase) {
-      console.warn('[recordWebsiteVisit] ⚠️ Supabase no está disponible');
-      return false;
-    }
-
-    // console.log('[recordWebsiteVisit] 📊 Registro de visita...');
+    if (!isSupabase) return false;
 
     const sessionId = getSessionId();
     const today = new Date().toISOString().split('T')[0];
@@ -114,8 +109,6 @@ export const recordWebsiteVisit = async (
       device: /Mobi|Android/i.test(userAgent) ? 'Mobile' : 'Desktop',
       userAgent: userAgent
     };
-
-    console.log('[recordWebsiteVisit] 📱 Información del dispositivo:', deviceInfo);
 
     const visitData = {
       session_id: sessionId,
@@ -132,33 +125,32 @@ export const recordWebsiteVisit = async (
       device_info: deviceInfo
     };
 
-    console.log('[recordWebsiteVisit] 💾 Datos a insertar:', visitData);
-
-    const { data, error } = await (db as any)
+    const { error } = await (db as any)
       .from('website_visits')
       .insert(visitData)
       .select();
 
     if (error) {
-      console.error('[recordWebsiteVisit] ❌ Error al insertar visita:', error);
-      console.error('[recordWebsiteVisit] ❌ Detalles del error:', {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint
-      });
+      // Errores de permisos RLS (401/42501) son esperados para usuarios anónimos.
+      // No se muestran en consola para no generar ruido innecesario.
+      const isRlsError = error.code === '42501' ||
+        error.message?.includes('permission denied') ||
+        error.message?.includes('row-level security') ||
+        String(error.status) === '401';
+
+      if (!isRlsError) {
+        console.warn('[Analytics] No se pudo registrar visita:', error.message);
+      }
       return false;
     }
 
-    console.log('[recordWebsiteVisit] ✅ Visita registrada exitosamente en website_visits');
-    console.log('[recordWebsiteVisit] ✅ ID de registro:', data?.[0]?.id);
     return true;
-  } catch (error: any) {
-    console.error('[recordWebsiteVisit] ❌ Error crítico al registrar visita:', error?.message || error);
-    console.error('[recordWebsiteVisit] ❌ Stack trace:', error?.stack);
+  } catch {
+    // Silenciar completamente — analytics no es crítico
     return false;
   }
 };
+
 
 // Registra una vista de producto (SOLO Supabase)
 export const recordProductView = async (

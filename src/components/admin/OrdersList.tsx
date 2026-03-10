@@ -24,7 +24,7 @@ import 'jspdf-autotable';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { fetchOrders as fetchApiOrders, updateOrder as updateApiOrder, deleteOrder as deleteApiOrder } from '@/lib/api';
+import { fetchOrders as fetchApiOrders, updateOrder as updateApiOrder, deleteOrder as deleteApiOrder, sendOrderConfirmationEmail } from '@/lib/api';
 import { PhysicalPOS } from './PhysicalPOS';
 
 // Extendemos la definición de jsPDF para incluir autoTable
@@ -122,6 +122,9 @@ export const OrdersList: React.FC<OrdersListProps> = ({ orders: initialOrders })
         status: "confirmed"
       });
 
+      // Buscar el pedido completo para enviar el correo
+      const fullOrder = orders.find(o => o.id === orderId);
+
       // Actualizar la UI
       setOrders(orders =>
         orders.map(order =>
@@ -139,9 +142,25 @@ export const OrdersList: React.FC<OrdersListProps> = ({ orders: initialOrders })
         variant: "default"
       });
 
+      // Enviar correo de confirmación al cliente
+      if (fullOrder?.userEmail) {
+        try {
+          await sendOrderConfirmationEmail(fullOrder);
+          toast({
+            title: "📧 Correo enviado",
+            description: `Se envió la confirmación a ${fullOrder.userEmail}`,
+          });
+        } catch (emailError: any) {
+          console.error("Error enviando correo de confirmación:", emailError);
+          toast({
+            title: "⚠️ Pedido confirmado, correo no enviado",
+            description: emailError.message || "No se pudo enviar el correo de confirmación.",
+            variant: "destructive"
+          });
+        }
+      }
+
       // Forzar actualización del dashboard
-      // Esta acción sería ideal para un sistema de eventos o context
-      // pero para simplificar usaremos un evento personalizado
       const dashboardUpdateEvent = new CustomEvent('dashboardUpdate', {
         detail: {
           type: 'orderConfirmed',
@@ -150,7 +169,6 @@ export const OrdersList: React.FC<OrdersListProps> = ({ orders: initialOrders })
       });
       document.dispatchEvent(dashboardUpdateEvent);
 
-      // Forzar recarga de las estadísticas - busca el botón de actualizar del dashboard y haz clic en él
       setTimeout(() => {
         const refreshButton = document.querySelector('.dashboard-refresh-button');
         if (refreshButton && refreshButton instanceof HTMLButtonElement) {
@@ -485,18 +503,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({ orders: initialOrders })
                 <Plus className="h-3.5 w-3.5 md:h-4 md:w-4 xs:hidden" />
               </Button>
 
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-slate-200">
-                <Switch
-                  id="notifications"
-                  checked={notificationsEnabled}
-                  onCheckedChange={handleToggleNotifications}
-                />
-                <label htmlFor="notifications" className="text-xs md:text-sm text-slate-600 cursor-pointer flex items-center gap-1.5">
-                  <Bell className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                  <span className="hidden sm:inline">Notificador por email</span>
-                  <span className="sm:hidden">Notif.</span>
-                </label>
-              </div>
+
 
               <Button
                 size="sm"

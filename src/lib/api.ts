@@ -4,11 +4,12 @@ import { supabase } from '@/supabase';
 import { parseFormattedPrice } from './utils';
 import { toast } from '@/hooks/use-toast';
 
-const hostname = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || `http://${hostname}:3001/api`;
+const hostname = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : '127.0.0.1';
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || `http://127.0.0.1:3001/api`;
 
 // Configuración de timeouts por defecto
-const DEFAULT_TIMEOUT = 20000; // 20 segundos para evitar colgaduras infinitas
+const DEFAULT_TIMEOUT = 25000; // 25 segundos para operaciones normales
+const DEFAULT_PROBE_TIMEOUT = 10000; // 10 segundos para detectar si el backend está vivo
 const UPLOAD_TIMEOUT = 60000;  // 60 segundos para subidas pesadas
 
 /**
@@ -31,8 +32,10 @@ async function fetchWithTimeout(url: string, options: RequestInit & { timeout?: 
     } catch (error: any) {
         clearTimeout(timerId);
         if (error.name === 'AbortError') {
+            console.error(`[FetchTimeout] La petición a ${url} superó los ${timeout}ms`);
             throw new Error(`La conexión con el servidor superó el tiempo límite (${timeout / 1000}s). Por favor reintente.`);
         }
+        console.error(`[FetchError] Error al conectar con ${url}:`, error);
         throw error;
     }
 }
@@ -46,10 +49,23 @@ const getAuthToken = async () => {
     }
 };
 
-// --- CACHE DE PRODUCTOS ---
+// --- CACHE Y ESTADO DEL BACKEND ---
 let storeProductsCache: Product[] | null = null;
 let storeProductsTimestamp: number | null = null;
+let storeCategoriesCache: any[] | null = null;
+let storeCategoriesTimestamp: number | null = null;
 const STORE_CACHE_DURATION = 3 * 60 * 1000; // 3 minutos
+
+let isBackendOffline = false;
+let lastCheckTime = 0;
+const BACKEND_RETRY_INTERVAL = 60000; // 1 minuto antes de volver a intentar conectar con el backend
+
+const checkBackendStatus = () => {
+    if (isBackendOffline && (Date.now() - lastCheckTime < BACKEND_RETRY_INTERVAL)) {
+        return false;
+    }
+    return true;
+};
 
 export const clearStoreCache = () => {
     storeProductsCache = null;
@@ -59,7 +75,7 @@ export const clearStoreCache = () => {
 };
 
 /**
- * Fetch de productos con manejo de errores mejorado y timeout
+ * Fetch de productos con manejo de errores mejorado y timeout.
  */
 export const fetchProducts = async (forceRefresh = false): Promise<Product[]> => {
     try {
@@ -68,44 +84,91 @@ export const fetchProducts = async (forceRefresh = false): Promise<Product[]> =>
             if (isValid) return storeProductsCache;
         }
 
-        const response = await fetchWithTimeout(`${API_BASE_URL}/products`);
-        if (!response.ok) throw new Error('Servidor de productos no disponible');
-        const data = await response.json();
+        if (checkBackendStatus()) {
+            try {
+                const response = await fetchWithTimeout(`${API_BASE_URL}/products`, { timeout: DEFAULT_PROBE_TIMEOUT });
+                if (response.ok) {
+                    const data = await response.json();
+                    isBackendOffline = false;
+                    const mappedProducts = data.map((p: any) => ({
+                        ...p,
+                        price: parseFormattedPrice(p.price),
+                        originalPrice: p.original_price ? parseFormattedPrice(p.original_price) : (p.originalPrice ? parseFormattedPrice(p.originalPrice) : undefined),
+                        additionalImages: p.additional_images || p.additionalImages || []
+                    }));
+                    storeProductsCache = mappedProducts;
+                    storeProductsTimestamp = Date.now();
+                    return mappedProducts;
+                }
+            } catch (err) {
+                isBackendOffline = true;
+                lastCheckTime = Date.now();
+                console.warn('[API] Backend unreachable, falling back to Supabase');
+            }
+        }
 
-        const mappedProducts = data.map((p: any) => ({
+        // Fallback Supabase
+        const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+        if (error || !data) return storeProductsCache || [];
+
+        const mapped = data.map((p: any) => ({
             ...p,
             price: parseFormattedPrice(p.price),
-            originalPrice: p.original_price ? parseFormattedPrice(p.original_price) : (p.originalPrice ? parseFormattedPrice(p.originalPrice) : undefined),
-            additionalImages: p.additional_images || p.additionalImages || []
+            originalPrice: p.original_price ? parseFormattedPrice(p.original_price) : undefined,
+            additionalImages: p.additional_images || []
         }));
 
-        storeProductsCache = mappedProducts;
+        storeProductsCache = mapped;
         storeProductsTimestamp = Date.now();
-        return mappedProducts;
+        return mapped;
     } catch (error: any) {
-        console.error('Error fetching Products:', error.message);
+        console.error('Error in fetchProducts:', error.message);
         return storeProductsCache || [];
     }
 };
 
+/**
+ * Fetch de producto por slug con fallback.
+ */
 export const fetchProductBySlug = async (slug: string): Promise<Product | null> => {
     try {
-        const response = await fetchWithTimeout(`${API_BASE_URL}/products/${slug}`, { timeout: 10000 });
-        if (!response.ok) return null;
-        const data = await response.json();
-        return {
-            ...data,
-            additionalImages: data.additional_images || data.additionalImages || []
-        };
+        if (checkBackendStatus()) {
+            try {
+                const response = await fetchWithTimeout(`${API_BASE_URL}/products/${slug}`, { timeout: DEFAULT_PROBE_TIMEOUT });
+                if (response.ok) {
+                    const data = await response.json();
+                    isBackendOffline = false;
+                    return {
+                        ...data,
+                        additionalImages: data.additional_images || data.additionalImages || []
+                    };
+                }
+            } catch (err) {
+                isBackendOffline = true;
+                lastCheckTime = Date.now();
+            }
+        }
+
+        // Fallback Supabase
+        const { data, error } = await supabase.from('products').select('*').or(`slug.eq.${slug},id.eq.${slug}`).maybeSingle();
+        if (data && !error) {
+            return { ...data, additionalImages: data.additional_images || [] };
+        }
+
+        // Si falla por slug exacto, intentamos con el catálogo completo
+        const all = await fetchProducts();
+        const simpleSlugify = (text: string) => text.toString().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-');
+        const found = all.find(p => simpleSlugify(p.name) === slug);
+        return found || null;
     } catch (error: any) {
-        console.error('Error fetching Product by Slug:', error.message);
+        console.error('Error in fetchProductBySlug:', error.message);
         return null;
     }
 };
 
-let storeCategoriesCache: any[] | null = null;
-let storeCategoriesTimestamp: number | null = null;
-
+/**
+ * Fetch de categorías con fallback.
+ */
 export const fetchCategories = async (forceRefresh = false) => {
     try {
         if (!forceRefresh && storeCategoriesCache && storeCategoriesTimestamp) {
@@ -113,30 +176,43 @@ export const fetchCategories = async (forceRefresh = false) => {
             if (isValid) return storeCategoriesCache;
         }
 
-        const response = await fetchWithTimeout(`${API_BASE_URL}/categories`, { timeout: 10000 });
-        if (!response.ok) return [];
-        const data = await response.json();
+        if (checkBackendStatus()) {
+            try {
+                const response = await fetchWithTimeout(`${API_BASE_URL}/categories`, { timeout: DEFAULT_PROBE_TIMEOUT });
+                if (response.ok) {
+                    const data = await response.json();
+                    isBackendOffline = false;
+                    storeCategoriesCache = data;
+                    storeCategoriesTimestamp = Date.now();
+                    return data;
+                }
+            } catch (err) {
+                isBackendOffline = true;
+                lastCheckTime = Date.now();
+            }
+        }
+
+        const { data, error } = await supabase.from('categories').select('*').order('name', { ascending: true });
+        if (error || !data) return storeCategoriesCache || [];
 
         storeCategoriesCache = data;
         storeCategoriesTimestamp = Date.now();
         return data;
     } catch (error: any) {
-        console.error('Error fetching Categories:', error.message);
+        console.error('Error in fetchCategories:', error.message);
         return storeCategoriesCache || [];
     }
 };
 
 /**
  * Órdenes con Fallback Automático a Supabase.
- * Esta es la pieza clave para la estabilidad: si el backend Node.js falla, 
- * el sistema guarda directamente en la base de datos para no perder la venta.
  */
 export const createOrder = async (orderData: any) => {
     try {
         const token = await getAuthToken();
         const response = await fetchWithTimeout(`${API_BASE_URL}/orders`, {
             method: 'POST',
-            timeout: 25000, // Dar más tiempo a las órdenes
+            timeout: 25000,
             headers: {
                 'Content-Type': 'application/json',
                 ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -148,7 +224,6 @@ export const createOrder = async (orderData: any) => {
         return await response.json();
     } catch (error: any) {
         console.warn('Backend falló, usando guardado directo en Supabase...', error.message);
-
         try {
             const { items, user_id, coupon_code } = orderData;
             const payload = {
@@ -169,11 +244,7 @@ export const createOrder = async (orderData: any) => {
                 created_at: new Date().toISOString()
             };
 
-            const { data: order, error: insertError } = await supabase
-                .from('orders')
-                .insert([payload])
-                .select();
-
+            const { data: order, error: insertError } = await supabase.from('orders').insert([payload]).select();
             if (insertError) throw insertError;
             return order?.[0] || payload;
         } catch (supabaseError: any) {
@@ -196,11 +267,6 @@ export const fetchAdminProducts = async (): Promise<Product[]> => {
         }));
     } catch (error: any) {
         console.error('fetchAdminProducts error:', error.message);
-        toast({
-            title: "Error de servidor",
-            description: "No se pudo conectar con el catálogo. Reintentando...",
-            variant: "destructive"
-        });
         return [];
     }
 }
@@ -311,10 +377,6 @@ export const fetchOrderStats = async () => {
     }
 }
 
-// --- COMPANY & INFO ---
-
-// --- USER ADDRESSES ---
-
 export const addUserAddress = async (userId: string, addressData: any) => {
     try {
         const { data, error } = await supabase
@@ -383,8 +445,6 @@ export const deleteFile = async (path: string) => {
     if (!response.ok) throw new Error('Error al eliminar archivo');
     return await response.json();
 }
-
-// --- COUPONS ---
 
 export const fetchCoupons = async () => {
     try {
@@ -497,8 +557,6 @@ export const fetchCouponUsage = async (couponId: string) => {
     }
 }
 
-// --- INFO SECTIONS ---
-
 export const fetchInfoSections = async () => {
     try {
         const response = await fetchWithTimeout(`${API_BASE_URL}/info`, { timeout: 10000 });
@@ -530,21 +588,108 @@ export const updateInfoSection = async (sectionData: any) => {
     }
 }
 export const fetchChatBotSettings = async () => {
+    // 1. Intentar backend primero
     try {
         const response = await fetchWithTimeout(`${API_BASE_URL}/chatbot`, { timeout: 10000 });
-        return response.ok ? await response.json() : null;
+        if (response.ok) {
+            const data = await response.json();
+            if (data && Object.keys(data).length > 0) return data;
+        }
     } catch {
-        return null;
+        console.warn('[fetchChatBotSettings] Backend unreachable, trying Supabase directly');
     }
+
+    // 2. Fallback directo a Supabase
+    try {
+        const { data, error } = await supabase
+            .from('chatbot_settings')
+            .select('*')
+            .maybeSingle();
+        if (!error && data) return data;
+    } catch (e) {
+        console.error('[fetchChatBotSettings] Supabase fallback failed:', e);
+    }
+
+    return null;
 }
 
 export const updateChatBotSettings = async (settingsData: any) => {
-    const response = await fetchWithTimeout(`${API_BASE_URL}/chatbot`, {
+    // Asegurar ID fijo
+    if (!settingsData.id) settingsData.id = 1;
+
+    // 1. Intentar backend primero
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/chatbot`, {
+            method: 'POST',
+            timeout: 20000,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settingsData),
+        });
+        if (response.ok) return await response.json();
+    } catch {
+        console.warn('[updateChatBotSettings] Backend unreachable, saving directly to Supabase');
+    }
+
+    // 2. Fallback directo a Supabase (PERSISTENCIA GARANTIZADA)
+    const { data, error } = await supabase
+        .from('chatbot_settings')
+        .upsert(settingsData, { onConflict: 'id' })
+        .select()
+        .single();
+
+    if (error) throw new Error(`Error guardando en Supabase: ${error.message}`);
+    return data;
+}
+
+/**
+ * Enviar correo masivo a través del backend
+ */
+export const sendBulkEmail = async (emails: string[], subject: string, body: string) => {
+    const token = await getAuthToken();
+    const savedConfig = localStorage.getItem('__mail_config');
+    let smtpConfig = null;
+    if (savedConfig) {
+        try { smtpConfig = JSON.parse(savedConfig); } catch (e) { }
+    }
+
+    const response = await fetchWithTimeout(`${API_BASE_URL}/mail/send-bulk`, {
         method: 'POST',
-        timeout: 20000,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settingsData),
+        timeout: 60000, // Timeout más largo para envíos masivos
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ emails, subject, body, smtpConfig }),
     });
-    if (!response.ok) throw new Error('Error guardando configuración del bot');
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error al enviar correos');
+    }
     return await response.json();
 }
+
+/**
+ * Enviar correo de confirmación de pedido al cliente
+ */
+export const sendOrderConfirmationEmail = async (order: any) => {
+    const savedConfig = localStorage.getItem('__mail_config');
+    let smtpConfig = null;
+    if (savedConfig) {
+        try { smtpConfig = JSON.parse(savedConfig); } catch (e) { }
+    }
+
+    const response = await fetchWithTimeout(`${API_BASE_URL}/mail/send-order-confirmation`, {
+        method: 'POST',
+        timeout: 30000,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order, smtpConfig }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error al enviar correo de confirmación');
+    }
+    return await response.json();
+}
+

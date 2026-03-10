@@ -19,7 +19,10 @@ export const NewProductsCarousel: React.FC = () => {
             try {
                 const allProducts = await fetchProductsApi();
                 const published = allProducts.filter(p => p.isPublished !== false);
-                setProducts(published.slice(0, 10));
+
+                // Shuffle to show a varied selection
+                const shuffled = [...published].sort(() => Math.random() - 0.5);
+                setProducts(shuffled.slice(0, 10));
             } catch (err) {
                 console.error("Error fetching newest products", err);
             } finally {
@@ -113,8 +116,8 @@ export const NewProductsCarousel: React.FC = () => {
 
                             {/* VER TODO BUTTON */}
                             <button
-                                onClick={() => navigate('/productos')}
-                                className="mt-10 bg-[#2d2d2d] text-white flex items-center justify-center gap-3 px-10 py-4 rounded-xl font-black text-[11px] uppercase tracking-[0.1em] hover:bg-black transition-all shadow-xl pointer-events-auto"
+                                onClick={() => navigate('/nuevos')}
+                                className="mt-6 md:mt-10 bg-[#2d2d2d] text-white flex items-center justify-center gap-3 px-6 md:px-10 py-3 md:py-4 rounded-xl font-black text-[11px] uppercase tracking-[0.1em] hover:bg-black transition-all shadow-xl pointer-events-auto"
                             >
                                 <ArrowRight className="w-4 h-4" />
                                 Ver todo

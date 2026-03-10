@@ -65,7 +65,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   const [showAllForFilter, setShowAllForFilter] = useState<{ [filterId: string]: boolean }>({});
 
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(12);
 
   useEffect(() => {
     setSearchTerm(initialSearchTerm || '');
@@ -78,7 +78,10 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
     try {
       const allProducts = await fetchProductsApi();
       const filtered = allProducts.filter((p) => p.isPublished !== false);
-      setProducts(filtered);
+
+      // Shuffle the main list for a 'varied' feel as requested by the user
+      const shuffled = [...filtered].sort(() => Math.random() - 0.5);
+      setProducts(shuffled);
     } catch (e) {
       console.error("Error cargando productos:", e);
     } finally {
@@ -233,7 +236,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredAndSortedProducts.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredAndSortedProducts, currentPage]);
+  }, [filteredAndSortedProducts, currentPage, itemsPerPage]);
 
   const totalPages = Math.ceil(filteredAndSortedProducts.length / itemsPerPage);
 
@@ -386,7 +389,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   }, []);
 
   return (
-    <section ref={sectionRef} id="products-section" className="py-8 bg-white w-full max-w-[1400px] mx-auto px-4 md:px-8 min-h-screen">
+    <section ref={sectionRef} id="products-section" className={`${(isFiltering || showCatalog) ? 'pt-2 pb-8' : 'py-8'} bg-white w-full max-w-[1400px] mx-auto px-4 md:px-8 min-h-screen`}>
       <div className="flex flex-col md:flex-row gap-10">
         {/* Placeholder — reserves sidebar space; position:relative lets absolute child anchor here */}
         {(isFiltering || showCatalog) && (
@@ -460,9 +463,12 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
             <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
               <div className="flex items-center gap-3">
                 <span className="text-[11px] font-bold uppercase text-gray-400 whitespace-nowrap">Mostrar:</span>
-                <Select defaultValue="12">
+                <Select
+                  value={String(itemsPerPage)}
+                  onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}
+                >
                   <SelectTrigger className="w-[70px] h-9 border rounded-none shadow-none focus:ring-0 font-bold text-[12px] text-gray-700">
-                    <SelectValue placeholder="12" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-none border-gray-200">
                     <SelectItem value="12">12</SelectItem>
@@ -513,7 +519,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                     </div>
                     <div>
                       <h4 className="text-sm font-black text-gray-900 uppercase leading-tight">Autopartes y repuestos</h4>
-                      <p className="text-[11px] text-gray-400 font-bold uppercase mt-0.5">Para todas las marcas</p>
+                      <p className="text-[11px] text-gray-400 font-bold uppercase mt-0.5">Genéricos / Homologada para todas las marcas</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4 p-6">
@@ -573,19 +579,6 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                       </div>
                     </div>
 
-                    <div className="hidden md:flex items-center gap-3 border-l pl-8 border-gray-100">
-                      <span className="text-[11px] font-bold uppercase text-gray-400 whitespace-nowrap">Mostrar:</span>
-                      <Select defaultValue="12">
-                        <SelectTrigger className="w-[70px] h-9 border border-gray-200 rounded-none shadow-none focus:ring-0 font-bold text-[12px] text-gray-700">
-                          <SelectValue placeholder="12" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-none border-gray-200 shadow-xl">
-                          <SelectItem value="12">12</SelectItem>
-                          <SelectItem value="24">24</SelectItem>
-                          <SelectItem value="48">48</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -642,10 +635,10 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                           </div>
                           <div className="flex flex-col">
                             <h2 className="text-white font-bold text-lg md:text-2xl uppercase tracking-tight leading-none">
-                              Y Repuestos para tu vehículo
+                              Y Repuestos Genéricos / Homologados
                             </h2>
                             <p className="text-white/80 text-[10px] md:text-[11px] font-medium mt-2 uppercase tracking-[0.2em]">
-                              Manijas internas y externas, limpiaparabrisas, pines, alarmas, seguridad y más
+                              Variedad de manijas, plumillas, pines y repuestos para todas las marcas
                             </p>
                           </div>
                         </div>

@@ -75,7 +75,7 @@ interface SavedAddress {
   isDefault: boolean;
 }
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:3001/api';
 
 export const UserProfile: React.FC = () => {
   const isSupabase = typeof (db as any)?.from === 'function';

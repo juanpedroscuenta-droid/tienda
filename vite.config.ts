@@ -46,6 +46,7 @@ export default defineConfig(({ mode }) => ({
     }),
   ].filter(Boolean),
   resolve: {
+    dedupe: ['react', 'react-dom', 'react-router-dom'],
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "firebase/firestore": path.resolve(__dirname, "./src/lib/firebase-mock.ts"),

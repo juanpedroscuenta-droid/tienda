@@ -77,7 +77,7 @@ const AdvancedIndex = () => {
         <HeroBanner isCatalog={showCatalog} setShowCatalog={setShowCatalog} />
       )}
 
-      <main className="relative z-10 w-full pt-4">
+      <main className={`relative z-10 w-full ${(!showCatalog && !searchParam) ? 'pt-4' : 'pt-0'}`}>
         <ProductsSection
           selectedCategory="Todos"
           setSelectedCategory={setSelectedCategory}

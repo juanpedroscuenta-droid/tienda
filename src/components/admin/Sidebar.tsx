@@ -34,7 +34,8 @@ import {
   Building2,
   ChevronLeft,
   Key,
-  Ticket
+  Ticket,
+  Image as ImageIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -141,7 +142,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   // Abrir el menú de configuración automáticamente si estamos en configuration, subaccounts, info o filters
   useEffect(() => {
-    if (activeTab === 'configuration' || activeTab === 'subaccounts' || activeTab === 'info' || activeTab === 'filters') {
+    if (activeTab === 'configuration' || activeTab === 'subaccounts' || activeTab === 'info' || activeTab === 'filters' || activeTab === 'mail-config') {
       setShowConfigurationMenu(true);
     } else {
       setShowConfigurationMenu(false);
@@ -183,6 +184,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'subaccounts', icon: <Users className="h-5 w-5" />, label: 'Subcuentas', description: 'Gestión de accesos' },
     { id: 'ai-assistant', icon: <Bot className="h-5 w-5" />, label: 'Asistente IA', description: 'Inteligencia artificial' },
     { id: 'help-manual', icon: <HelpCircle className="h-5 w-5" />, label: 'Ayuda', description: 'Manual de usuario' },
+
 
     ...(isSubAdmin ? [] : [
       { id: 'revisiones', icon: <Bell className="h-5 w-5" />, label: 'Revisiones', description: 'Aprobar cambios' },
@@ -479,6 +481,24 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <span className="truncate flex-1">Filtros</span>
                 </button>
               </li>
+              <li>
+                <button
+                  onClick={() => {
+                    handleNavigation('mail-config');
+                  }}
+                  className={cn(
+                    "w-full flex items-center px-4 py-2.5 rounded-md text-left transition-all duration-200 group relative",
+                    isTabActive('mail-config')
+                      ? "bg-slate-800 text-white font-medium"
+                      : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                  )}
+                >
+                  {isTabActive('mail-config') && (
+                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-6 w-1 bg-orange-500 rounded-r-md" />
+                  )}
+                  <span className="truncate flex-1">Correos y SMTP</span>
+                </button>
+              </li>
             </ul>
           )}
         </nav>
@@ -493,19 +513,19 @@ const Sidebar: React.FC<SidebarProps> = ({
               }}
               className={cn(
                 "w-full flex items-center px-3 py-2 rounded-md text-left transition-all duration-200 group relative",
-                isTabActive('configuration') || isTabActive('subaccounts') || isTabActive('info') || isTabActive('filters')
+                isTabActive('configuration') || isTabActive('subaccounts') || isTabActive('info') || isTabActive('filters') || isTabActive('mail-config')
                   ? "bg-slate-800 text-white font-medium"
                   : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
               )}
             >
               {/* Active Indicator Line */}
-              {(isTabActive('configuration') || isTabActive('subaccounts') || isTabActive('info') || isTabActive('filters')) && (
+              {(isTabActive('configuration') || isTabActive('subaccounts') || isTabActive('info') || isTabActive('filters') || isTabActive('mail-config')) && (
                 <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-5 w-1 bg-orange-500 rounded-r-md" />
               )}
 
               <span className={cn(
                 "flex-shrink-0 mr-2.5",
-                (isTabActive('configuration') || isTabActive('subaccounts') || isTabActive('info') || isTabActive('filters')) ? "text-orange-500" : "text-slate-500 group-hover:text-slate-400"
+                (isTabActive('configuration') || isTabActive('subaccounts') || isTabActive('info') || isTabActive('filters') || isTabActive('mail-config')) ? "text-orange-500" : "text-slate-500 group-hover:text-slate-400"
               )}>
                 <Settings className="h-4 w-4" />
               </span>

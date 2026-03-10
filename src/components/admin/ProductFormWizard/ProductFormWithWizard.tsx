@@ -6,10 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import {
   Package, Edit, Trash2, Search, Plus, X, AlertTriangle, ShieldCheck,
   Loader2, Eye, Filter, ChevronDown, Tags, History, SlidersHorizontal, CreditCard,
-  FileSpreadsheet, Download, LayoutGrid, ChevronLeft, ChevronRight, Star
+  FileSpreadsheet, Download, LayoutGrid, ChevronLeft, ChevronRight, Star, Image as ImageIcon, MoreVertical
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { cn, parseFormattedPrice } from '@/lib/utils';
+
+
 import { toast } from '@/hooks/use-toast';
 import { db } from '@/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +31,18 @@ import {
 } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 
 // Utilidad para crear slugs SEO-friendly
 function slugify(text: string): string {
@@ -45,11 +60,13 @@ function slugify(text: string): string {
 interface ProductFormWithWizardProps {
   selectedProductId?: string | null;
   onProductSelected?: () => void;
+  onViewLibrary?: () => void;
 }
 
 export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
   selectedProductId,
-  onProductSelected
+  onProductSelected,
+  onViewLibrary
 }) => {
   const { user } = useAuth();
   const [products, setProducts] = useState<any[]>([]);
@@ -68,7 +85,16 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
   const [sortOrder, setSortOrder] = useState<'recent' | 'oldest' | 'price-high' | 'price-low' | 'name-asc' | 'name-desc'>('recent');
   const [loadingImages, setLoadingImages] = useState<{ [key: string]: boolean }>({});
   const [importing, setImporting] = useState(false);
+  const [pendingImportProducts, setPendingImportProducts] = useState<any[]>([]);
+  const [isImportView, setIsImportView] = useState(false);
+  const [selectedImportCategory, setSelectedImportCategory] = useState<string>('');
+
+  const [selectedImportBrand, setSelectedImportBrand] = useState<string>('');
+  const [priceMarkup, setPriceMarkup] = useState<number>(0);
+  const [selectedProductIndices, setSelectedProductIndices] = useState<Set<number>>(new Set());
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+
   const isSupabase = typeof (db as any)?.from === 'function';
 
   useEffect(() => {
@@ -367,87 +393,292 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    console.log("🔵 [EXCEL] Iniciando importación de:", file.name);
     e.target.value = '';
 
-    const defaultCategory = categories.find(c => !c.parentId) || categories[0];
-    if (!defaultCategory?.id) {
+    setImporting(true);
+    try {
+      const data = await file.arrayBuffer();
+      console.log("🔵 [EXCEL] Buffer cargado, tamaño:", data.byteLength);
+
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(data);
+      console.log("✅ [EXCEL] Workbook cargado satisfactoriamente");
+
+      const worksheet = workbook.getWorksheet(1);
+      if (!worksheet) {
+        throw new Error("No se pudo encontrar la primera hoja del Excel.");
+      }
+      console.log("🔵 [EXCEL] Hoja detectada:", worksheet.name);
+
+      const rows: any[][] = [];
+      worksheet.eachRow((row, rowNumber) => {
+        const rowData: any[] = [];
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+          rowData[colNumber - 1] = cell.value;
+        });
+        rows[rowNumber - 1] = rowData;
+      });
+      console.log("🔵 [EXCEL] Filas totales detectadas:", rows.length);
+
+      // Map images to rows/cols
+      const imagesMap: { [key: string]: string } = {};
+      const workbookImages = worksheet.getImages();
+      console.log("🔵 [EXCEL] Imágenes encontradas en metadatos:", workbookImages.length);
+
+      workbookImages.forEach((image: any, imgIdx: number) => {
+        try {
+          const imgData = workbook.model.media[image.imageId];
+          if (imgData && imgData.buffer) {
+            // Log first image structure to debug
+            if (imgIdx === 0) {
+              console.log("🔍 [EXCEL] Estructura de la primera imagen:", JSON.stringify({
+                anchor: image.anchor,
+                range: image.range,
+                type: typeof image.anchor
+              }, null, 2));
+            }
+
+            const base64 = typeof window !== 'undefined' ?
+              btoa(new Uint8Array(imgData.buffer).reduce((data, byte) => data + String.fromCharCode(byte), '')) :
+              Buffer.from(imgData.buffer).toString('base64');
+
+            const dataUrl = `data:image/${imgData.extension};base64,${base64}`;
+
+            let row = -1;
+            const anchor = image.anchor;
+
+            if (anchor) {
+              if (typeof anchor.nativeRow === 'number') row = anchor.nativeRow;
+              else if (anchor.from && typeof anchor.from.row === 'number') row = anchor.from.row;
+              else if (typeof anchor.row === 'number') row = anchor.row;
+            }
+
+            if (row !== -1) {
+              imagesMap[row] = dataUrl;
+              if (imgIdx < 5) {
+                console.log(`✅ [EXCEL] Imagen ${imgIdx} -> Fila ${row}`);
+              }
+            } else {
+              console.warn(`⚠️ [EXCEL] Imagen ${imgIdx} sin fila.`, image.anchor);
+            }
+          }
+        } catch (imgErr) {
+          console.error(`❌ [EXCEL] Error imagen ${imgIdx}:`, imgErr);
+        }
+      });
+      console.log(`📊 [EXCEL] Filas únicas con imágenes vinculadas: ${Object.keys(imagesMap).length}`);
+      console.log("📌 [EXCEL] Listado de algunas filas con imagen:", Object.keys(imagesMap).slice(0, 10).join(", "));
+
+      let nameIdx = -1, priceIdx = -1, brandIdx = -1, refIdx = -1, discountIdx = -1, imageColIdx = -1;
+      let startIdx = 0;
+
+      // Detection
+      for (let i = 0; i < Math.min(rows.length, 10); i++) {
+        const row = rows[i];
+        if (!row || !row.length) continue;
+
+        let foundHeaders = false;
+        row.forEach((cell, idx) => {
+          const val = String(cell || '').toLowerCase().trim();
+          if (val.includes('descripción') || val.includes('description') || val === 'nombre') nameIdx = idx;
+          if (val === 'precio' || val === 'price' || val === 'valor') priceIdx = idx;
+          if (val === 'marca' || val === 'brand') brandIdx = idx;
+          if (val === 'referencia' || val === 'ref' || val === 'referencia') refIdx = idx;
+          if (val === 'descuento' || val === 'discount') discountIdx = idx;
+          if (val === 'imagen' || val === 'image' || val === 'foto') imageColIdx = idx;
+
+          if (nameIdx !== -1 || priceIdx !== -1) foundHeaders = true;
+        });
+
+        if (foundHeaders) {
+          console.log(`🎯 [EXCEL] Fila ${i} detectada como encabezado.`, { nameIdx, priceIdx, brandIdx, refIdx, discountIdx, imageColIdx });
+          startIdx = i + 1;
+          break;
+        }
+      }
+
+      if (nameIdx === -1) {
+        console.warn("⚠️ [EXCEL] No se detectó columna de nombre, usando col 0");
+        nameIdx = 0;
+      }
+      if (priceIdx === -1) {
+        console.warn("⚠️ [EXCEL] No se detectó columna de precio, usando col 1");
+        priceIdx = 1;
+      }
+
+      const items: any[] = [];
+      for (let i = startIdx; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row[nameIdx]) continue;
+
+        const name = String(row[nameIdx]).trim();
+        const rawPrice = row[priceIdx];
+        const cleanPrice = String(rawPrice ?? '').replace(/[\$\s\.]/g, '').replace(',', '.').trim();
+        const price = parseFormattedPrice(cleanPrice);
+        const brandRaw = brandIdx !== -1 ? String(row[brandIdx] || '').trim() : '';
+        const reference = refIdx !== -1 ? String(row[refIdx] || '').trim() : '';
+        const discountStr = discountIdx !== -1 ? String(row[discountIdx] || '').trim() : '';
+
+        // Take embedded image if it exists in this row, otherwise try to detect URL if column exists
+        // Sometimes anchor is exactly on the row, sometimes it spans multiple. We check row i.
+        let itemImage = imagesMap[i] || null;
+
+        // Try a small fuzzy match if not found exactly (common when images are slightly misaligned)
+        if (!itemImage) itemImage = imagesMap[i - 1] || imagesMap[i + 1] || null;
+
+        if (!itemImage && imageColIdx !== -1 && row[imageColIdx]) {
+          const maybeUrl = String(row[imageColIdx]).trim();
+          if (maybeUrl.startsWith('http')) {
+            itemImage = maybeUrl;
+          }
+        }
+
+        if (itemImage) {
+          // console.log(`🖼️ [EXCEL] Producto "${name}" (Fila ${i}) vinculado a imagen.`);
+        } else if (i < startIdx + 5) {
+          console.log(`❓ [EXCEL] Producto "${name}" (Fila ${i}) NO tiene imagen.`);
+        }
+
+        items.push({
+          name,
+          price: isNaN(price) || !isFinite(price) ? 0 : price,
+          originalPrice: isNaN(price) || !isFinite(price) ? 0 : price,
+          brand: brandRaw,
+          reference,
+          discountText: discountStr,
+          image: itemImage,
+          categoryId: ''
+        });
+      }
+
+      console.log(`✅ [EXCEL] Importación terminada. ${items.length} productos listos para previsualización.`);
+
+      if (items.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "Archivo vacío",
+          description: "No se encontraron filas con nombre y precio."
+        });
+        setImporting(false);
+        return;
+      }
+
+      setPendingImportProducts(items);
+      setSelectedProductIndices(new Set(items.map((_, i) => i)));
+      setIsImportView(true);
+    } catch (err: any) {
+      console.error("❌ [EXCEL] Error crítico procesando Excel:", err);
       toast({
         variant: "destructive",
-        title: "Error al importar",
-        description: "Crea al menos una categoría antes de importar productos."
+        title: "Error al leer archivo",
+        description: err?.message || "No se pudo procesar el archivo Excel."
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+
+
+  const handleBulkAssign = () => {
+    if (!selectedImportCategory && !selectedImportBrand) {
+      toast({ title: "Atención", description: "Selecciona una categoría o ingresa una marca para asignar." });
+      return;
+    }
+
+    setPendingImportProducts(prev => prev.map((item, idx) => {
+      if (!selectedProductIndices.has(idx)) return item;
+      return {
+        ...item,
+        categoryId: selectedImportCategory || item.categoryId,
+        brand: selectedImportBrand || item.brand
+      };
+    }));
+
+    toast({
+      title: "Ajustes aplicados",
+      description: `Se actualizaron ${selectedProductIndices.size} productos.`
+    });
+  };
+
+
+  const handleToggleSelect = (index: number) => {
+    setSelectedProductIndices(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedProductIndices.size === pendingImportProducts.length) {
+      setSelectedProductIndices(new Set());
+    } else {
+      setSelectedProductIndices(new Set(pendingImportProducts.map((_, i) => i)));
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    const unassignedCount = pendingImportProducts.filter(p => !p.categoryId).length;
+    if (unassignedCount > 0) {
+      toast({
+        variant: "destructive",
+        title: "Productos sin categoría",
+        description: `Quedan ${unassignedCount} productos sin categoría asignada.`
       });
       return;
     }
 
     setImporting(true);
     try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array' });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-      const items: { name: string; price: number }[] = [];
-      const headerCheck = (v: unknown) => String(v || '').toLowerCase();
-      const isHeaderRow = (a: unknown, b: unknown) => {
-        const sa = headerCheck(a);
-        const sb = headerCheck(b);
-        return sa.includes('nombre') || sa.includes('name') || sb.includes('precio') || sb.includes('price');
-      };
-
-      let startIdx = 0;
-      if (rows.length > 0 && isHeaderRow(rows[0][0], rows[0][1])) startIdx = 1;
-
-      for (let i = startIdx; i < rows.length; i++) {
-        const row = rows[i];
-        const name = String(row?.[0] ?? '').trim();
-        const priceVal = row?.[1];
-        if (!name) continue;
-        const price = parseFormattedPrice(priceVal as any);
-        if (isNaN(price) || price < 0) continue;
-        items.push({ name, price });
-      }
-
-      if (items.length === 0) {
-        toast({
-          variant: "destructive",
-          title: "Archivo vacío",
-          description: "No se encontraron filas válidas (nombre en columna A, precio numérico en columna B)."
-        });
-        return;
-      }
-
       if (!isSupabase) {
         toast({ variant: "destructive", title: "Error", description: "Importar requiere Supabase." });
         return;
       }
 
-      const categoryName = defaultCategory.name || "General";
-      const payloads = items.map(item => ({
-        name: item.name,
-        description: null,
-        price: item.price,
-        original_price: item.price,
-        image: null,
-        additional_images: [],
-        category: defaultCategory.id,
-        category_id: defaultCategory.id,
-        category_name: categoryName,
-        subcategory: null,
-        subcategory_name: null,
-        tercera_categoria: null,
-        tercera_categoria_name: null,
-        stock: 1,
-        is_published: true,
-        is_offer: false,
-        discount: 0,
-        specifications: [],
-        benefits: [],
-        warranties: [],
-        payment_methods: [],
-        colors: [],
-        created_by: user?.email || "import",
-        last_modified_by: user?.email || "import",
-      }));
+      const payloads = pendingImportProducts.map(item => {
+        const category = categories.find(c => c.id === item.categoryId);
+        // Calculate final price with markup
+        const finalPrice = Math.round(item.price * (1 + (priceMarkup / 100)));
+
+        return {
+          name: item.name,
+          description: item.discountText ? `Nota de descuento: ${item.discountText}` : null,
+          price: finalPrice,
+          original_price: finalPrice,
+          image: item.image || null,
+          additional_images: [],
+          category: item.categoryId,
+          category_id: item.categoryId,
+          category_name: category?.name || "General",
+          subcategory: null,
+          subcategory_name: null,
+          tercera_categoria: null,
+          tercera_categoria_name: null,
+          stock: 1,
+          is_published: true,
+          is_offer: item.discountText ? true : false,
+          discount: 0,
+          specifications: [
+            { name: "Referencia", value: item.reference || "N/A" },
+            { name: "Marca Original", value: item.brand || "N/A" }
+          ],
+          brand: item.brand || selectedImportBrand,
+          benefits: [],
+          warranties: [],
+          payment_methods: [],
+          colors: [],
+          created_by: user?.email || "import",
+          last_modified_by: user?.email || "import",
+        };
+      });
+
+
+
+      console.log(`🚀 [IMPORT] Preparando payload para ${payloads.length} productos.`);
+      console.log("🔍 [IMPORT] Muestra del primer payload:", JSON.stringify(payloads[0], null, 2));
 
       const { error } = await (db as any)
         .from("products")
@@ -457,20 +688,24 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
 
       toast({
         title: "Importación completada",
-        description: `Se crearon ${items.length} productos correctamente.`
+        description: `Se crearon ${pendingImportProducts.length} productos correctamente.`
       });
+      setIsImportView(false);
+      setPendingImportProducts([]);
       fetchProducts();
+
     } catch (err: any) {
       console.error("Error importing Excel:", err);
       toast({
         variant: "destructive",
         title: "Error al importar",
-        description: err?.message || "No se pudo procesar el archivo Excel."
+        description: err?.message || "No se pudo guardar los productos."
       });
     } finally {
       setImporting(false);
     }
   };
+
 
   const handleExportExcel = () => {
     try {
@@ -531,6 +766,252 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
     );
   }
 
+  if (isImportView) {
+    const allAssigned = pendingImportProducts.length > 0 && pendingImportProducts.every(p => p.categoryId);
+    const assignedCount = pendingImportProducts.filter(p => p.categoryId).length;
+    const pendingCount = pendingImportProducts.length - assignedCount;
+
+    return (
+      <div className="flex flex-col h-full bg-white -mx-6 -mt-6" style={{ minHeight: '100vh' }}>
+        {/* TOP BAR / HEADER */}
+        <div className="flex flex-col border-b border-slate-200 bg-white sticky top-0 z-30 shadow-sm">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsImportView(false)}
+                className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors text-slate-500"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <div className="h-9 w-9 rounded-lg bg-orange-100 flex items-center justify-center">
+                <FileSpreadsheet className="h-5 w-5 text-orange-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900 leading-tight">Configurar Importación</h2>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 uppercase tracking-wider">Paso Final</span>
+                  <p className="text-xs text-slate-400">Excel procesado: {pendingImportProducts.length} productos detectados</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="hidden md:flex flex-col items-end mr-4">
+                <div className="flex items-center gap-2 whitespace-nowrap">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Progreso:</span>
+                  <span className="text-xs font-black text-slate-700">{assignedCount} / {pendingImportProducts.length}</span>
+                </div>
+                <div className="w-32 bg-slate-100 rounded-full h-1.5 mt-1 overflow-hidden">
+                  <div
+                    className="h-full bg-orange-500 transition-all duration-500"
+                    style={{ width: `${(assignedCount / pendingImportProducts.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <button
+                onClick={() => setIsImportView(false)}
+                className="text-sm text-slate-500 hover:text-slate-800 px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors font-medium"
+              >
+                Cancelar
+              </button>
+              <Button
+                disabled={!allAssigned || importing}
+                onClick={handleConfirmImport}
+                className="h-10 px-6 bg-green-600 hover:bg-green-700 text-white font-black rounded-lg shadow-lg shadow-green-100 transition-all active:scale-95 flex items-center gap-2"
+              >
+                {importing ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Plus className="h-5 w-5" />
+                )}
+                GUARDAR CAMBIOS ({pendingImportProducts.length})
+              </Button>
+            </div>
+          </div>
+
+          {/* CONTROLS ROW */}
+          <div className="px-6 py-3 bg-slate-50/50 flex flex-wrap items-end gap-5">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">📦 Categoría Destino</label>
+              <select
+                value={selectedImportCategory}
+                onChange={(e) => setSelectedImportCategory(e.target.value)}
+                className="h-10 w-64 text-sm px-4 border-2 border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none font-bold text-slate-700 shadow-sm"
+              >
+                <option value="">-- Elige Categoría --</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">🏷️ Marca / Referencia</label>
+              <Input
+                value={selectedImportBrand}
+                onChange={(e) => setSelectedImportBrand(e.target.value)}
+                placeholder="Ej: Hyundai, Kia..."
+                className="h-10 w-48 text-sm border-2 border-slate-200 rounded-xl font-bold placeholder:font-medium shadow-sm focus-visible:ring-orange-500"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">📈 Ganancia (%)</label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  min="0"
+                  value={priceMarkup}
+                  onChange={(e) => setPriceMarkup(Number(e.target.value))}
+                  className="h-10 w-28 text-sm border-2 border-slate-200 rounded-xl pr-8 font-black text-orange-600 shadow-sm focus-visible:ring-orange-500"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">%</span>
+              </div>
+            </div>
+
+            <Button
+              disabled={(!selectedImportCategory && !selectedImportBrand) || selectedProductIndices.size === 0}
+              onClick={handleBulkAssign}
+              className="h-10 px-6 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl shadow-lg shadow-orange-100 transition-all active:scale-95 disabled:grayscale"
+            >
+              ASIGNAR A SELECCIONADOS ({selectedProductIndices.size})
+            </Button>
+
+            <div className="flex-1 flex justify-end pb-1 px-4">
+              <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700 font-bold py-1.5 px-3 rounded-lg shadow-sm">
+                Tip: Selecciona productos abajo para aplicar ajustes
+              </Badge>
+            </div>
+          </div>
+        </div>
+
+        {/* TABLE BODY */}
+        <div className="flex-1 overflow-auto bg-white">
+          <table className="w-full text-sm border-collapse min-w-[1000px]">
+            <thead className="bg-[#f8fafc] border-b border-slate-200 sticky top-0 z-20">
+              <tr>
+                <th className="w-14 px-6 py-4">
+                  <Checkbox
+                    checked={selectedProductIndices.size === pendingImportProducts.length && pendingImportProducts.length > 0}
+                    onCheckedChange={handleSelectAll}
+                    className="h-5 w-5 border-2 border-slate-300 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
+                  />
+                </th>
+                <th className="px-6 py-4 text-left text-[11px] font-black uppercase tracking-widest text-slate-400">Producto / Referencia</th>
+                <th className="px-6 py-4 text-left text-[11px] font-black uppercase tracking-widest text-slate-400">Marca/Filtro</th>
+                <th className="px-6 py-4 text-right text-[11px] font-black uppercase tracking-widest text-slate-400">Precio Excel</th>
+                <th className="px-6 py-4 text-right text-[11px] font-black uppercase tracking-widest text-slate-400">Final (+{priceMarkup}%)</th>
+                <th className="px-6 py-4 text-center text-[11px] font-black uppercase tracking-widest text-slate-400">Estado / Categoría</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {pendingImportProducts.map((item, idx) => {
+                const finalPrice = Math.round((item.price || 0) * (1 + priceMarkup / 100));
+                const isSelected = selectedProductIndices.has(idx);
+                const isAssigned = !!item.categoryId;
+                const cat = categories.find(c => c.id === item.categoryId);
+
+                return (
+                  <tr
+                    key={idx}
+                    onClick={() => handleToggleSelect(idx)}
+                    className={cn(
+                      "cursor-pointer transition-all hover:bg-slate-50 border-l-4",
+                      isSelected ? "bg-orange-50/40 border-l-orange-500" : "border-l-transparent",
+                      !isAssigned && "bg-red-50/10"
+                    )}
+                  >
+                    <td className="w-14 px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => handleToggleSelect(idx)}
+                        className="h-5 w-5 border-2 border-slate-300 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
+                      />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-start gap-3 max-w-xl">
+                        {/* Miniatura de la imagen */}
+                        <div className="h-10 w-10 shrink-0 bg-slate-100 rounded-md overflow-hidden border border-slate-200">
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt="preview"
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=Error';
+                              }}
+                            />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center">
+                              <ImageIcon className="h-4 w-4 text-slate-300" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-800 text-xs uppercase leading-tight tracking-tight group-hover:text-orange-600 transition-colors">{item.name}</span>
+                          <div className="flex items-center gap-3 mt-1.5">
+                            <Badge variant="secondary" className="bg-slate-100 text-[10px] font-mono font-black text-slate-500 border-none px-2 rounded">
+                              REF: {item.reference || 'N/A'}
+                            </Badge>
+                            {item.discountText && (
+                              <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2 rounded py-0.5 border border-blue-100 uppercase">
+                                {item.discountText}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4">
+                      {item.brand ? (
+                        <Badge variant="outline" className="text-xs font-bold text-slate-600 border-slate-200 bg-white shadow-sm rounded-lg px-3 py-1">
+                          {item.brand}
+                        </Badge>
+                      ) : (
+                        <span className="text-[10px] text-slate-300 italic">No especificada</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-xs text-slate-400 font-bold font-mono tracking-tighter">${(item.price || 0).toLocaleString('es-CO')}</span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex flex-col items-end">
+                        <span className="text-base font-black text-green-600 font-mono tracking-tighter">${finalPrice.toLocaleString('es-CO')}</span>
+                        {priceMarkup > 0 && (
+                          <span className="text-[9px] font-bold text-orange-500">Margin +{priceMarkup}%</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex flex-col items-center gap-1.5">
+                        {isAssigned ? (
+                          <Badge className="bg-green-600 text-white border-none px-4 py-1 font-black text-[10px] uppercase rounded-lg shadow-md shadow-green-100 tracking-wider">
+                            {cat?.name}
+                          </Badge>
+                        ) : (
+                          <div className="flex flex-col items-center">
+                            <span className="text-[10px] font-black text-red-600 uppercase tracking-tighter bg-red-50 border border-red-200 px-3 py-1 rounded-lg animate-pulse">
+                              PENDIENTE
+                            </span>
+                            <span className="text-[8px] text-red-400 font-bold mt-1 uppercase">Falta Categoría</span>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+
+
+
   return (
     <div className="space-y-4 -mt-2">
       {/* ERP Style Header Toolbar */}
@@ -543,6 +1024,33 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
           >
             CREAR
           </Button>
+
+          <div className="flex items-center gap-1 border-l border-slate-200 ml-2 pl-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImportExcel}
+              accept=".xlsx, .xls"
+              className="hidden"
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600 hover:bg-slate-50">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem onClick={() => fileInputRef.current?.click()} disabled={importing} className="text-xs font-bold uppercase tracking-wider py-2 cursor-pointer">
+                  <FileSpreadsheet className="h-3.5 w-3.5 mr-2 text-green-600" />
+                  <span>{importing ? "Importando..." : "Importar Excel"}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportExcel} className="text-xs font-bold uppercase tracking-wider py-2 cursor-pointer">
+                  <Download className="h-3.5 w-3.5 mr-2 text-blue-600" />
+                  <span>Exportar Excel</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         <div className="flex flex-1 max-w-2xl items-center gap-2">
@@ -609,8 +1117,11 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <button className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 text-xs font-medium flex items-center gap-1.5">
-              <Star className="h-3 w-3" /> Favoritos
+            <button
+              className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 text-xs font-medium flex items-center gap-1.5"
+              onClick={() => onViewLibrary ? onViewLibrary() : toast({ title: "Biblioteca de Imágenes", description: "Cambiando a la vista de biblioteca..." })}
+            >
+              <ImageIcon className="h-3 w-3 text-emerald-600" /> Biblioteca de imágenes
             </button>
           </div>
         </div>
@@ -890,6 +1401,9 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
           </div>
         )}
       </div>
+
+
     </div>
+
   );
 };

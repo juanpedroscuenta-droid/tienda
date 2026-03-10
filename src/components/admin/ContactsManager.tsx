@@ -44,6 +44,7 @@ import { toast } from '@/hooks/use-toast';
 import { db } from '@/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { sendBulkEmail } from '@/lib/api';
 
 interface Contact {
   id: string;
@@ -69,6 +70,11 @@ export const ContactsManager: React.FC = () => {
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   const [newTaskForm, setNewTaskForm] = useState({ title: '', dueDate: '', priority: 'Media', assignee: user ? ((user as any).displayName || (user as any).name || 'Yo') : 'Yo' });
   const [boardTasks, setBoardTasks] = useState<any[]>([]);
+
+  // Estado para correos masivos
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+  const [emailForm, setEmailForm] = useState({ subject: '', body: '' });
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   const isSupabase = typeof (db as any)?.from === 'function';
 
@@ -397,6 +403,41 @@ export const ContactsManager: React.FC = () => {
     }
   };
 
+  const handleSendBulkEmail = async () => {
+    if (!emailForm.subject.trim() || !emailForm.body.trim()) {
+      toast({ title: 'Error', description: 'El asunto y el cuerpo del mensaje son obligatorios', variant: 'destructive' });
+      return;
+    }
+
+    if (selectedContacts.length === 0) {
+      toast({ title: 'Error', description: 'Debes seleccionar al menos un contacto', variant: 'destructive' });
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      const selectedEmails = contacts.filter(c => selectedContacts.includes(c.id) && c.email).map(c => c.email);
+      if (selectedEmails.length === 0) {
+        toast({ title: 'Aviso', description: 'Los contactos seleccionados no tienen correo electrónico registrado.', variant: 'destructive' });
+        setIsSendingEmail(false);
+        return;
+      }
+
+      // Llamada real a la API de envío conectada al backend
+      await sendBulkEmail(selectedEmails, emailForm.subject, emailForm.body);
+
+      toast({ title: 'Éxito', description: `Correos encolados y enviados exitosamente a ${selectedEmails.length} contactos.` });
+      setIsEmailDialogOpen(false);
+      setEmailForm({ subject: '', body: '' });
+      setSelectedContacts([]); // Deseleccionar después de enviar
+    } catch (e) {
+      console.error('Error sending bulk email', e);
+      toast({ title: 'Error', description: 'Error al enviar correos masivos', variant: 'destructive' });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -427,6 +468,18 @@ export const ContactsManager: React.FC = () => {
             Exportar
           </Button>
           <div className="flex items-center gap-1">
+            {selectedContacts.length > 0 && (
+              <Button
+                variant="outline"
+                className="bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 shadow-sm transition-all"
+                onClick={() => setIsEmailDialogOpen(true)}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Enviar Masivo</span>
+                <Badge variant="secondary" className="ml-1 bg-indigo-100/50 text-indigo-700 px-1 py-0">{selectedContacts.length}</Badge>
+              </Button>
+            )}
+
             <Button
               onClick={() => setIsAddContactOpen(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all shadow-md active:scale-95"
@@ -1098,6 +1151,64 @@ export const ContactsManager: React.FC = () => {
             <Button variant="outline" onClick={() => setIsNewTaskOpen(false)}>Cancelar</Button>
             <Button onClick={handleAddNewTask} disabled={!newTaskForm.title.trim()} className="bg-blue-600 hover:bg-blue-700">
               Crear Tarea
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Correos Masivos */}
+      <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-indigo-600" />
+              Enviar Correo Masivo
+            </DialogTitle>
+            <DialogDescription>
+              Se enviará un correo a {selectedContacts.length} contactos seleccionados.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="email-subject">Asunto del correo *</Label>
+              <Input
+                id="email-subject"
+                placeholder="Ej. Promoción Especial de esta Semana"
+                value={emailForm.subject}
+                onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email-body">Cuerpo del mensaje *</Label>
+              <textarea
+                id="email-body"
+                className="w-full min-h-[200px] border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-y"
+                placeholder="Escribe aquí el contenido del correo..."
+                value={emailForm.body}
+                onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
+              />
+              <p className="text-xs text-slate-500">
+                Los contactos que no tengan una dirección de correo válida configurada serán omitidos automáticamente.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEmailDialogOpen(false)} disabled={isSendingEmail}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSendBulkEmail}
+              disabled={isSendingEmail || !emailForm.subject.trim() || !emailForm.body.trim()}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              {isSendingEmail ? (
+                'Enviando...'
+              ) : (
+                <>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Enviar a {selectedContacts.length} contactos
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

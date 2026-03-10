@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, lazy, Suspense, useMemo, useCallback } from 'react';
 import { auth, db } from '@/firebase';
+import { ImageLibrary } from '@/components/admin/ImageLibrary';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,7 +48,10 @@ import {
   ChevronRight,
   ChevronDown,
   Megaphone,
+  Briefcase,
+  Share2,
   Calendar,
+  Image as ImageIcon,
   Pencil,
   MoreVertical,
   Zap,
@@ -98,7 +102,7 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import Sidebar from '@/components/admin/Sidebar';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { Briefcase, Share2 } from 'lucide-react';
+import { MailConfiguration } from '@/components/admin/MailConfiguration';
 import { useSubAccountRenderFix } from '@/hooks/use-subaccount-render-fix';
 import { useStockNotifications } from '@/hooks/use-stock-notifications';
 import { DashboardStats } from '@/components/admin/DashboardStats';
@@ -113,86 +117,124 @@ const LoadingFallback = () => (
 );
 
 const ManagementGrid = ({ setActiveTab }: { setActiveTab: (tab: string) => void }) => {
+  const [companyName, setCompanyName] = useState('empresa');
+
+  useEffect(() => {
+    const fetchCompany = async () => {
+      const isSupabase = typeof (db as any)?.from === 'function';
+      if (isSupabase) {
+        try {
+          const { data } = await (db as any).from('company_profile').select('friendly_name').maybeSingle();
+          if (data && data.friendly_name) setCompanyName(data.friendly_name);
+        } catch (e) { }
+      }
+    };
+    fetchCompany();
+  }, []);
+
   const items = [
-    {
-      id: 'suppliers',
-      label: 'Proveedores',
-      description: 'Gestiona tus proveedores',
-      Icon: Truck,
-      gradient: 'from-blue-500 to-blue-700',
-      glow: 'shadow-blue-200',
-      ring: 'ring-blue-100',
-    },
-    {
-      id: 'coupons',
-      label: 'Cupones',
-      description: 'Descuentos y promociones',
-      Icon: BadgePercent,
-      gradient: 'from-rose-500 to-pink-600',
-      glow: 'shadow-rose-200',
-      ring: 'ring-rose-100',
-    },
-    {
-      id: 'credentials',
-      label: 'Contraseñas',
-      description: 'Accesos y claves seguras',
-      Icon: ShieldCheck,
-      gradient: 'from-violet-500 to-purple-700',
-      glow: 'shadow-violet-200',
-      ring: 'ring-violet-100',
-    },
-    {
-      id: 'categories',
-      label: 'Categorías',
-      description: 'Organiza tu catálogo',
-      Icon: FolderTree,
-      gradient: 'from-amber-400 to-orange-500',
-      glow: 'shadow-amber-200',
-      ring: 'ring-amber-100',
-    },
-    {
-      id: 'revisiones',
-      label: 'Revisiones',
-      description: 'Aprueba cambios pendientes',
-      Icon: ClipboardCheck,
-      gradient: 'from-emerald-500 to-teal-600',
-      glow: 'shadow-emerald-200',
-      ring: 'ring-emerald-100',
-    },
+    { id: 'suppliers', label: 'PROVEEDORES', Icon: Truck },
+    { id: 'coupons', label: 'CUPONES', Icon: BadgePercent },
+    { id: 'categories', label: 'CATEGORÍAS', Icon: FolderTree },
+    { id: 'credentials', label: 'ACCESOS', Icon: ShieldCheck },
+    { id: 'revisiones', label: 'REVISIONES', Icon: ClipboardCheck },
+    { id: 'image-library', label: 'BIBLIOTECA', Icon: ImageIcon },
   ];
 
+  const getRadialPosition = (index: number) => {
+    const angles = [-70, -25, 15, 55, 95, 140]; // En grados
+    const angle = angles[index] * (Math.PI / 180);
+    const radius = 50; // porcentaje
+
+    const x = 50 + radius * Math.cos(angle);
+    const y = 50 + radius * Math.sin(angle);
+    return { left: `${x}%`, top: `${y}%` };
+  };
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-5 pt-2 pb-8">
-      {items.map((item) => (
-        <button
-          key={item.id}
-          onClick={() => setActiveTab(item.id)}
-          className={cn(
-            "group relative flex flex-col items-start p-5 bg-white border border-slate-100 rounded-2xl",
-            "hover:shadow-lg hover:-translate-y-1 transition-all duration-300 overflow-hidden text-left",
-            `hover:ring-2 ${item.ring}`
-          )}
-        >
-          {/* Gradient background blob */}
-          <div className={cn("absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-10 blur-xl bg-gradient-to-br transition-all duration-500 group-hover:opacity-30 group-hover:scale-150", item.gradient)} />
+    <div className="w-full relative min-h-[350px] md:min-h-[400px] flex items-start justify-center bg-[#ffffff] rounded-xl py-6 px-4">
 
-          {/* Icon */}
-          <div className={cn(
-            "w-12 h-12 rounded-xl flex items-center justify-center mb-4 shadow-md",
-            `bg-gradient-to-br ${item.gradient}`,
-            `shadow-lg ${item.glow} group-hover:shadow-xl group-hover:scale-105 transition-all duration-300`
-          )}>
-            <item.Icon className="w-6 h-6 text-white" strokeWidth={1.8} />
-          </div>
+      {/* Vista móvil (cuadrícula estándar en pantallas pequeñas) */}
+      <div className="grid grid-cols-2 gap-4 w-full px-4 md:hidden mt-2">
+        {items.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setActiveTab(item.id)}
+            className="flex flex-col items-center justify-center p-6 border rounded-2xl shadow-sm bg-white hover:bg-slate-50 hover:border-blue-500 transition-colors group"
+          >
+            <item.Icon className="w-8 h-8 text-blue-600 mb-3 group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-bold text-slate-800 text-center">{item.label}</span>
+          </button>
+        ))}
+      </div>
 
-          {/* Text */}
-          <p className="text-sm font-bold text-slate-800 mb-0.5 group-hover:text-slate-900">{item.label}</p>
-          <p className="text-xs text-slate-400 leading-snug group-hover:text-slate-500 transition-colors">{item.description}</p>
+      {/* Vista de escritorio (Estilo radial tipo Odoo) */}
+      <div className="hidden md:flex relative w-full h-[380px] items-center justify-center max-w-4xl -mt-16">
 
-          {/* Arrow */}
-          <ArrowRight className="absolute bottom-4 right-4 w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-300" />
-        </button>
-      ))}
+        {/* Logo de Texto */}
+        <div className="absolute z-20 flex items-center pr-[300px]">
+          <h1
+            className="text-6xl lg:text-7xl font-sans font-extrabold tracking-tighter lowercase text-blue-600 drop-shadow-sm select-none"
+          >
+            {companyName}
+          </h1>
+        </div>
+
+        {/* Arco y nodos (círculo centrado y desplazado a la derecha del texto) */}
+        <div className="absolute right-[5%] lg:right-[15%] w-[360px] h-[360px] z-10 flex items-center justify-center">
+
+          {/* Anillo Semicircular */}
+          <div
+            className="absolute inset-0 rounded-full border-[26px] border-blue-600 opacity-90 transition-all duration-700 hover:border-blue-700"
+            style={{
+              clipPath: 'inset(-10% -10% -10% 40%)',
+            }}
+          />
+
+          {/* Líneas divisorias (opcional al estilo Odoo original) */}
+          <div className="absolute inset-4 rounded-full border border-slate-200/50 clip-right pointer-events-none" style={{ clipPath: 'inset(0 0 0 50%)' }}></div>
+
+          {/* Nodos y Radios */}
+          {items.map((item, index) => {
+            const pos = getRadialPosition(index);
+            const angles = [-70, -25, 15, 55, 95, 140];
+
+            return (
+              <React.Fragment key={item.id}>
+                {/* Línea radial (gris claro) */}
+                <div
+                  className="absolute top-1/2 left-1/2 bg-slate-200"
+                  style={{
+                    height: '2px',
+                    width: '45%',
+                    transformOrigin: '0 50%',
+                    transform: `translateY(-50%) rotate(${angles[index]}deg)`,
+                    zIndex: 0,
+                  }}
+                />
+
+                {/* Botón interactivo */}
+                <button
+                  onClick={() => setActiveTab(item.id)}
+                  className="absolute z-30 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center group outline-none"
+                  style={pos}
+                >
+                  <div className="relative flex items-center justify-center w-14 h-14 lg:w-16 lg:h-16 bg-white rounded-full border-4 border-blue-500 shadow-md group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 ease-out group-hover:border-blue-600">
+                    <item.Icon className="w-6 h-6 lg:w-7 lg:h-7 text-slate-500 group-hover:text-blue-600 transition-colors" />
+                  </div>
+
+                  {/* Etiqueta */}
+                  <div className="absolute top-full mt-2 lg:mt-3 opacity-80 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[10px] lg:text-xs font-bold text-slate-600 whitespace-nowrap uppercase tracking-widest bg-white/95 px-2.5 py-1 rounded-md shadow-sm border border-slate-100 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
+                      {item.label}
+                    </span>
+                  </div>
+                </button>
+              </React.Fragment>
+            )
+          })}
+        </div>
+      </div>
     </div>
   );
 };
@@ -356,9 +398,9 @@ export const AdminPanel: React.FC = () => {
     const days = Math.floor(diff / 86400000);
 
     if (minutes < 1) return 'Hace unos momentos';
-    if (minutes < 60) return `Hace ${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`;
-    if (hours < 24) return `Hace ${hours} ${hours === 1 ? 'hora' : 'horas'}`;
-    if (days < 7) return `Hace ${days} ${days === 1 ? 'día' : 'días'}`;
+    if (minutes < 60) return `Hace ${minutes} ${minutes === 1 ? 'minuto' : 'minutos'} `;
+    if (hours < 24) return `Hace ${hours} ${hours === 1 ? 'hora' : 'horas'} `;
+    if (days < 7) return `Hace ${days} ${days === 1 ? 'día' : 'días'} `;
     return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
   };
 
@@ -409,7 +451,7 @@ export const AdminPanel: React.FC = () => {
       const formattedMinutes = minutes.toString().padStart(2, '0');
       const formattedSeconds = seconds.toString().padStart(2, '0');
 
-      setSessionTime(`${formattedHours}:${formattedMinutes}:${formattedSeconds}`);
+      setSessionTime(`${formattedHours}:${formattedMinutes}:${formattedSeconds} `);
     }, 1000);
 
     return () => clearInterval(intervalId);
@@ -480,7 +522,7 @@ export const AdminPanel: React.FC = () => {
 
         toast({
           title: "Venta registrada",
-          description: `Las estadísticas han sido actualizadas. Venta: $${orderTotal.toLocaleString()}`,
+          description: `Las estadísticas han sido actualizadas.Venta: $${orderTotal.toLocaleString()} `,
         });
       }
     };
@@ -748,7 +790,7 @@ export const AdminPanel: React.FC = () => {
   // Función para generar ID encriptado (similar al de la imagen)
   const generateEncryptedId = (email: string, id: string) => {
     // Generar un ID corto basado en el email y el ID del usuario
-    const combined = `${email}-${id}`;
+    const combined = `${email} -${id} `;
     // Usar un hash simple o el ID truncado
     return id.substring(0, 20) || combined.substring(0, 20);
   };
@@ -979,10 +1021,10 @@ export const AdminPanel: React.FC = () => {
 
                         {/* Tipo de usuario */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${userType === "ACCOUNT-ADMIN"
+                          <span className={`inline - flex px - 2 py - 1 text - xs font - semibold rounded - full ${userType === "ACCOUNT-ADMIN"
                             ? "bg-purple-100 text-purple-800"
                             : "bg-gray-100 text-gray-800"
-                            }`}>
+                            } `}>
                             {userType}
                           </span>
                         </td>
@@ -1177,7 +1219,7 @@ export const AdminPanel: React.FC = () => {
             {/* Gestión - Menu Quick Access */}
             <button
               onClick={() => setActiveTab('management')}
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 cursor-pointer touch-manipulation ${activeTab === 'management' ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+              className={`w - 8 h - 8 rounded - full flex items - center justify - center transition - all active: scale - 95 cursor - pointer touch - manipulation ${activeTab === 'management' ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} `}
               style={{ WebkitTapHighlightColor: 'transparent' }}
               type="button"
               title="Gestión de Recursos"
@@ -1230,7 +1272,7 @@ export const AdminPanel: React.FC = () => {
                       stockNotifications.map((notification) => (
                         <div
                           key={notification.id}
-                          className={`p-3 hover:bg-slate-50 border-b border-slate-100 transition-colors cursor-pointer ${!notification.read ? 'bg-blue-50' : ''}`}
+                          className={`p - 3 hover: bg - slate - 50 border - b border - slate - 100 transition - colors cursor - pointer ${!notification.read ? 'bg-blue-50' : ''} `}
                           onClick={() => {
                             markAsRead(notification.id);
                             setSelectedProductId(notification.productId);
@@ -1248,7 +1290,7 @@ export const AdminPanel: React.FC = () => {
                                 )}
                                 <span className="truncate">
                                   {notification.type === 'out_of_stock'
-                                    ? `Agotado: ${notification.productName}`
+                                    ? `Agotado: ${notification.productName} `
                                     : `Stock bajo: ${notification.productName} (${notification.stock} unidades)`
                                   }
                                 </span>
@@ -1381,6 +1423,7 @@ export const AdminPanel: React.FC = () => {
                 <TabsTrigger value="configuration">Configuración</TabsTrigger>
                 <TabsTrigger value="filters">Filtros</TabsTrigger>
                 <TabsTrigger value="ai-assistant">AI Assistant</TabsTrigger>
+                <TabsTrigger value="image-library">Biblioteca</TabsTrigger>
                 <TabsTrigger value="help-manual">Manual de Ayuda</TabsTrigger>
                 {!isSubAdmin && (
                   <>
@@ -1525,6 +1568,7 @@ export const AdminPanel: React.FC = () => {
                   <ProductFormWithWizard
                     selectedProductId={selectedProductId}
                     onProductSelected={() => setSelectedProductId(null)}
+                    onViewLibrary={() => setActiveTab('image-library')}
                   />
                 </Suspense>
               </TabsContent>
@@ -1584,6 +1628,12 @@ export const AdminPanel: React.FC = () => {
               <TabsContent value="coupons" className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <CouponManager />
+                </Suspense>
+              </TabsContent>
+
+              <TabsContent value="image-library" className="space-y-6">
+                <Suspense fallback={<LoadingFallback />}>
+                  <ImageLibrary />
                 </Suspense>
               </TabsContent>
 
@@ -2281,7 +2331,7 @@ export const AdminPanel: React.FC = () => {
                             <div key={sub.id} className="bg-white rounded-xl border border-sky-100 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
                               <div className="p-3 sm:p-5 border-b border-sky-100 relative">
                                 {/* Status indicator - optimized for very small screens */}
-                                <div className={`absolute -right-1 -top-1 ${sub.liberta === "si" ? "bg-green-500" : "bg-amber-500"} text-white text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-bl-xl rounded-tr-xl font-medium shadow-md flex items-center gap-0.5 sm:gap-1`}>
+                                <div className={`absolute - right - 1 - top - 1 ${sub.liberta === "si" ? "bg-green-500" : "bg-amber-500"} text - white text - [9px] sm: text - xs px - 1.5 sm: px - 2 py - 0.5 sm: py - 1 rounded - bl - xl rounded - tr - xl font - medium shadow - md flex items - center gap - 0.5 sm: gap - 1`}>
                                   {sub.liberta === "si" ? (
                                     <>
                                       <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="sm:w-10 sm:h-10">
@@ -2337,9 +2387,10 @@ export const AdminPanel: React.FC = () => {
                               <div className="p-2 sm:p-4 bg-gradient-to-r from-sky-50 to-blue-50 flex flex-wrap sm:flex-nowrap items-center gap-1.5 sm:gap-2 sm:justify-between">
                                 <Button
                                   onClick={() => handleToggleLiberta(sub.id, sub.liberta)}
-                                  className={`text-[9px] sm:text-xs font-medium px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-md sm:rounded-lg flex-1 sm:flex-auto ${sub.liberta === "si"
+                                  className={`text - [9px] sm: text - xs font - medium px - 1.5 sm: px - 3 py - 0.5 sm: py - 1 rounded - md sm: rounded - lg flex - 1 sm: flex - auto ${sub.liberta === "si"
                                     ? "bg-gradient-to-r from-red-500 to-rose-600 text-white hover:shadow-md"
-                                    : "bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:shadow-md"}`}
+                                    : "bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:shadow-md"
+                                    } `}
                                 >
                                   {sub.liberta === "si" ? (
                                     <span className="flex items-center justify-center gap-0.5 sm:gap-1">
@@ -2472,6 +2523,12 @@ export const AdminPanel: React.FC = () => {
                     </Card>
                   </TabsContent>
 
+                  <TabsContent value="mail-config" className="space-y-6">
+                    <Suspense fallback={<LoadingFallback />}>
+                      <MailConfiguration />
+                    </Suspense>
+                  </TabsContent>
+
                   {/* Manual de Ayuda - duplicado eliminado; ver primer TabsContent help-manual más arriba */}
                 </>
               )}
@@ -2544,7 +2601,7 @@ export const AdminPanel: React.FC = () => {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="p-8">
+                  <CardContent className="p-0 sm:p-2">
                     <ManagementGrid setActiveTab={setActiveTab} />
                   </CardContent>
                 </Card>
