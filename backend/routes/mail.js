@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const nodemailer = require('nodemailer');
+const Imap = require('node-imap');
+const { simpleParser } = require('mailparser');
 const { createClient } = require('@supabase/supabase-js');
+const { callAI } = require('../utils/ai');
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -95,6 +98,34 @@ router.post('/send-bulk', async (req, res) => {
     }
 });
 
+// Probar conexión SMTP
+router.post('/test-smtp', async (req, res) => {
+    try {
+        const { smtpConfig: clientConfig } = req.body;
+
+        if (!clientConfig || !clientConfig.email || !clientConfig.appPassword) {
+            return res.status(400).json({ message: 'Faltan credenciales para la prueba.' });
+        }
+
+        const transporter = nodemailer.createTransport({
+            host: clientConfig.smtpHost || 'smtp.gmail.com',
+            port: parseInt(clientConfig.smtpPort) || 465,
+            secure: parseInt(clientConfig.smtpPort) === 465,
+            auth: {
+                user: clientConfig.email,
+                pass: clientConfig.appPassword,
+            },
+        });
+
+        await transporter.verify();
+        res.status(200).json({ message: 'Conexión SMTP exitosa.' });
+
+    } catch (error) {
+        console.error('[MAIL TEST ERROR]', error);
+        res.status(500).json({ message: 'Fallo conexión SMTP: ' + error.message });
+    }
+});
+
 // Enviar correo de confirmación de pedido al cliente
 router.post('/send-order-confirmation', async (req, res) => {
     try {
@@ -113,7 +144,6 @@ router.post('/send-order-confirmation', async (req, res) => {
             fromName: process.env.SMTP_FROM_NAME || 'Tienda Online'
         };
 
-        // Si el cliente nos envió configuración guardada
         if (clientConfig && clientConfig.email && clientConfig.appPassword) {
             smtpConfig.host = clientConfig.smtpHost || smtpConfig.host;
             smtpConfig.port = parseInt(clientConfig.smtpPort) || smtpConfig.port;
@@ -125,7 +155,7 @@ router.post('/send-order-confirmation', async (req, res) => {
         smtpConfig.secure = smtpConfig.port === 465;
 
         if (!smtpConfig.user || !smtpConfig.pass) {
-            return res.status(500).json({ message: 'La configuración SMTP no está completa. Configure sus credenciales de correo.' });
+            return res.status(500).json({ message: 'La configuración SMTP no está completa.' });
         }
 
         const transporter = nodemailer.createTransport({
@@ -271,6 +301,194 @@ router.post('/send-order-confirmation', async (req, res) => {
     } catch (error) {
         console.error('[MAIL] ❌ Error enviando confirmación:', error);
         res.status(500).json({ message: 'Error al enviar correo de confirmación: ' + error.message });
+    }
+});
+
+// --- 📧 NUEVAS FUNCIONES PARA RECIBIR Y AUTOMATIZAR ---
+
+// Listar correos recibidos desde la DB
+router.get('/inbound', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('emails_inbound')
+            .select('*')
+            .order('received_at', { ascending: false });
+
+        if (error) throw error;
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Forzar sincronización con el servidor de correo (IMAP)
+router.post('/sync', async (req, res) => {
+    console.log('[IMAP] Iniciando petición de sincronización...');
+    try {
+        const { smtpConfig: clientConfig } = req.body;
+
+        const config = {
+            user: clientConfig?.email || process.env.SMTP_USER,
+            password: clientConfig?.appPassword || process.env.SMTP_PASS,
+            host: clientConfig?.imapHost || process.env.IMAP_HOST || 'imap.gmail.com',
+            port: parseInt(clientConfig?.imapPort) || 993,
+            tls: true,
+            tlsOptions: { rejectUnauthorized: false }
+        };
+
+        if (!config.user || !config.password) {
+            console.warn('[IMAP] Credenciales incompletas.');
+            return res.status(400).json({ message: 'Faltan credenciales de correo (user/pass).' });
+        }
+
+        console.log(`[IMAP] Conectando a ${config.host}:${config.port} como ${config.user}...`);
+        const imap = new Imap(config);
+
+        const openBox = (cb) => {
+            imap.openBox('INBOX', false, cb);
+        };
+
+        let responseSent = false;
+
+        imap.once('ready', () => {
+            console.log('[IMAP] Conexión establecida. Abriendo INBOX...');
+            openBox((err, box) => {
+                if (err) {
+                    console.error('[IMAP ERROR BOX]', err);
+                    if (!responseSent) {
+                        responseSent = true;
+                        res.status(500).json({ error: 'Fallo al abrir INBOX: ' + err.message });
+                    }
+                    imap.end();
+                    return;
+                }
+
+                // Buscar los últimos 20 mensajes
+                imap.search(['ALL'], (err, results) => {
+                    if (err) {
+                        console.error('[IMAP ERROR SEARCH]', err);
+                        if (!responseSent) {
+                            responseSent = true;
+                            res.status(500).json({ error: 'Fallo al buscar correos: ' + err.message });
+                        }
+                        imap.end();
+                        return;
+                    }
+
+                    if (!results || results.length === 0) {
+                        console.log('[IMAP] Buzón vacío.');
+                        imap.end();
+                        if (!responseSent) {
+                            responseSent = true;
+                            return res.json({ message: 'Buzón vacío.' });
+                        }
+                        return;
+                    }
+
+                    const lastResults = results.slice(-20); // Últimos 20
+                    console.log(`[IMAP] Descargando ${lastResults.length} mensajes...`);
+                    const f = imap.fetch(lastResults, { bodies: '' });
+                    let downloaded = 0;
+
+                    f.on('message', (msg, seqno) => {
+                        msg.on('body', (stream, info) => {
+                            simpleParser(stream, async (err, parsed) => {
+                                if (!err) {
+                                    try {
+                                        // Guardar en Supabase asegurando que sea único
+                                        const { error: upsertError } = await supabase.from('emails_inbound').upsert({
+                                            message_id: parsed.messageId || `msg_${seqno}_${Date.now()}`,
+                                            from_email: parsed.from?.value[0]?.address || 'unknown',
+                                            from_name: parsed.from?.value[0]?.name || 'Unknown',
+                                            subject: parsed.subject || '(Sin Asunto)',
+                                            body_text: parsed.text || parsed.html || '(Sin contenido)',
+                                            received_at: parsed.date || new Date().toISOString(),
+                                            status: 'unread'
+                                        }, { onConflict: 'message_id' });
+
+                                        if (upsertError) {
+                                            console.error('[IMAP SUPABASE ERROR]', upsertError.message);
+                                            // Si la tabla no existe, informamos pero intentamos seguir con otros
+                                            if (upsertError.code === 'PGRST116' || upsertError.message.includes('not found')) {
+                                                console.error('[IMAP] Error: La tabla emails_inbound no parece existir.');
+                                            }
+                                        }
+                                    } catch (upsertFail) {
+                                        console.error('[IMAP UPSERT CRASH]', upsertFail.message);
+                                    }
+                                }
+
+                                downloaded++;
+                                if (downloaded === lastResults.length) {
+                                    console.log('[IMAP] Descarga finalizada.');
+                                    imap.end();
+                                }
+                            });
+                        });
+                    });
+
+                    f.once('error', (err) => {
+                        console.error('[IMAP FETCH ERROR]', err);
+                        imap.end();
+                    });
+                });
+            });
+        });
+
+        imap.once('error', (err) => {
+            console.error('[IMAP GLOBAL ERROR]', err);
+            if (!responseSent) {
+                responseSent = true;
+                res.status(500).json({ error: 'Error IMAP: ' + err.message });
+            }
+        });
+
+        imap.once('end', () => {
+            console.log('[IMAP] Conexión cerrada.');
+            if (!responseSent) {
+                responseSent = true;
+                res.json({ message: 'Sincronización completada correctamente.' });
+            }
+        });
+
+        imap.connect();
+
+    } catch (e) {
+        console.error('[IMAP CATCH]', e);
+        if (!responseSent) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+});
+
+// Generar borrador de respuesta con IA
+router.post('/generate-reply/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 1. Obtener el correo
+        const { data: email, error: e1 } = await supabase.from('emails_inbound').select('*').eq('id', id).single();
+        if (!email) return res.status(404).json({ error: 'Correo no encontrado.' });
+
+        // 2. Obtener ajustes del chatbot (para la API Key e instrucciones)
+        const { data: bot, error: e2 } = await supabase.from('chatbot_settings').select('*').maybeSingle();
+        if (!bot || !bot.api_key) return res.status(400).json({ error: 'Configura el ChatBot IA primero.' });
+
+        const prompt = `Un cliente ha enviado este correo:\nASUNTO: ${email.subject}\nCUERPO: ${email.body_text}\n\nGenera una respuesta profesional, amable y corta. Si pregunta por productos, menciona que puede verlos en la web 24/7. Firma como "Soporte al Cliente".`;
+        const systemPrompt = bot.prompt || "Eres un asistente de ventas profesional.";
+
+        const draft = await callAI(prompt, systemPrompt, {
+            provider: bot.provider,
+            apiKey: bot.api_key
+        });
+
+        // 3. Guardar borrador en la DB
+        await supabase.from('emails_inbound').update({ ai_draft: draft }).eq('id', id);
+
+        res.json({ draft });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 

@@ -443,180 +443,177 @@ const ChatBotManager = () => {
                 </div>
             ) : (
                 /* ── CHAT TEST VIEW with sidebar ── */
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in slide-in-from-right-4 duration-300" style={{ height: '640px' }}>
-                    <div className="flex h-full">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in slide-in-from-right-4 duration-300 flex" style={{ height: '640px' }}>
+                    {/* ── SIDEBAR: Conversation History ── */}
+                    <div className={cn(
+                        "border-r border-slate-100 flex flex-col bg-slate-50 transition-all duration-300 flex-shrink-0",
+                        sidebarOpen ? "w-64" : "w-0 overflow-hidden"
+                    )}>
+                        <div className="p-3 border-b border-slate-100 flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Conversaciones</span>
+                            <button onClick={handleNewConversation} title="Nueva conversación" className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-colors flex-shrink-0">
+                                <Plus className="w-4 h-4" />
+                            </button>
+                        </div>
 
-                        {/* ── SIDEBAR: Conversation History ── */}
-                        <div className={cn(
-                            "border-r border-slate-100 flex flex-col bg-slate-50 transition-all duration-300 flex-shrink-0",
-                            sidebarOpen ? "w-64" : "w-0 overflow-hidden"
-                        )}>
-                            <div className="p-3 border-b border-slate-100 flex items-center justify-between">
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Conversaciones</span>
-                                <button onClick={handleNewConversation} title="Nueva conversación" className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-colors flex-shrink-0">
-                                    <Plus className="w-4 h-4" />
-                                </button>
-                            </div>
+                        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                            {conversations.map(conv => {
+                                const isActive = conv.id === activeConvId;
+                                const preview = conv.messages.find(m => m.role === 'user')?.content || 'Sin mensajes aún';
+                                const timeAgo = (() => {
+                                    const diff = Date.now() - conv.createdAt;
+                                    if (diff < 60000) return 'ahora';
+                                    if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
+                                    return `${Math.floor(diff / 3600000)}h`;
+                                })();
 
-                            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                                {conversations.map(conv => {
-                                    const isActive = conv.id === activeConvId;
-                                    const preview = conv.messages.find(m => m.role === 'user')?.content || 'Sin mensajes aún';
-                                    const timeAgo = (() => {
-                                        const diff = Date.now() - conv.createdAt;
-                                        if (diff < 60000) return 'ahora';
-                                        if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
-                                        return `${Math.floor(diff / 3600000)}h`;
-                                    })();
-
-                                    return (
-                                        <div
-                                            key={conv.id}
-                                            onClick={() => setActiveConvId(conv.id)}
-                                            className={cn(
-                                                "group relative p-2.5 rounded-xl cursor-pointer transition-all text-left",
-                                                isActive
-                                                    ? "bg-indigo-50 border border-indigo-200"
-                                                    : "hover:bg-white border border-transparent hover:border-slate-200"
-                                            )}
-                                        >
-                                            <div className="flex items-start gap-2 pr-6">
-                                                <MessagesSquare className={cn("w-4 h-4 mt-0.5 flex-shrink-0", isActive ? "text-indigo-500" : "text-slate-400")} />
-                                                <div className="min-w-0">
-                                                    <p className={cn("text-xs font-semibold truncate", isActive ? "text-indigo-800" : "text-slate-700")}>
-                                                        {conv.title}
-                                                    </p>
-                                                    <p className="text-[10px] text-slate-400 truncate mt-0.5">{preview}</p>
-                                                    <p className="text-[10px] text-slate-300 mt-0.5 flex items-center gap-1">
-                                                        <Clock className="w-2.5 h-2.5" /> {timeAgo}
-                                                    </p>
-                                                </div>
+                                return (
+                                    <div
+                                        key={conv.id}
+                                        onClick={() => setActiveConvId(conv.id)}
+                                        className={cn(
+                                            "group relative p-2.5 rounded-xl cursor-pointer transition-all text-left",
+                                            isActive
+                                                ? "bg-indigo-50 border border-indigo-200"
+                                                : "hover:bg-white border border-transparent hover:border-slate-200"
+                                        )}
+                                    >
+                                        <div className="flex items-start gap-2 pr-6">
+                                            <MessagesSquare className={cn("w-4 h-4 mt-0.5 flex-shrink-0", isActive ? "text-indigo-500" : "text-slate-400")} />
+                                            <div className="min-w-0">
+                                                <p className={cn("text-xs font-semibold truncate", isActive ? "text-indigo-800" : "text-slate-700")}>
+                                                    {conv.title}
+                                                </p>
+                                                <p className="text-[10px] text-slate-400 truncate mt-0.5">{preview}</p>
+                                                <p className="text-[10px] text-slate-300 mt-0.5 flex items-center gap-1">
+                                                    <Clock className="w-2.5 h-2.5" /> {timeAgo}
+                                                </p>
                                             </div>
-                                            {/* Delete button */}
-                                            <button
-                                                onClick={e => handleDeleteConversation(conv.id, e)}
-                                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded flex items-center justify-center hover:bg-red-100 hover:text-red-500"
-                                            >
-                                                <Trash2 className="w-3 h-3" />
-                                            </button>
                                         </div>
-                                    );
-                                })}
-                            </div>
+                                        {/* Delete button */}
+                                        <button
+                                            onClick={e => handleDeleteConversation(conv.id, e)}
+                                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded flex items-center justify-center hover:bg-red-100 hover:text-red-500"
+                                        >
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
 
-                            {/* New conversation button (bottom) */}
-                            <div className="p-3 border-t border-slate-100">
+                        {/* New conversation button (bottom) */}
+                        <div className="p-3 border-t border-slate-100">
+                            <button
+                                onClick={handleNewConversation}
+                                className="w-full py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Nueva conversación
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* ── CHAT PANEL ── */}
+                    <div className="flex-1 flex flex-col min-w-0">
+                        {/* Header */}
+                        <div className="p-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-2.5">
+                                <button
+                                    onClick={() => setSidebarOpen(v => !v)}
+                                    title={sidebarOpen ? 'Colapsar historial' : 'Ver historial'}
+                                    className="w-8 h-8 rounded-lg hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
+                                >
+                                    {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+                                </button>
+                                <div className="w-9 h-9 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-md">
+                                    <Bot className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-sm leading-tight">{activeConv?.title ?? 'Modo de Prueba IA'}</h3>
+                                    <p className="text-[10px] text-emerald-600 flex items-center gap-1 font-bold">
+                                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" /> ONLINE · {provider}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
                                 <button
                                     onClick={handleNewConversation}
-                                    className="w-full py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-all flex items-center justify-center gap-2"
+                                    className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-600 bg-white border border-slate-200 hover:border-indigo-200 px-3 py-1.5 rounded-lg transition-all"
                                 >
-                                    <Plus className="w-3.5 h-3.5" /> Nueva conversación
+                                    <Plus className="w-3.5 h-3.5" /> Nuevo chat
                                 </button>
+                                <Button variant="ghost" size="sm" onClick={() => setActiveView('settings')} className="text-slate-500 gap-1.5 text-xs h-8">
+                                    <ArrowLeft className="w-3.5 h-3.5" /> Ajustes
+                                </Button>
                             </div>
                         </div>
 
-                        {/* ── CHAT PANEL ── */}
-                        <div className="flex-1 flex flex-col min-w-0">
-                            {/* Header */}
-                            <div className="p-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between flex-shrink-0">
-                                <div className="flex items-center gap-2.5">
-                                    <button
-                                        onClick={() => setSidebarOpen(v => !v)}
-                                        title={sidebarOpen ? 'Colapsar historial' : 'Ver historial'}
-                                        className="w-8 h-8 rounded-lg hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
-                                    >
-                                        {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
-                                    </button>
-                                    <div className="w-9 h-9 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-md">
-                                        <Bot className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-slate-800 text-sm leading-tight">{activeConv?.title ?? 'Modo de Prueba IA'}</h3>
-                                        <p className="text-[10px] text-emerald-600 flex items-center gap-1 font-bold">
-                                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" /> ONLINE · {provider}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={handleNewConversation}
-                                        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-600 bg-white border border-slate-200 hover:border-indigo-200 px-3 py-1.5 rounded-lg transition-all"
-                                    >
-                                        <Plus className="w-3.5 h-3.5" /> Nuevo chat
-                                    </button>
-                                    <Button variant="ghost" size="sm" onClick={() => setActiveView('settings')} className="text-slate-500 gap-1.5 text-xs h-8">
-                                        <ArrowLeft className="w-3.5 h-3.5" /> Ajustes
-                                    </Button>
-                                </div>
-                            </div>
-
-                            {/* Messages */}
-                            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30">
-                                {messages.map((m, i) => (
-                                    <div key={i} className={cn(
-                                        "flex flex-col max-w-[88%] animate-in fade-in slide-in-from-bottom-2 duration-300",
-                                        m.role === 'user' ? "ml-auto items-end" : "mr-auto items-start"
+                        {/* Messages */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30">
+                            {messages.map((m, i) => (
+                                <div key={i} className={cn(
+                                    "flex flex-col max-w-[88%] animate-in fade-in slide-in-from-bottom-2 duration-300",
+                                    m.role === 'user' ? "ml-auto items-end" : "mr-auto items-start"
+                                )}>
+                                    <div className={cn(
+                                        "p-3.5 rounded-2xl text-sm shadow-sm leading-relaxed",
+                                        m.role === 'user'
+                                            ? "bg-slate-900 text-white rounded-br-none"
+                                            : "bg-white border border-slate-200 text-slate-800 rounded-bl-none"
                                     )}>
-                                        <div className={cn(
-                                            "p-3.5 rounded-2xl text-sm shadow-sm leading-relaxed",
-                                            m.role === 'user'
-                                                ? "bg-slate-900 text-white rounded-br-none"
-                                                : "bg-white border border-slate-200 text-slate-800 rounded-bl-none"
-                                        )}>
-                                            {m.content}
-                                            {m.products && m.products.length > 0 && (
-                                                <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100">
-                                                    {m.products.map((p, idx) => (
-                                                        <div key={idx} onClick={() => window.open(`/producto/${slugify(p.name)}`, '_blank')}
-                                                            className="bg-slate-50 border border-slate-200 rounded-xl p-2 flex items-center gap-2 cursor-pointer hover:border-indigo-400 hover:bg-white transition-all w-full">
-                                                            <div className="w-10 h-10 bg-white rounded-lg flex-shrink-0 border border-slate-100 p-1">
-                                                                <img src={p.image} alt={p.name} className="w-full h-full object-contain" />
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="text-[11px] font-bold text-slate-800 truncate">{p.name}</p>
-                                                                <p className="text-[10px] text-indigo-600 font-black">COP {p.price.toLocaleString('es-CO')}</p>
-                                                            </div>
+                                        {m.content}
+                                        {m.products && m.products.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100">
+                                                {m.products.map((p, idx) => (
+                                                    <div key={idx} onClick={() => window.open(`/producto/${slugify(p.name)}`, '_blank')}
+                                                        className="bg-slate-50 border border-slate-200 rounded-xl p-2 flex items-center gap-2 cursor-pointer hover:border-indigo-400 hover:bg-white transition-all w-full">
+                                                        <div className="w-10 h-10 bg-white rounded-lg flex-shrink-0 border border-slate-100 p-1">
+                                                            <img src={p.image} alt={p.name} className="w-full h-full object-contain" />
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <span className="text-[10px] text-slate-400 mt-1 px-1 flex items-center gap-1">
-                                            {m.role === 'user' ? 'Tú (Prueba)' : (<><Sparkles className="w-3 h-3 text-indigo-400" /> Asistente AI</>)}
-                                        </span>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-[11px] font-bold text-slate-800 truncate">{p.name}</p>
+                                                            <p className="text-[10px] text-indigo-600 font-black">COP {p.price.toLocaleString('es-CO')}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                ))}
-                                {isLoading && (
-                                    <div className="flex items-center gap-3 text-slate-400 text-xs italic p-3 bg-white/50 backdrop-blur-sm rounded-2xl w-fit border border-slate-100 animate-pulse">
-                                        <div className="flex gap-1">
-                                            <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" />
-                                            <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce delay-150" />
-                                            <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce delay-300" />
-                                        </div>
-                                        El bot está analizando...
-                                    </div>
-                                )}
-                                <div ref={messagesEndRef} />
-                            </div>
-
-                            {/* Input */}
-                            <div className="p-3.5 border-t border-slate-200 bg-white flex-shrink-0">
-                                <div className="flex gap-2">
-                                    <Input
-                                        value={input}
-                                        onChange={e => setInput(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-                                        placeholder="Escribe un mensaje para probar la IA..."
-                                        className="rounded-xl h-11 shadow-sm border-slate-200 focus:border-indigo-500"
-                                    />
-                                    <Button onClick={handleSendMessage} disabled={isLoading || !input.trim()} className="bg-indigo-600 hover:bg-indigo-700 text-white w-11 h-11 rounded-xl flex-shrink-0 shadow-md">
-                                        <Send className="w-4 h-4" />
-                                    </Button>
+                                    <span className="text-[10px] text-slate-400 mt-1 px-1 flex items-center gap-1">
+                                        {m.role === 'user' ? 'Tú (Prueba)' : (<><Sparkles className="w-3 h-3 text-indigo-400" /> Asistente AI</>)}
+                                    </span>
                                 </div>
-                                <p className="text-center text-[10px] text-slate-400 mt-2">
-                                    Prueba cómo responderá la IA · <button onClick={handleNewConversation} className="text-indigo-500 hover:underline">+ Nuevo chat</button>
-                                </p>
+                            ))}
+                            {isLoading && (
+                                <div className="flex items-center gap-3 text-slate-400 text-xs italic p-3 bg-white/50 backdrop-blur-sm rounded-2xl w-fit border border-slate-100 animate-pulse">
+                                    <div className="flex gap-1">
+                                        <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" />
+                                        <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce delay-150" />
+                                        <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce delay-300" />
+                                    </div>
+                                    El bot está analizando...
+                                </div>
+                            )}
+                            <div ref={messagesEndRef} />
+                        </div>
+
+                        {/* Input */}
+                        <div className="p-3.5 border-t border-slate-200 bg-white flex-shrink-0">
+                            <div className="flex gap-2">
+                                <Input
+                                    value={input}
+                                    onChange={e => setInput(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+                                    placeholder="Escribe un mensaje para probar la IA..."
+                                    className="rounded-xl h-11 shadow-sm border-slate-200 focus:border-indigo-500"
+                                />
+                                <Button onClick={handleSendMessage} disabled={isLoading || !input.trim()} className="bg-indigo-600 hover:bg-indigo-700 text-white w-11 h-11 rounded-xl flex-shrink-0 shadow-md">
+                                    <Send className="w-4 h-4" />
+                                </Button>
                             </div>
+                            <p className="text-center text-[10px] text-slate-400 mt-2">
+                                Prueba cómo responderá la IA · <button onClick={handleNewConversation} className="text-indigo-500 hover:underline">+ Nuevo chat</button>
+                            </p>
                         </div>
                     </div>
                 </div>

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Mail, Key, Save, Server, Info, Send } from "lucide-react";
+import { testMailConnection } from '@/lib/api';
 import { toast } from 'sonner';
 
 export const MailConfiguration = () => {
@@ -66,11 +67,10 @@ export const MailConfiguration = () => {
 
         setTestLoading(true);
         try {
-            // Simular prueba de conexión SMTP
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            await testMailConnection(config);
             toast.success("Prueba exitosa. Las credenciales son válidas.");
-        } catch (error) {
-            toast.error("Error al conectar con el servidor SMTP");
+        } catch (error: any) {
+            toast.error(error.message || "Error al conectar con el servidor SMTP");
         } finally {
             setTestLoading(false);
         }

@@ -35,7 +35,8 @@ import {
   ChevronLeft,
   Key,
   Ticket,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Inbox
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -183,6 +184,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'management', icon: <LayoutGrid className="h-5 w-5" />, label: 'Gestión', description: 'Administración de recursos' },
     { id: 'subaccounts', icon: <Users className="h-5 w-5" />, label: 'Subcuentas', description: 'Gestión de accesos' },
     { id: 'ai-assistant', icon: <Bot className="h-5 w-5" />, label: 'Asistente IA', description: 'Inteligencia artificial' },
+    { id: 'emails', icon: <Inbox className="h-5 w-5" />, label: 'Correos', description: 'Bandeja de entrada' },
     { id: 'help-manual', icon: <HelpCircle className="h-5 w-5" />, label: 'Ayuda', description: 'Manual de usuario' },
 
 

@@ -433,6 +433,7 @@ const sidebarItems = [
   { id: 'analytics', label: 'Analítica', description: 'Estadísticas avanzadas' },
   { id: 'info', label: 'Info Secciones', description: 'Configuración general' },
   { id: 'ai-assistant', label: 'Asistente IA', description: 'Inteligencia artificial' },
+  { id: 'emails', label: 'Correos', description: 'Bandeja de entrada' },
   { id: 'image-library', label: 'Biblioteca', description: 'Gestión de imágenes' },
   { id: 'help-manual', label: 'Manual de Ayuda', description: 'Guías y tutoriales' },
   { id: 'revisiones', label: 'Revisiones', description: 'Aprobar cambios' }

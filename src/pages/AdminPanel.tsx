@@ -93,6 +93,7 @@ const FilterManager = lazy(() => import('@/components/admin/FilterManager').then
 const CredentialsManager = lazy(() => import('@/components/admin/CredentialsManager').then(m => ({ default: m.default })));
 const CouponManager = lazy(() => import('@/components/admin/CouponManager').then(m => ({ default: m.CouponManager })));
 const ChatBotManager = lazy(() => import('@/components/admin/ChatBotManager'));
+const EmailInbox = lazy(() => import('@/components/admin/EmailInbox'));
 const SupplierManager = lazy(() => import('@/components/admin/SupplierManager').then(m => ({ default: m.SupplierManager })));
 // (ya importado arriba)
 import { createUserWithEmailAndPassword } from "firebase/auth";
@@ -2605,6 +2606,13 @@ export const AdminPanel: React.FC = () => {
                     <ManagementGrid setActiveTab={setActiveTab} />
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              {/* Email Inbox */}
+              <TabsContent value="emails" className="space-y-6">
+                <Suspense fallback={<LoadingFallback />}>
+                  <EmailInbox />
+                </Suspense>
               </TabsContent>
 
               {/* AI Assistant - disponible para todos (admin y subadmin) */}

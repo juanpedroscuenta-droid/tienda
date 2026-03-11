@@ -693,3 +693,75 @@ export const sendOrderConfirmationEmail = async (order: any) => {
     return await response.json();
 }
 
+/**
+ * Probar conexión SMTP
+ */
+export const testMailConnection = async (smtpConfig: any) => {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/mail/test-smtp`, {
+        method: 'POST',
+        timeout: 15000,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ smtpConfig }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error al conectar con el servidor');
+    }
+    return await response.json();
+}
+
+/**
+ * Obtener correos recibidos desde la DB
+ */
+export const fetchInboundEmails = async () => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/mail/inbound`, { timeout: 15000 });
+        if (!response.ok) throw new Error('Error al obtener correos recibidos');
+        return await response.json();
+    } catch (error: any) {
+        console.error('fetchInboundEmails failed:', error.message);
+        return [];
+    }
+}
+
+/**
+ * Sincronizar bandeja de entrada (IMAP)
+ */
+export const syncInboundEmails = async () => {
+    const savedConfig = localStorage.getItem('__mail_config');
+    let smtpConfig = null;
+    if (savedConfig) {
+        try { smtpConfig = JSON.parse(savedConfig); } catch (e) { }
+    }
+
+    const response = await fetchWithTimeout(`${API_BASE_URL}/mail/sync`, {
+        method: 'POST',
+        timeout: 60000,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ smtpConfig }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || 'Fallo sincronización');
+    }
+    return await response.json();
+}
+
+/**
+ * Generar borrador de respuesta con IA para un correo
+ */
+export const generateEmailReplyDraft = async (emailId: string) => {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/mail/generate-reply/${emailId}`, {
+        method: 'POST',
+        timeout: 30000,
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'No se pudo generar el borrador');
+    }
+    return await response.json();
+}
+
