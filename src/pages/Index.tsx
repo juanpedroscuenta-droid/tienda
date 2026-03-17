@@ -3,6 +3,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { CartProvider } from '@/contexts/CartContext';
 import { Header } from '@/components/layout/Header';
 import { HeroSection } from '@/components/home/HeroSection';
+import { SearchOptionsSection } from '@/components/home/SearchOptionsSection';
 import { ProductsSection } from '@/components/products/ProductsSection';
 
 const Index = () => {
@@ -17,6 +18,7 @@ const Index = () => {
           <Header />
           <main>
             <HeroSection isCatalog={showCatalog} />
+            <SearchOptionsSection />
             <ProductsSection
               selectedCategory={selectedCategory}
               setSelectedCategory={setSelectedCategory}

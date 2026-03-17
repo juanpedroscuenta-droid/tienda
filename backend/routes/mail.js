@@ -337,7 +337,8 @@ router.post('/sync', async (req, res) => {
         };
 
         if (!config.user || !config.password) {
-            console.warn('[IMAP] Credenciales incompletas.');
+            console.warn('[IMAP] Credenciales incompletas. Faltan SMTP_USER o SMTP_PASS en .env, o config en cliente.');
+            console.log('[IMAP] Config enviada:', { user: config.user, host: config.host, port: config.port, hasPassword: !!config.password });
             return res.status(400).json({ message: 'Faltan credenciales de correo (user/pass).' });
         }
 
@@ -395,26 +396,68 @@ router.post('/sync', async (req, res) => {
                             simpleParser(stream, async (err, parsed) => {
                                 if (!err) {
                                     try {
-                                        // Guardar en Supabase asegurando que sea único
-                                        const { error: upsertError } = await supabase.from('emails_inbound').upsert({
+                                        // Extraer texto limpio si no viene en el parsed.text
+                                        let cleanText = parsed.text;
+                                        if (!cleanText && parsed.html) {
+                                            // Limpieza avanzada de HTML para el previo del texto
+                                            cleanText = parsed.html
+                                                .replace(/<style([\s\S]*?)<\/style>/gi, '')
+                                                .replace(/<script([\s\S]*?)<\/script>/gi, '')
+                                                .replace(/<[^>]*>?/gm, ' ')
+                                                // Decodificar entidades comunes que suelen aparecer como caracteres extraños
+                                                .replace(/&nbsp;/g, ' ')
+                                                .replace(/&zwnj;/g, '')
+                                                .replace(/&quot;/g, '"')
+                                                .replace(/&amp;/g, '&')
+                                                .replace(/&lt;/g, '<')
+                                                .replace(/&gt;/g, '>')
+                                                .replace(/&apos;/g, "'")
+                                                .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+                                                .replace(/&([a-z]+);/gi, (match, entity) => {
+                                                    const entities = { 
+                                                        'aacute': 'á', 'eacute': 'é', 'iacute': 'í', 'oacute': 'ó', 'uacute': 'ú',
+                                                        'Aacute': 'Á', 'Eacute': 'É', 'Iacute': 'Í', 'Oacute': 'Ó', 'Uacute': 'Ú',
+                                                        'ntilde': 'ñ', 'Ntilde': 'Ñ', 'iexcl': '¡', 'iquest': '¿'
+                                                    };
+                                                    return entities[entity] || match;
+                                                })
+                                                .replace(/\s+/g, ' ')
+                                                .trim();
+                                        }
+
+                                        const emailData = {
                                             message_id: parsed.messageId || `msg_${seqno}_${Date.now()}`,
                                             from_email: parsed.from?.value[0]?.address || 'unknown',
                                             from_name: parsed.from?.value[0]?.name || 'Unknown',
                                             subject: parsed.subject || '(Sin Asunto)',
-                                            body_text: parsed.text || parsed.html || '(Sin contenido)',
+                                            body_text: cleanText || '(Sin contenido)',
+                                            body_html: parsed.html || null,
                                             received_at: parsed.date || new Date().toISOString(),
                                             status: 'unread'
-                                        }, { onConflict: 'message_id' });
+                                        };
+
+                                        // Guardar en Supabase asegurando que sea único con fallback por si no existe la columna body_html
+                                        let { error: upsertError } = await supabase.from('emails_inbound').upsert(emailData, { onConflict: 'message_id' });
+
+                                        // Si falla porque no existe la columna body_html, intentar sin ella
+                                        if (upsertError && (upsertError.message.includes('body_html') || upsertError.message.includes('column'))) {
+                                            console.warn('[IMAP] La columna body_html parece no existir. Guardando solo body_text...');
+                                            const { body_html, ...dataWithoutHtml } = emailData;
+                                            const retry = await supabase.from('emails_inbound').upsert(dataWithoutHtml, { onConflict: 'message_id' });
+                                            upsertError = retry.error;
+                                        }
 
                                         if (upsertError) {
-                                            console.error('[IMAP SUPABASE ERROR]', upsertError.message);
+                                            console.error('[IMAP SUPABASE ERROR] Error al guardar mensaje:', upsertError);
                                             // Si la tabla no existe, informamos pero intentamos seguir con otros
-                                            if (upsertError.code === 'PGRST116' || upsertError.message.includes('not found')) {
-                                                console.error('[IMAP] Error: La tabla emails_inbound no parece existir.');
+                                            if (upsertError.code === 'PGRST116' || upsertError.message.includes('not found') || upsertError.message.includes('relation "emails_inbound" does not exist')) {
+                                                console.error('[IMAP ERROR CRITICO] La tabla "emails_inbound" NO EXISTE en Supabase. Ejecuta el script de inicialización.');
                                             }
+                                        } else {
+                                            console.log(`[IMAP] Mensaje guardado/actualizado: ${parsed.subject.substring(0, 30)}...`);
                                         }
                                     } catch (upsertFail) {
-                                        console.error('[IMAP UPSERT CRASH]', upsertFail.message);
+                                        console.error('[IMAP UPSERT CRASH] Fallo inesperado en upsert:', upsertFail);
                                     }
                                 }
 
@@ -474,7 +517,18 @@ router.post('/generate-reply/:id', async (req, res) => {
         const { data: bot, error: e2 } = await supabase.from('chatbot_settings').select('*').maybeSingle();
         if (!bot || !bot.api_key) return res.status(400).json({ error: 'Configura el ChatBot IA primero.' });
 
-        const prompt = `Un cliente ha enviado este correo:\nASUNTO: ${email.subject}\nCUERPO: ${email.body_text}\n\nGenera una respuesta profesional, amable y corta. Si pregunta por productos, menciona que puede verlos en la web 24/7. Firma como "Soporte al Cliente".`;
+        const prompt = `Analiza el siguiente correo y genera una respuesta profesional y coherente con el contexto. 
+
+ASUNTO: ${email.subject}
+CUERPO: ${email.body_text}
+
+INSTRUCCIONES DE RESPUESTA:
+1. Detecta el tono (si es un cliente, un profesor, un colega o un trámite).
+2. Si es institucional o académico, sé formal y confirma recepción/seguimiento.
+3. Si es un cliente preguntando por la tienda, menciona que puede ver productos en la web 24/7.
+4. Si es una queja, sé empático.
+5. Usa un tono amable y firma de forma genérica como "Atentamente,".
+6. La respuesta debe ser concisa (máximo 2 párrafos).`;
         const systemPrompt = bot.prompt || "Eres un asistente de ventas profesional.";
 
         const draft = await callAI(prompt, systemPrompt, {

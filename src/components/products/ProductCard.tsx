@@ -69,7 +69,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) 
       {Boolean(product.isOffer || (product as any).is_offer || (product.discount && product.discount > 0)) && (
         <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 -mt-2">
           <div className="bg-[#1a1a1a] text-white text-[9px] font-black px-4 py-0.5 rounded-full whitespace-nowrap shadow-sm uppercase">
-            Variedad
+            Oferta
           </div>
         </div>
       )}
@@ -80,6 +80,8 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) 
             <img
               src={product.image}
               alt={product.name}
+              width="200"
+              height="200"
               className={`max-h-full max-w-full object-contain transform transition-all duration-700 ${secondImage ? 'group-hover/card:opacity-0 group-hover/card:scale-95' : 'group-hover/card:scale-105'}`}
               loading="lazy"
             />
@@ -87,6 +89,8 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) 
               <img
                 src={secondImage}
                 alt={product.name}
+                width="200"
+                height="200"
                 className="absolute inset-0 m-auto max-h-[80%] max-w-[80%] object-contain opacity-0 group-hover/card:opacity-100 transform scale-95 group-hover/card:scale-100 transition-all duration-700"
                 loading="lazy"
               />

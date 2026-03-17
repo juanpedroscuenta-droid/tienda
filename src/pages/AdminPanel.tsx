@@ -134,112 +134,101 @@ const ManagementGrid = ({ setActiveTab }: { setActiveTab: (tab: string) => void 
   }, []);
 
   const items = [
-    { id: 'suppliers', label: 'PROVEEDORES', Icon: Truck },
-    { id: 'coupons', label: 'CUPONES', Icon: BadgePercent },
-    { id: 'categories', label: 'CATEGORÍAS', Icon: FolderTree },
-    { id: 'credentials', label: 'ACCESOS', Icon: ShieldCheck },
-    { id: 'revisiones', label: 'REVISIONES', Icon: ClipboardCheck },
-    { id: 'image-library', label: 'BIBLIOTECA', Icon: ImageIcon },
+    {
+      id: 'suppliers',
+      label: 'Proveedores',
+      description: 'Gestión de cadena de suministro y contactos comerciales.',
+      Icon: Truck,
+      color: 'from-blue-500 to-indigo-600',
+      size: 'medium'
+    },
+    {
+      id: 'coupons',
+      label: 'Cupones',
+      description: 'Configura descuentos y campañas.',
+      Icon: BadgePercent,
+      color: 'from-purple-500 to-pink-600',
+      size: 'small'
+    },
+    {
+      id: 'categories',
+      label: 'Categorías',
+      description: 'Estructura de navegación del catálogo.',
+      Icon: FolderTree,
+      color: 'from-emerald-500 to-teal-600',
+      size: 'small'
+    },
+    {
+      id: 'credentials',
+      label: 'Accesos',
+      description: 'Control de seguridad y permisos del equipo.',
+      Icon: ShieldCheck,
+      color: 'from-orange-500 to-red-600',
+      size: 'medium'
+    },
+    {
+      id: 'revisiones',
+      label: 'Revisiones',
+      description: 'Supervisa y aprueba cambios pendientes.',
+      Icon: ClipboardCheck,
+      color: 'from-amber-400 to-orange-500',
+      size: 'small'
+    },
+    {
+      id: 'image-library',
+      label: 'Biblioteca',
+      description: 'Repositorio central de activos visuales.',
+      Icon: ImageIcon,
+      color: 'from-sky-400 to-blue-500',
+      size: 'small'
+    },
   ];
 
-  const getRadialPosition = (index: number) => {
-    const angles = [-70, -25, 15, 55, 95, 140]; // En grados
-    const angle = angles[index] * (Math.PI / 180);
-    const radius = 50; // porcentaje
-
-    const x = 50 + radius * Math.cos(angle);
-    const y = 50 + radius * Math.sin(angle);
-    return { left: `${x}%`, top: `${y}%` };
-  };
-
   return (
-    <div className="w-full relative min-h-[350px] md:min-h-[400px] flex items-start justify-center bg-[#ffffff] rounded-xl py-6 px-4">
-
-      {/* Vista móvil (cuadrícula estándar en pantallas pequeñas) */}
-      <div className="grid grid-cols-2 gap-4 w-full px-4 md:hidden mt-2">
-        {items.map((item) => (
+    <div className="w-full p-4 lg:p-6 bg-white rounded-3xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {items.map((item, index) => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className="flex flex-col items-center justify-center p-6 border rounded-2xl shadow-sm bg-white hover:bg-slate-50 hover:border-blue-500 transition-colors group"
+            className={cn(
+              "group relative overflow-hidden rounded-2xl p-6 text-left transition-all duration-500 hover:-translate-y-1 hover:shadow-xl active:scale-95",
+              item.size === 'medium' ? "md:col-span-2" : "col-span-1",
+              "bg-slate-50 border border-slate-100 h-full flex flex-col justify-between"
+            )}
+            style={{ minHeight: '180px' }}
           >
-            <item.Icon className="w-8 h-8 text-blue-600 mb-3 group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-bold text-slate-800 text-center">{item.label}</span>
+            {/* Background Gradient Glow */}
+            <div className={cn(
+              "absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br opacity-5 blur-2xl transition-opacity duration-500 group-hover:opacity-15",
+              item.color
+            )} />
+
+            <div className="relative z-10">
+              <div className={cn(
+                "mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br shadow-md transition-transform duration-500 group-hover:scale-110",
+                item.color
+              )}>
+                <item.Icon className="h-6 w-6 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 tracking-tight group-hover:text-blue-600 transition-colors">
+                {item.label}
+              </h3>
+              <p className="mt-2 text-xs font-medium text-slate-500 leading-relaxed line-clamp-2">
+                {item.description}
+              </p>
+            </div>
+
+            <div className="relative z-10 mt-4 flex items-center text-xs font-bold text-blue-600 opacity-0 transform translate-x-[-10px] group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+              Gestionar
+              <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+            </div>
           </button>
         ))}
-      </div>
-
-      {/* Vista de escritorio (Estilo radial tipo Odoo) */}
-      <div className="hidden md:flex relative w-full h-[380px] items-center justify-center max-w-4xl -mt-16">
-
-        {/* Logo de Texto */}
-        <div className="absolute z-20 flex items-center pr-[300px]">
-          <h1
-            className="text-6xl lg:text-7xl font-sans font-extrabold tracking-tighter lowercase text-blue-600 drop-shadow-sm select-none"
-          >
-            {companyName}
-          </h1>
-        </div>
-
-        {/* Arco y nodos (círculo centrado y desplazado a la derecha del texto) */}
-        <div className="absolute right-[5%] lg:right-[15%] w-[360px] h-[360px] z-10 flex items-center justify-center">
-
-          {/* Anillo Semicircular */}
-          <div
-            className="absolute inset-0 rounded-full border-[26px] border-blue-600 opacity-90 transition-all duration-700 hover:border-blue-700"
-            style={{
-              clipPath: 'inset(-10% -10% -10% 40%)',
-            }}
-          />
-
-          {/* Líneas divisorias (opcional al estilo Odoo original) */}
-          <div className="absolute inset-4 rounded-full border border-slate-200/50 clip-right pointer-events-none" style={{ clipPath: 'inset(0 0 0 50%)' }}></div>
-
-          {/* Nodos y Radios */}
-          {items.map((item, index) => {
-            const pos = getRadialPosition(index);
-            const angles = [-70, -25, 15, 55, 95, 140];
-
-            return (
-              <React.Fragment key={item.id}>
-                {/* Línea radial (gris claro) */}
-                <div
-                  className="absolute top-1/2 left-1/2 bg-slate-200"
-                  style={{
-                    height: '2px',
-                    width: '45%',
-                    transformOrigin: '0 50%',
-                    transform: `translateY(-50%) rotate(${angles[index]}deg)`,
-                    zIndex: 0,
-                  }}
-                />
-
-                {/* Botón interactivo */}
-                <button
-                  onClick={() => setActiveTab(item.id)}
-                  className="absolute z-30 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center group outline-none"
-                  style={pos}
-                >
-                  <div className="relative flex items-center justify-center w-14 h-14 lg:w-16 lg:h-16 bg-white rounded-full border-4 border-blue-500 shadow-md group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 ease-out group-hover:border-blue-600">
-                    <item.Icon className="w-6 h-6 lg:w-7 lg:h-7 text-slate-500 group-hover:text-blue-600 transition-colors" />
-                  </div>
-
-                  {/* Etiqueta */}
-                  <div className="absolute top-full mt-2 lg:mt-3 opacity-80 group-hover:opacity-100 transition-opacity">
-                    <span className="text-[10px] lg:text-xs font-bold text-slate-600 whitespace-nowrap uppercase tracking-widest bg-white/95 px-2.5 py-1 rounded-md shadow-sm border border-slate-100 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
-                      {item.label}
-                    </span>
-                  </div>
-                </button>
-              </React.Fragment>
-            )
-          })}
-        </div>
       </div>
     </div>
   );
 };
-
 
 export const AdminPanel: React.FC = () => {
   const isSupabase = typeof (db as any)?.from === 'function';

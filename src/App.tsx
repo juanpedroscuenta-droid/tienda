@@ -36,8 +36,7 @@ const MarcasPage = lazy(() => import("./pages/MarcasPage"));
 const ServiciosPage = lazy(() => import("./pages/ServiciosPage"));
 const TerminosPage = lazy(() => import("./pages/TerminosPage"));
 const PromocionesPage = lazy(() => import("./pages/PromocionesPage"));
-const HabeasDataPage = lazy(() => import("./pages/HabeasDataPage"));
-const TransparenciaPage = lazy(() => import("./pages/TransparenciaPage"));
+
 const RastreoPage = lazy(() => import("./pages/RastreoPage"));
 const GarantiaPage = lazy(() => import("./pages/GarantiaPage"));
 const ContactoPage = lazy(() => import("./pages/ContactoPage"));
@@ -131,8 +130,7 @@ const App = () => {
                       <Route path="/servicios" element={<ServiciosPage />} />
                       <Route path="/terminos" element={<TerminosPage />} />
                       <Route path="/promociones" element={<PromocionesPage />} />
-                      <Route path="/habeas-data" element={<HabeasDataPage />} />
-                      <Route path="/transparencia" element={<TransparenciaPage />} />
+
                       <Route path="/rastreo" element={<RastreoPage />} />
                       <Route path="/garantia" element={<GarantiaPage />} />
                       <Route path="/contacto" element={<ContactoPage />} />

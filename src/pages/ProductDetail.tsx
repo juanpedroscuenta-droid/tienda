@@ -35,6 +35,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { FilterSidebar } from '@/components/products/FilterSidebar';
+import { SocialShareBar } from '@/components/products/SocialShareBar';
 import { useFilters } from '@/hooks/use-filters';
 
 import { Product } from '@/contexts/CartContext';
@@ -348,6 +349,10 @@ const ProductDetailPage = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
+      <SocialShareBar 
+        productName={product.name} 
+        productUrl={window.location.href} 
+      />
       <AdvancedHeader
         selectedCategory={product?.category || ""}
         setSelectedCategory={(cat) => navigate('/categoria/' + encodeURIComponent(cat))}

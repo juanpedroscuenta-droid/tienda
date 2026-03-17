@@ -23,6 +23,7 @@ async function initSyncTables() {
             from_name text,
             subject text,
             body_text text,
+            body_html text,
             received_at timestamptz DEFAULT now(),
             is_replied boolean DEFAULT false,
             ai_draft text,

@@ -54,7 +54,9 @@ let storeProductsCache: Product[] | null = null;
 let storeProductsTimestamp: number | null = null;
 let storeCategoriesCache: any[] | null = null;
 let storeCategoriesTimestamp: number | null = null;
-const STORE_CACHE_DURATION = 3 * 60 * 1000; // 3 minutos
+const STORE_CACHE_DURATION = 10 * 60 * 1000; // 10 minutos en memoria
+const PERSISTENT_CACHE_KEY = 'store_products_cache';
+const PERSISTENT_CATEGORIES_KEY = 'store_categories_cache';
 
 let isBackendOffline = false;
 let lastCheckTime = 0;
@@ -72,16 +74,35 @@ export const clearStoreCache = () => {
     storeProductsTimestamp = null;
     storeCategoriesCache = null;
     storeCategoriesTimestamp = null;
+    localStorage.removeItem(PERSISTENT_CACHE_KEY);
+    localStorage.removeItem(PERSISTENT_CATEGORIES_KEY);
 };
 
 /**
- * Fetch de productos con manejo de errores mejorado y timeout.
+ * Fetch de productos con manejo de errores mejorado, timeout y cache persistente.
  */
 export const fetchProducts = async (forceRefresh = false): Promise<Product[]> => {
     try {
+        // 1. In-memory cache
         if (!forceRefresh && storeProductsCache && storeProductsTimestamp) {
             const isValid = (Date.now() - storeProductsTimestamp) < STORE_CACHE_DURATION;
             if (isValid) return storeProductsCache;
+        }
+
+        // 2. Persistent storage cache (Sync)
+        if (!forceRefresh && !storeProductsCache) {
+            const saved = localStorage.getItem(PERSISTENT_CACHE_KEY);
+            if (saved) {
+                try {
+                    const { data, timestamp } = JSON.parse(saved);
+                    if ((Date.now() - timestamp) < (STORE_CACHE_DURATION * 6)) { // 1 hora de persistencia
+                        storeProductsCache = data;
+                        storeProductsTimestamp = timestamp;
+                        // No retornamos aquí para permitir la validación en segundo plano si es necesario, 
+                        // pero los componentes ya habrán recibido los datos de este cache si llamaron antes.
+                    }
+                } catch (e) {}
+            }
         }
 
         if (checkBackendStatus()) {
@@ -98,6 +119,13 @@ export const fetchProducts = async (forceRefresh = false): Promise<Product[]> =>
                     }));
                     storeProductsCache = mappedProducts;
                     storeProductsTimestamp = Date.now();
+                    
+                    // Update persistent cache
+                    localStorage.setItem(PERSISTENT_CACHE_KEY, JSON.stringify({ 
+                        data: mappedProducts, 
+                        timestamp: storeProductsTimestamp 
+                    }));
+                    
                     return mappedProducts;
                 }
             } catch (err) {
@@ -120,6 +148,13 @@ export const fetchProducts = async (forceRefresh = false): Promise<Product[]> =>
 
         storeProductsCache = mapped;
         storeProductsTimestamp = Date.now();
+        
+        // Update persistent cache
+        localStorage.setItem(PERSISTENT_CACHE_KEY, JSON.stringify({ 
+            data: mapped, 
+            timestamp: storeProductsTimestamp 
+        }));
+
         return mapped;
     } catch (error: any) {
         console.error('Error in fetchProducts:', error.message);
@@ -167,13 +202,28 @@ export const fetchProductBySlug = async (slug: string): Promise<Product | null> 
 };
 
 /**
- * Fetch de categorías con fallback.
+ * Fetch de categorías con fallback y cache persistente.
  */
 export const fetchCategories = async (forceRefresh = false) => {
     try {
+        // 1. In-memory
         if (!forceRefresh && storeCategoriesCache && storeCategoriesTimestamp) {
             const isValid = (Date.now() - storeCategoriesTimestamp) < STORE_CACHE_DURATION;
             if (isValid) return storeCategoriesCache;
+        }
+
+        // 2. Persistent storage
+        if (!forceRefresh && !storeCategoriesCache) {
+            const saved = localStorage.getItem(PERSISTENT_CATEGORIES_KEY);
+            if (saved) {
+                try {
+                    const { data, timestamp } = JSON.parse(saved);
+                    if ((Date.now() - timestamp) < (STORE_CACHE_DURATION * 12)) {
+                        storeCategoriesCache = data;
+                        storeCategoriesTimestamp = timestamp;
+                    }
+                } catch (e) {}
+            }
         }
 
         if (checkBackendStatus()) {
@@ -184,6 +234,7 @@ export const fetchCategories = async (forceRefresh = false) => {
                     isBackendOffline = false;
                     storeCategoriesCache = data;
                     storeCategoriesTimestamp = Date.now();
+                    localStorage.setItem(PERSISTENT_CATEGORIES_KEY, JSON.stringify({ data, timestamp: storeCategoriesTimestamp }));
                     return data;
                 }
             } catch (err) {
@@ -197,6 +248,7 @@ export const fetchCategories = async (forceRefresh = false) => {
 
         storeCategoriesCache = data;
         storeCategoriesTimestamp = Date.now();
+        localStorage.setItem(PERSISTENT_CATEGORIES_KEY, JSON.stringify({ data, timestamp: storeCategoriesTimestamp }));
         return data;
     } catch (error: any) {
         console.error('Error in fetchCategories:', error.message);

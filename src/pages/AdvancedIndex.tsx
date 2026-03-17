@@ -3,6 +3,7 @@ import { TopPromoBar } from "@/components/layout/TopPromoBar";
 import { AdvancedHeader } from "@/components/layout/AdvancedHeader";
 import { HeroBanner } from "@/components/layout/HeroBanner";
 import { Footer } from "@/components/layout/Footer";
+import { SearchOptionsSection } from "@/components/home/SearchOptionsSection";
 import { ProductsSection } from "@/components/products/ProductsSection";
 import { StoreStructuredData } from "@/components/seo/StructuredData";
 import { useLocation, useNavigate, Navigate } from "react-router-dom";
@@ -31,6 +32,16 @@ const AdvancedIndex = () => {
     if (searchParam) setSearchTerm(searchParam);
     else setSearchTerm("");
   }, [searchParam]);
+
+  useEffect(() => {
+    const handleSetCatalog = (e: any) => {
+      if (e.detail !== undefined) {
+        setShowCatalog(e.detail);
+      }
+    };
+    window.addEventListener('app:set-catalog-view' as any, handleSetCatalog);
+    return () => window.removeEventListener('app:set-catalog-view' as any, handleSetCatalog);
+  }, []);
 
   const setSelectedCategory = (cat: string) => {
     if (cat === "Todos") {
@@ -74,7 +85,10 @@ const AdvancedIndex = () => {
       />
 
       {!showCatalog && !searchParam && (
-        <HeroBanner isCatalog={showCatalog} setShowCatalog={setShowCatalog} />
+        <>
+          <HeroBanner isCatalog={showCatalog} setShowCatalog={setShowCatalog} />
+          <SearchOptionsSection />
+        </>
       )}
 
       <main className={`relative z-10 w-full ${(!showCatalog && !searchParam) ? 'pt-4' : 'pt-0'}`}>

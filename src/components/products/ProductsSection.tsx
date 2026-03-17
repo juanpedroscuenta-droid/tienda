@@ -284,6 +284,10 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
         setPriceTo(payload.to);
         setPriceApplied({ from: parseFormattedPrice(payload.from) || 0, to: parseFormattedPrice(payload.to) || 999999999 });
       }
+      if (type === 'setFilters') {
+        setSelectedFilterOptions(payload);
+        setCurrentPage(1);
+      }
       if (type === 'clear') clearAllFilters();
     };
 
@@ -389,7 +393,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   }, []);
 
   return (
-    <section ref={sectionRef} id="products-section" className={`${(isFiltering || showCatalog) ? 'pt-2 pb-8' : 'py-8'} bg-white w-full max-w-[1400px] mx-auto px-4 md:px-8 min-h-screen`}>
+    <section ref={sectionRef} id="productos" className={`${(isFiltering || showCatalog) ? 'pt-2 pb-8' : 'py-8'} bg-white w-full max-w-[1400px] mx-auto px-4 md:px-8 min-h-screen`}>
       <div className="flex flex-col md:flex-row gap-10">
         {/* Placeholder — reserves sidebar space; position:relative lets absolute child anchor here */}
         {(isFiltering || showCatalog) && (

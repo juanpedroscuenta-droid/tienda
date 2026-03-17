@@ -241,18 +241,19 @@ export const ContactsManager: React.FC = () => {
   });
 
   const toggleContactSelection = (contactId: string) => {
+    const cid = String(contactId);
     setSelectedContacts(prev =>
-      prev.includes(contactId)
-        ? prev.filter(id => id !== contactId)
-        : [...prev, contactId]
+      prev.includes(cid)
+        ? prev.filter(id => id !== cid)
+        : [...prev, cid]
     );
   };
 
   const toggleSelectAll = () => {
-    if (selectedContacts.length === filteredContacts.length) {
+    if (selectedContacts.length === filteredContacts.length && filteredContacts.length > 0) {
       setSelectedContacts([]);
     } else {
-      setSelectedContacts(filteredContacts.map(c => c.id));
+      setSelectedContacts(filteredContacts.map(c => String(c.id)));
     }
   };
 
@@ -620,7 +621,7 @@ export const ContactsManager: React.FC = () => {
               filteredContacts.map((contact) => (
                 <div
                   key={contact.id}
-                  className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm active:bg-slate-50 transition-colors"
+                  className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm active:bg-slate-50 transition-colors cursor-pointer"
                   onClick={() => toggleContactSelection(contact.id)}
                 >
                   <div className="flex items-start justify-between mb-3">
@@ -638,9 +639,10 @@ export const ContactsManager: React.FC = () => {
                     </div>
                     <input
                       type="checkbox"
-                      checked={selectedContacts.includes(contact.id)}
-                      onChange={() => { }} // Controlled by parent div click
-                      className="rounded text-blue-600 h-4 w-4"
+                      checked={selectedContacts.includes(String(contact.id))}
+                      onChange={() => toggleContactSelection(contact.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="rounded text-blue-600 h-4 w-4 cursor-pointer"
                     />
                   </div>
 
@@ -735,15 +737,20 @@ export const ContactsManager: React.FC = () => {
                       </tr>
                     ) : (
                       filteredContacts.map((contact) => (
-                        <tr key={contact.id} className="hover:bg-slate-50/50 transition-all cursor-pointer group">
+                        <tr 
+                          key={contact.id} 
+                          onClick={() => toggleContactSelection(contact.id)}
+                          className={cn(
+                            "hover:bg-slate-50/50 transition-all cursor-pointer group",
+                            selectedContacts.includes(String(contact.id)) && "bg-blue-50/30"
+                          )}
+                        >
                           <td className="px-5 py-4">
                             <input
                               type="checkbox"
-                              checked={selectedContacts.includes(contact.id)}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                toggleContactSelection(contact.id);
-                              }}
+                              checked={selectedContacts.includes(String(contact.id))}
+                              onChange={() => toggleContactSelection(contact.id)}
+                              onClick={(e) => e.stopPropagation()}
                               className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                             />
                           </td>
