@@ -29,3 +29,6 @@ backend/.env.*
 *.njsproj
 *.sln
 *.sw?
+
+# Documentos sensibles
+informe_proyecto_24_7.tex
