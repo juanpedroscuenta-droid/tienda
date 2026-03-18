@@ -85,24 +85,17 @@ export const useSubAccountRenderFix = (isSubAccount: boolean) => {
   };
 
   /**
-   * Reinicia manualmente la visualización si el usuario detecta problemas
+   * Reinicia la visualización de forma segura para React
    */
   const manualRefresh = () => {
     try {
       fixLayoutIssues();
       
-      // Forzar la reconstrucción de componentes críticos
-      const contentContainers = document.querySelectorAll('.critical-ui-container');
-      contentContainers.forEach(container => {
-        const parent = container.parentNode;
-        if (parent) {
-          const clone = container.cloneNode(true);
-          parent.replaceChild(clone, container);
-        }
-      });
+      // En lugar de clonar nodos (que rompe React), disparamos un evento global
+      // que los componentes pueden escuchar para re-renderizarse si es necesario
+      window.dispatchEvent(new CustomEvent('app:force-ui-refresh'));
       
       setHasRenderIssues(false);
-      
       return true;
     } catch (error) {
       console.error('[SubAccount Fix] Error durante refresh manual:', error);

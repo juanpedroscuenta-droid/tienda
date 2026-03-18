@@ -85,14 +85,18 @@ export const CacheProvider = ({ children, config = {} }: CacheProviderProps) => 
     }
   }, []);
 
-  // Guardar caché en localStorage cuando cambie
+  // Guardar caché en localStorage con debounce para no bloquear la UI
   useEffect(() => {
-    try {
-      const cacheObj = Object.fromEntries(cache.entries());
-      localStorage.setItem('appDataCache', JSON.stringify(cacheObj));
-    } catch (error) {
-      console.error('Error saving cache to localStorage:', error);
-    }
+    const timeoutId = setTimeout(() => {
+      try {
+        const cacheObj = Object.fromEntries(cache.entries());
+        localStorage.setItem('appDataCache', JSON.stringify(cacheObj));
+      } catch (error) {
+        console.error('Error saving cache to localStorage:', error);
+      }
+    }, 1000); // 1 segundo de debounce
+
+    return () => clearTimeout(timeoutId);
   }, [cache]);
 
   // Implementación de funciones de caché

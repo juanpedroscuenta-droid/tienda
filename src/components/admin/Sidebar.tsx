@@ -185,6 +185,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'subaccounts', icon: <Users className="h-5 w-5" />, label: 'Subcuentas', description: 'Gestión de accesos' },
     { id: 'ai-assistant', icon: <Bot className="h-5 w-5" />, label: 'Asistente IA', description: 'Inteligencia artificial' },
     { id: 'emails', icon: <Inbox className="h-5 w-5" />, label: 'Correos', description: 'Bandeja de entrada' },
+    { id: 'crm-wpp', icon: <MessageSquare className="h-5 w-5" />, label: 'Bandeja Wpp', description: 'Atención al cliente CRM' },
     { id: 'help-manual', icon: <HelpCircle className="h-5 w-5" />, label: 'Ayuda', description: 'Manual de usuario' },
 
 

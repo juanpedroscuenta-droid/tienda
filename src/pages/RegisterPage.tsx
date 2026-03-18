@@ -129,7 +129,8 @@ export const RegisterPage: React.FC = () => {
       // Sync with backend immediately if auth succeeded
       if (authData.user) {
         try {
-          const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:3001/api';
+          const hostname = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : '127.0.0.1';
+          const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || `http://${hostname}:3001/api`;
           await fetch(`${API_BASE_URL}/users`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

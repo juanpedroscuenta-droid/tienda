@@ -37,7 +37,7 @@ router.get('/:id', async (req, res) => {
                     is_admin: authUser.email === 'admin@gmail.com' || authUser.email === 'admin@tienda.com'
                 };
 
-                const { data: created, error: createError } = await supabase
+                const { data: created, error: createError } = await authSupabase
                     .from('users')
                     .insert([newUser])
                     .select('*')

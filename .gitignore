@@ -32,3 +32,8 @@ backend/.env.*
 
 # Documentos sensibles
 informe_proyecto_24_7.tex
+
+# WhatsApp session data and dependencies
+backend-wpp/node_modules
+backend-wpp/session
+backend-wpp/.env

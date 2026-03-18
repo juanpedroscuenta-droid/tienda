@@ -152,6 +152,9 @@ export const recordWebsiteVisit = async (
 };
 
 
+// Cooldown to prevent multiple records for the same product in a short time
+const lastViewedMap = new Map<string, number>();
+
 // Registra una vista de producto (SOLO Supabase)
 export const recordProductView = async (
   productId: string,
@@ -160,18 +163,18 @@ export const recordProductView = async (
   userEmail?: string | null,
   userName?: string | null
 ) => {
-  try {
-    // console.log('[recordProductView] 🛍️ Registro de vista de producto:', productId);
+  // Cooldown de 2 segundos por producto para evitar spam de analíticas
+  const now = Date.now();
+  const lastView = lastViewedMap.get(productId) || 0;
+  if (now - lastView < 2000) return true;
+  lastViewedMap.set(productId, now);
 
+  try {
     const isSupabase = typeof (db as any)?.from === 'function';
-    if (!isSupabase) {
-      console.error('[recordProductView] ❌ Supabase no está disponible');
-      return false;
-    }
+    if (!isSupabase) return false;
 
     const sessionId = getSessionId();
     const today = new Date().toISOString().split('T')[0];
-    const currentTime = new Date().toLocaleTimeString();
     const userAgent = window.navigator.userAgent;
     const deviceInfo = {
       browser: getBrowserInfo(userAgent),
@@ -180,9 +183,11 @@ export const recordProductView = async (
       device: /Mobi|Android/i.test(userAgent) ? 'Mobile' : 'Desktop'
     };
 
-    console.log('[recordProductView] 📱 Dispositivo:', deviceInfo);
-    console.log('[recordProductView] 📅 Fecha:', { today, currentTime });
-    console.log('[recordProductView] 🔑 Sesión:', sessionId);
+
+    const currentTime = new Date().toLocaleTimeString();
+    
+    // Silence analytics logs for production-grade stability
+    // console.log('[recordProductView] 🛍️ Visita:', { productId, today, currentTime });
 
     // Paso 1: Registrar vista individual en product_views
     console.log('[recordProductView] 📝 Paso 1: Insertando en product_views...');

@@ -62,6 +62,10 @@ interface ImageFolder {
 }
 
 export const ImageLibrary: React.FC = () => {
+    // Helper para normalizar texto (quitar tildes y mayúsculas)
+    const normalizeText = (text: string | null | undefined) => 
+        (text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
     const [products, setProducts] = useState<any[]>([]);
     const [categories, setCategories] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -114,23 +118,44 @@ export const ImageLibrary: React.FC = () => {
         }
     };
 
+    // Optimizamos allImages para que los nombres vengan ya normalizados
     const allImages = useMemo(() => {
         const images: ImageItem[] = [];
+        
+        // Pre-normalizamos los nombres de las categorías oficiales una vez
+        const normalizedCategories = categories.map(c => ({
+            ...c,
+            _normName: normalizeText(c.name)
+        }));
+
         products.forEach(p => {
-            // Main image
+            const pCatNorm = normalizeText(p.category_name);
+            let foundCategory = normalizedCategories.find(c => 
+                String(c.id) === String(p.category_id) || 
+                c._normName === pCatNorm
+            );
+            
+            const catKey = String(foundCategory?.id || p.category_id || 'uncategorized');
+            const catName = foundCategory?.name || p.category_name || 'Sin categoría';
+
+            const baseImage = {
+                productId: p.id,
+                productName: p.name,
+                _normProductName: normalizeText(p.name),
+                category: catKey,
+                categoryName: catName,
+                _normCategoryName: normalizeText(catName)
+            };
+
             if (p.image) {
                 images.push({
                     id: `${p.id}-main`,
                     url: p.image,
                     name: `${p.name} (Principal)`,
-                    productId: p.id,
-                    productName: p.name,
-                    category: p.category_id || 'uncategorized',
-                    categoryName: p.category_name || 'Sin categoría',
+                    ...baseImage,
                     type: 'main'
-                });
+                } as any);
             }
-            // Additional images
             if (p.additional_images && Array.isArray(p.additional_images)) {
                 p.additional_images.forEach((img, idx) => {
                     if (img) {
@@ -138,36 +163,60 @@ export const ImageLibrary: React.FC = () => {
                             id: `${p.id}-add-${idx}`,
                             url: img,
                             name: `${p.name} (Adicional ${idx + 1})`,
-                            productId: p.id,
-                            productName: p.name,
-                            category: p.category_id || 'uncategorized',
-                            categoryName: p.category_name || 'Sin categoría',
+                            ...baseImage,
                             type: 'additional'
-                        });
+                        } as any);
                     }
                 });
             }
         });
 
-        // Add locally uploaded images
         const savedImages = localStorage.getItem('admin_library_local_images');
         if (savedImages) {
-            const localImages = JSON.parse(savedImages);
-            localImages.forEach((img: ImageItem) => {
-                images.push(img);
-            });
+            try {
+                const localImages = JSON.parse(savedImages);
+                localImages.forEach((img: ImageItem) => images.push(img));
+            } catch (e) {}
         }
 
         return images;
-    }, [products, customFolders]);
+    }, [products, categories]);
 
     const folders = useMemo(() => {
-        const categoryFolders: ImageFolder[] = categories.map(cat => ({
-            id: cat.id,
-            name: cat.name,
-            type: 'category',
-            count: allImages.filter(img => img.category === cat.id).length
-        }));
+        const categoryFolders: ImageFolder[] = categories.map(cat => {
+            const catNorm = normalizeText(cat.name);
+            const catIdStr = String(cat.id);
+            return {
+                id: catIdStr,
+                name: cat.name,
+                type: 'category',
+                count: allImages.filter(img => 
+                    img.category === catIdStr || 
+                    (img as any)._normCategoryName === catNorm
+                ).length
+            };
+        });
+
+        // Detección automática de categorías en productos que no están en la lista oficial
+        allImages.forEach(img => {
+            const imgCatNorm = (img as any)._normCategoryName;
+            const exists = categoryFolders.some(f => f.id === img.category || normalizeText(f.name) === imgCatNorm);
+            if (!exists && img.categoryName && imgCatNorm !== 'sin categoria' && imgCatNorm !== 'uncategorized') {
+                categoryFolders.push({
+                    id: img.category,
+                    name: img.categoryName,
+                    type: 'category',
+                    count: allImages.filter(i => (i as any)._normCategoryName === imgCatNorm).length
+                });
+            }
+        });
+
+        categoryFolders.push({
+            id: 'debug-all',
+            name: 'DEBUG: Todas las Imágenes',
+            type: 'custom',
+            count: allImages.length
+        });
 
         const uncategorizedCount = allImages.filter(img => img.category === 'uncategorized').length;
         if (uncategorizedCount > 0) {
@@ -179,30 +228,52 @@ export const ImageLibrary: React.FC = () => {
             });
         }
 
-        const custom = customFolders.map(name => ({
-            id: `custom-${name}`,
-            name: name,
-            type: 'custom',
-            count: allImages.filter(img => img.category === `custom-${name}`).length
-        }));
+        return categoryFolders;
+    }, [categories, allImages]);
 
-        return [...categoryFolders, ...custom];
-    }, [categories, allImages, customFolders]);
+    const filteredFolders = useMemo(() => {
+        if (!searchTerm || currentFolder) return folders;
+        const search = normalizeText(searchTerm);
+        return (folders as any[]).filter(f => normalizeText(f.name).includes(search));
+    }, [folders, searchTerm, currentFolder]);
 
     const filteredItems = useMemo(() => {
-        let items = currentFolder
-            ? allImages.filter(img => img.category === currentFolder)
-            : [];
+        const search = normalizeText(searchTerm);
+        
+        // Si hay una carpeta seleccionada, filtrar dentro de ella
+        if (currentFolder) {
+            // Caso especial: ver todas
+            if (currentFolder === 'debug-all') {
+                return searchTerm ? allImages.filter(img => 
+                    (img as any)._normProductName.includes(search)
+                ) : allImages;
+            }
 
-        if (searchTerm) {
-            const lower = searchTerm.toLowerCase();
-            items = items.filter(img =>
-                img.name.toLowerCase().includes(lower) ||
-                img.productName.toLowerCase().includes(lower)
+            const folderObj = (folders as any[]).find(f => f.id === currentFolder);
+            const folderNameNorm = normalizeText(folderObj?.name);
+
+            let items = allImages.filter(img => 
+                img.category === currentFolder || 
+                (folderNameNorm && (img as any)._normCategoryName === folderNameNorm)
             );
+            
+            if (searchTerm) {
+                items = items.filter(img =>
+                    (img as any)._normProductName.includes(search)
+                );
+            }
+            return items;
         }
-        return items;
-    }, [allImages, currentFolder, searchTerm]);
+
+        // Si NO hay carpeta seleccionada pero hay término de búsqueda, mostrar resultados globales
+        if (searchTerm) {
+            return allImages.filter(img =>
+                (img as any)._normProductName.includes(search)
+            ).slice(0, 50); // Limitar a 50 para rendimiento en búsqueda global
+        }
+
+        return [];
+    }, [allImages, currentFolder, searchTerm, folders]);
 
     const handleCreateFolder = () => {
         if (!newFolderName.trim()) return;
@@ -263,6 +334,100 @@ export const ImageLibrary: React.FC = () => {
         navigator.clipboard.writeText(url);
         toast({ title: "Copiado", description: "URL de imagen copiada al portapapeles." });
     };
+
+    // Sub-componente para renderizar cada imagen
+    const ImageCard = ({ item }: { item: ImageItem }) => (
+        <div
+            className={cn(
+                "group relative bg-white border rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl",
+                selectedImages.includes(item.id) ? "border-emerald-500 ring-2 ring-emerald-500/20" : "border-slate-200"
+            )}
+        >
+            {/* Selection Checkbox */}
+            <div
+                className={cn(
+                    "absolute top-2 left-2 z-10 h-6 w-6 rounded-full border-2 transition-all cursor-pointer flex items-center justify-center",
+                    selectedImages.includes(item.id)
+                        ? "bg-emerald-500 border-emerald-500"
+                        : "bg-white/50 border-white opacity-0 group-hover:opacity-100"
+                )}
+                onClick={(e) => toggleSelect(item.id, e)}
+            >
+                {selectedImages.includes(item.id) && <CheckCircle2 className="h-4 w-4 text-white" />}
+            </div>
+
+            {/* Image Thumbnail */}
+            <div className={cn(
+                "relative bg-slate-50 overflow-hidden",
+                viewMode === 'grid' ? "aspect-square" : "h-16 w-16 float-left m-2 rounded-lg"
+            )}>
+                <img
+                    src={item.url}
+                    alt={item.name}
+                    className="w-full h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button
+                        onClick={() => copyToClipboard(item.url)}
+                        className="p-1.5 bg-white rounded-lg text-slate-800 hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
+                        title="Copiar URL"
+                    >
+                        <Copy className="h-4 w-4" />
+                    </button>
+                    <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1.5 bg-white rounded-lg text-slate-800 hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                        title="Ver original"
+                    >
+                        <Maximize2 className="h-4 w-4" />
+                    </a>
+                </div>
+            </div>
+
+            {/* Image Details */}
+            {viewMode === 'grid' ? (
+                <div className="p-3">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 truncate">
+                        {item.productName}
+                    </p>
+                    <h4 className="text-[11px] font-bold text-slate-800 leading-tight line-clamp-2 min-h-[2.4em]" title={item.name}>
+                        {item.name}
+                    </h4>
+                </div>
+            ) : (
+                <div className="p-4 flex items-center justify-between">
+                    <div>
+                        <h4 className="text-sm font-bold text-slate-800">{item.productName}</h4>
+                        <p className="text-xs text-slate-400 font-medium">
+                            {item.name} • URL: {item.url.substring(0, 40)}...
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => copyToClipboard(item.url)}>
+                            <Copy className="h-4 w-4 mr-2" /> Copiar URL
+                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <MoreVertical className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => window.open(item.url, '_blank')}>
+                                    <ExternalLink className="h-4 w-4 mr-2" /> Ver original
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                    <Download className="h-4 w-4 mr-2" /> Descargar
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 
     if (loading) {
         return (
@@ -344,9 +509,9 @@ export const ImageLibrary: React.FC = () => {
             {/* Main Content */}
             <div className="min-h-[400px]">
                 {!currentFolder ? (
-                    /* Folder Explorer View */
+                    /* Root View: Folder Explorer (can be filtered by searchTerm) */
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                        {folders.map(folder => (
+                        {filteredFolders.map(folder => (
                             <div
                                 key={folder.id}
                                 onClick={() => setCurrentFolder(folder.id)}
@@ -374,11 +539,17 @@ export const ImageLibrary: React.FC = () => {
                                 </div>
                             </div>
                         ))}
+                        {searchTerm && filteredFolders.length === 0 && (
+                            <div className="col-span-full py-20 text-center">
+                                <Search className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                                <p className="text-slate-500 font-medium">No se encontraron carpetas que coincidan con "{searchTerm}"</p>
+                            </div>
+                        )}
                     </div>
                 ) : (
-                    /* Image Gallery View */
+                    /* Folder Content View */
                     <div className="space-y-4">
-                        {/* Action Bar for selection */}
+                        {/* Selector Info Bar */}
                         {selectedImages.length > 0 && (
                             <div className="bg-emerald-600 text-white rounded-xl p-3 flex items-center justify-between shadow-lg sticky top-20 z-10 animate-in slide-in-from-top-4">
                                 <div className="flex items-center gap-3">
@@ -390,13 +561,10 @@ export const ImageLibrary: React.FC = () => {
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Button variant="ghost" size="sm" className="h-8 text-white hover:bg-white/10 font-bold text-xs uppercase">
-                                        Descargar zip
-                                    </Button>
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-8 text-white hover:bg-red-500/20 text-red-100 font-bold text-xs uppercase"
+                                        className="h-8 text-white hover:bg-white/10 font-bold text-xs uppercase"
                                         onClick={() => setSelectedImages([])}
                                     >
                                         Descartar
@@ -405,7 +573,7 @@ export const ImageLibrary: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Folder Header Actions */}
+                        {/* Top Context Bar */}
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">
                                 Contenido de la carpeta
@@ -438,8 +606,8 @@ export const ImageLibrary: React.FC = () => {
                                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
                                     <ImageIcon className="h-8 w-8 text-slate-300" />
                                 </div>
-                                <h3 className="text-lg font-bold text-slate-800 mb-1">Esta carpeta está vacía</h3>
-                                <p className="text-slate-500 text-sm max-w-xs mx-auto">No hay imágenes en esta carpeta. ¡Sube una ahora!</p>
+                                <h3 className="text-lg font-bold text-slate-800 mb-1">Carpeta vacía</h3>
+                                <p className="text-slate-500 text-sm max-w-xs mx-auto">No hay imágenes aquí todavía.</p>
                             </div>
                         ) : (
                             <div className={cn(
@@ -447,97 +615,7 @@ export const ImageLibrary: React.FC = () => {
                                 viewMode === 'grid' ? "grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8" : "grid-cols-1"
                             )}>
                                 {filteredItems.map(item => (
-                                    <div
-                                        key={item.id}
-                                        className={cn(
-                                            "group relative bg-white border rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl",
-                                            selectedImages.includes(item.id) ? "border-emerald-500 ring-2 ring-emerald-500/20" : "border-slate-200"
-                                        )}
-                                    >
-                                        {/* Selection Checkbox */}
-                                        <div
-                                            className={cn(
-                                                "absolute top-2 left-2 z-10 h-6 w-6 rounded-full border-2 transition-all cursor-pointer flex items-center justify-center",
-                                                selectedImages.includes(item.id)
-                                                    ? "bg-emerald-500 border-emerald-500"
-                                                    : "bg-white/50 border-white opacity-0 group-hover:opacity-100"
-                                            )}
-                                            onClick={(e) => toggleSelect(item.id, e)}
-                                        >
-                                            {selectedImages.includes(item.id) && <CheckCircle2 className="h-4 w-4 text-white" />}
-                                        </div>
-
-                                        {/* Image Thumbnail */}
-                                        <div className={cn(
-                                            "relative bg-slate-50 overflow-hidden",
-                                            viewMode === 'grid' ? "aspect-square" : "h-16 w-16 float-left m-2 rounded-lg"
-                                        )}>
-                                            <img
-                                                src={item.url}
-                                                alt={item.name}
-                                                className="w-full h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500"
-                                            />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                <button
-                                                    onClick={() => copyToClipboard(item.url)}
-                                                    className="p-1.5 bg-white rounded-lg text-slate-800 hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
-                                                    title="Copiar URL"
-                                                >
-                                                    <Copy className="h-4 w-4" />
-                                                </button>
-                                                <a
-                                                    href={item.url}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="p-1.5 bg-white rounded-lg text-slate-800 hover:bg-blue-500 hover:text-white transition-all shadow-sm"
-                                                    title="Ver original"
-                                                >
-                                                    <Maximize2 className="h-4 w-4" />
-                                                </a>
-                                            </div>
-                                        </div>
-
-                                        {/* Image Details */}
-                                        {viewMode === 'grid' ? (
-                                            <div className="p-3">
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 truncate">
-                                                    {item.productName}
-                                                </p>
-                                                <h4 className="text-[11px] font-bold text-slate-800 leading-tight line-clamp-2 min-h-[2.4em]" title={item.name}>
-                                                    {item.name}
-                                                </h4>
-                                            </div>
-                                        ) : (
-                                            <div className="p-4 flex items-center justify-between">
-                                                <div>
-                                                    <h4 className="text-sm font-bold text-slate-800">{item.productName}</h4>
-                                                    <p className="text-xs text-slate-400 font-medium">
-                                                        {item.name} • URL: {item.url.substring(0, 40)}...
-                                                    </p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(item.url)}>
-                                                        <Copy className="h-4 w-4 mr-2" /> Copiar URL
-                                                    </Button>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                                <MoreVertical className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem onClick={() => window.open(item.url, '_blank')}>
-                                                                <ExternalLink className="h-4 w-4 mr-2" /> Ver original
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem>
-                                                                <Download className="h-4 w-4 mr-2" /> Descargar
-                                                            </DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
+                                    <ImageCard key={item.id} item={item} />
                                 ))}
                             </div>
                         )}

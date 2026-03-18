@@ -2,10 +2,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
-import { Suspense, lazy, useEffect } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { CacheProvider } from "@/contexts/CacheContext";
 import { SimulationNotice } from "@/components/ui/SimulationNotice";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
@@ -49,6 +49,61 @@ const NewArrivalsPage = lazy(() => import("./pages/NewArrivalsPage"));
 const PaymentResultPage = lazy(() => import("./pages/PaymentResultPage").then(m => ({ default: m.PaymentResultPage })));
 
 const queryClient = new QueryClient();
+
+/**
+ * ⚡ PERFORMANCE FIX: Frozen Admin Panel
+ * This wrapper completely isolates the 2700-line AdminPanel from React updates 
+ * while it's hidden. It prevents store navigation from causing admin re-renders.
+ */
+const AdminPanelFreezer = React.memo(({ children, active }: { children: React.ReactNode, active: boolean }) => {
+  const lastChildren = useRef(children);
+  
+  if (active) {
+    lastChildren.current = children;
+  }
+  
+  return (
+    <div style={{ 
+      display: active ? 'block' : 'none',
+      visibility: active ? 'visible' : 'hidden',
+      pointerEvents: active ? 'auto' : 'none'
+    }}>
+      {lastChildren.current}
+    </div>
+  );
+}, (prev, next) => prev.active === next.active);
+
+const PersistentAdminPanel = () => {
+  const location = useLocation();
+  const isOnAdmin = location.pathname === '/admin';
+  const hasVisitedRef = useRef(false);
+
+  if (isOnAdmin && !hasVisitedRef.current) {
+    hasVisitedRef.current = true;
+  }
+
+  if (!hasVisitedRef.current) return null;
+
+  return (
+    <div
+      style={{
+        display: isOnAdmin ? 'block' : 'none',
+        position: isOnAdmin ? 'relative' : 'fixed',
+        top: 0, left: 0, right: 0, bottom: 0,
+        zIndex: isOnAdmin ? 'auto' : -1,
+        visibility: isOnAdmin ? 'visible' : 'hidden',
+        pointerEvents: isOnAdmin ? 'auto' : 'none',
+        background: 'white'
+      }}
+    >
+      <AdminPanelFreezer active={isOnAdmin}>
+        <Suspense fallback={<div className="min-h-screen bg-white" />}>
+          <AdminPanel />
+        </Suspense>
+      </AdminPanelFreezer>
+    </div>
+  );
+};
 
 const App = () => {
   useEffect(() => {
@@ -99,6 +154,9 @@ const App = () => {
                 <Sonner />
                 <SimulationNotice />
                 <BrowserRouter>
+                  {/* ⚡ Persistent Admin Panel — stays mounted across navigations */}
+                  <PersistentAdminPanel />
+                  
                   <Suspense fallback={<div className="min-h-screen bg-white"></div>}>
                     <Routes>
                       {/* Define home page as a base for many views if needed */}
@@ -111,7 +169,8 @@ const App = () => {
                       <Route path="/categoria/:categorySlug" element={<CategoryViewPage />} />
                       <Route path="/auth" element={<AuthPage />} />
                       <Route path="/cart" element={<CartPage />} />
-                      <Route path="/admin" element={<AdminPanel />} />
+                      {/* Admin route now renders nothing — PersistentAdminPanel handles it */}
+                      <Route path="/admin" element={<></>} />
                       <Route path="/perfil" element={<UserProfile />} />
                       <Route path="/favoritos" element={<FavoritesPage />} />
                       <Route path="/producto/:slug" element={<ProductDetailPage />} />

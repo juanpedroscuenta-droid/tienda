@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+// Tabs import removed — replaced with CSS display switching for performance
 import {
   Users,
   Package,
@@ -95,6 +95,7 @@ const CouponManager = lazy(() => import('@/components/admin/CouponManager').then
 const ChatBotManager = lazy(() => import('@/components/admin/ChatBotManager'));
 const EmailInbox = lazy(() => import('@/components/admin/EmailInbox'));
 const SupplierManager = lazy(() => import('@/components/admin/SupplierManager').then(m => ({ default: m.SupplierManager })));
+const CRMWhatsAppPanel = lazy(() => import('@/components/admin/CRMWhatsAppPanel').then(m => ({ default: m.CRMWhatsAppPanel })));
 // (ya importado arriba)
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { setDoc, doc } from "firebase/firestore";
@@ -248,6 +249,17 @@ export const AdminPanel: React.FC = () => {
   const [loading, setLoading] = useState(!isSupabase); // false si Supabase, true si Firebase
 
   const [activeTab, setActiveTab] = useState('dashboard');
+  // Track which tabs have been visited so we only mount them once, then keep alive
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['dashboard']));
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setVisitedTabs(prev => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
+  };
   const [orders, setOrders] = useState<any[]>([]);
   const [subName, setSubName] = useState('');
   const [subEmail, setSubEmail] = useState('');
@@ -263,7 +275,6 @@ export const AdminPanel: React.FC = () => {
   const [subAccountSearch, setSubAccountSearch] = useState('');
   const [subAccountRoleFilter, setSubAccountRoleFilter] = useState<string>('all');
   const [products, setProducts] = useState<any[]>([]);
-  const [sessionTime, setSessionTime] = useState<string>("00:00:00");
   const [sessionStart, setSessionStart] = useState<Date>(new Date());
   const [todaySales, setTodaySales] = useState<number>(0);
   const [todaySalesLoading, setTodaySalesLoading] = useState<boolean>(true);
@@ -425,27 +436,8 @@ export const AdminPanel: React.FC = () => {
 
 
 
-  // Efecto para controlar el tiempo de sesión
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      const now = new Date();
-      const diff = now.getTime() - sessionStart.getTime();
-
-      // Calcular horas, minutos y segundos
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      // Formatear el tiempo en formato HH:MM:SS
-      const formattedHours = hours.toString().padStart(2, '0');
-      const formattedMinutes = minutes.toString().padStart(2, '0');
-      const formattedSeconds = seconds.toString().padStart(2, '0');
-
-      setSessionTime(`${formattedHours}:${formattedMinutes}:${formattedSeconds} `);
-    }, 1000);
-
-    return () => clearInterval(intervalId);
-  }, [sessionStart]);
+  // Efecto eliminado por causar re-render excesivos en panel de 2700 líneas.
+  // Si se requiere cronómetro, debe ser un componente independiente <Clock />.
 
   const fetchOrdersForPanel = useCallback(async () => {
     try {
@@ -1150,7 +1142,7 @@ export const AdminPanel: React.FC = () => {
       <div className="fixed left-0 top-0 h-screen z-50">
         <Sidebar
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={handleTabChange}
           isAdmin={isAdmin}
           isSubAdmin={isSubAdmin}
           navigateToHome={() => navigate('/')}
@@ -1208,7 +1200,7 @@ export const AdminPanel: React.FC = () => {
 
             {/* Gestión - Menu Quick Access */}
             <button
-              onClick={() => setActiveTab('management')}
+              onClick={() => handleTabChange('management')}
               className={`w - 8 h - 8 rounded - full flex items - center justify - center transition - all active: scale - 95 cursor - pointer touch - manipulation ${activeTab === 'management' ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} `}
               style={{ WebkitTapHighlightColor: 'transparent' }}
               type="button"
@@ -1266,7 +1258,7 @@ export const AdminPanel: React.FC = () => {
                           onClick={() => {
                             markAsRead(notification.id);
                             setSelectedProductId(notification.productId);
-                            setActiveTab('products');
+                            handleTabChange('products');
                             setShowNotifications(false);
                           }}
                         >
@@ -1311,7 +1303,7 @@ export const AdminPanel: React.FC = () => {
 
             {/* Help - Blue */}
             <button
-              onClick={() => setActiveTab('help-manual')}
+              onClick={() => handleTabChange('help-manual')}
               className="w-8 h-8 rounded-full bg-blue-400 text-white flex items-center justify-center hover:bg-blue-500 transition-colors cursor-pointer"
               type="button"
               title="Manual de Ayuda"
@@ -1400,35 +1392,23 @@ export const AdminPanel: React.FC = () => {
         {/* Main content area */}
         <div className="flex-1 flex flex-col overflow-auto overflow-x-hidden admin-panel-content critical-ui-container" translate="no">
           <div className="px-4 md:px-6 pt-0 pb-4 md:pb-6 max-w-full">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-              {/* Hidden tabs list for state management - visual only */}
-              <TabsList className="hidden">
-                {!isSubAdmin && <TabsTrigger value="dashboard">Dashboard</TabsTrigger>}
-                <TabsTrigger value="products">Products</TabsTrigger>
-                <TabsTrigger value="orders">Orders</TabsTrigger>
-                <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
-                <TabsTrigger value="categories">Categories</TabsTrigger>
-                {/* Tabs comunes entre admin y subadmin */}
-                <TabsTrigger value="info">Info</TabsTrigger>
-                <TabsTrigger value="configuration">Configuración</TabsTrigger>
-                <TabsTrigger value="filters">Filtros</TabsTrigger>
-                <TabsTrigger value="ai-assistant">AI Assistant</TabsTrigger>
-                <TabsTrigger value="image-library">Biblioteca</TabsTrigger>
-                <TabsTrigger value="help-manual">Manual de Ayuda</TabsTrigger>
-                {!isSubAdmin && (
-                  <>
-                    <TabsTrigger value="subaccounts">Subaccounts</TabsTrigger>
-                    <TabsTrigger value="revisiones">Revisiones</TabsTrigger>
-                    <TabsTrigger value="analytics">Analytics</TabsTrigger>
-                    <TabsTrigger value="employees">Empleados</TabsTrigger>
-                    <TabsTrigger value="credentials">Contraseñas</TabsTrigger>
-                  </>
-                )}
-              </TabsList>
+           {/* 
+              ⚡ PERFORMANCE FIX: Replaced Radix <Tabs> with CSS display switching.
+              Radix Tabs mounts/unmounts all TabsContent on every switch, which was
+              causing freezes in this 2700-line component. Now tabs stay mounted
+              and we use CSS display:none to hide inactive ones — instant switching.
+           */}
+           <div className="space-y-8">
 
               {/* Tab Contents */}
-              {!isSubAdmin && (
-                <TabsContent value="dashboard" className="space-y-6">
+              {activeTab === 'crm-wpp' && <div className="h-[calc(100vh-140px)] p-0">
+                <Suspense fallback={<LoadingFallback />}>
+                  <CRMWhatsAppPanel />
+                </Suspense>
+              </div>}
+
+
+              {!isSubAdmin && activeTab === 'dashboard' && <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
                     {/* Estado del Sistema - Teal/Azul */}
                     <Card className="bg-gradient-to-br from-teal-500 to-teal-600 text-white border-0 shadow-lg hover:shadow-xl transition-shadow overflow-hidden relative">
@@ -1550,20 +1530,19 @@ export const AdminPanel: React.FC = () => {
                     <button className="dashboard-refresh-button hidden" onClick={() => console.log("Refresh button clicked")}></button>
                   </div>
                   <DashboardStats orders={orders} />
-                </TabsContent>
-              )}
+                </div>}
 
-              <TabsContent value="products" className="space-y-6">
+              {activeTab === 'products' && <div className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <ProductFormWithWizard
                     selectedProductId={selectedProductId}
                     onProductSelected={() => setSelectedProductId(null)}
-                    onViewLibrary={() => setActiveTab('image-library')}
+                    onViewLibrary={() => handleTabChange('image-library')}
                   />
                 </Suspense>
-              </TabsContent>
+              </div>}
 
-              <TabsContent value="orders" className="space-y-6">
+              {activeTab === 'orders' && <div className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <div className="bg-white rounded-xl shadow p-4 md:p-6 mb-6">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
@@ -1607,28 +1586,28 @@ export const AdminPanel: React.FC = () => {
                     </svg>
                   </button>
                 </Suspense>
-              </TabsContent>
+              </div>}
 
-              <TabsContent value="categories" className="space-y-6">
+              {activeTab === 'categories' && <div className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <CategoryManager />
                 </Suspense>
-              </TabsContent>
+              </div>}
 
-              <TabsContent value="coupons" className="space-y-6">
+              {activeTab === 'coupons' && <div className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <CouponManager />
                 </Suspense>
-              </TabsContent>
+              </div>}
 
-              <TabsContent value="image-library" className="space-y-6">
+              {activeTab === 'image-library' && <div className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <ImageLibrary />
                 </Suspense>
-              </TabsContent>
+              </div>}
 
               {/* Manual de Ayuda - disponible para todos (admin y subadmin) */}
-              <TabsContent value="help-manual" className="space-y-6">
+              {activeTab === 'help-manual' && <div className="space-y-6">
                 <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 md:p-8 overflow-hidden">
                   {/* Encabezado */}
                   <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-6">
@@ -2005,22 +1984,22 @@ export const AdminPanel: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </TabsContent>
+              </div>}
 
               {/* Solo para admin principal */}
               {!isSubAdmin && (
                 <>
 
                   {/* TabsContent de subcuentas - usa la función reutilizable */}
-                  <TabsContent value="subaccounts" className="space-y-6">
+                  {activeTab === 'subaccounts' && <div className="space-y-6">
                     {renderSubaccountsContent()}
-                  </TabsContent>
+                  </div>}
 
-                  <TabsContent value="suppliers" className="space-y-6">
+                  {activeTab === 'suppliers' && <div className="space-y-6">
                     <Suspense fallback={<LoadingFallback />}>
                       <SupplierManager />
                     </Suspense>
-                  </TabsContent>
+                  </div>}
 
                   {/* Código original de subcuentas (comentado para referencia) */}
                   {false && (
@@ -2491,13 +2470,13 @@ export const AdminPanel: React.FC = () => {
                   )}
                   {/* Revisiones ahora tienen su propia pestaña */}
 
-                  <TabsContent value="analytics" className="space-y-6">
+                  {activeTab === 'analytics' && <div className="space-y-6">
                     <Suspense fallback={<LoadingFallback />}>
                       <ProductAnalyticsView />
                     </Suspense>
-                  </TabsContent>
+                  </div>}
 
-                  <TabsContent value="revisiones" className="space-y-6">
+                  {activeTab === 'revisiones' && <div className="space-y-6">
                     <Card className="shadow-lg border-0">
                       <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 border-b">
                         <CardTitle className="text-xl flex items-center gap-2 text-amber-800">
@@ -2511,55 +2490,55 @@ export const AdminPanel: React.FC = () => {
                         </Suspense>
                       </CardContent>
                     </Card>
-                  </TabsContent>
+                  </div>}
 
-                  <TabsContent value="mail-config" className="space-y-6">
+                  {activeTab === 'mail-config' && <div className="space-y-6">
                     <Suspense fallback={<LoadingFallback />}>
                       <MailConfiguration />
                     </Suspense>
-                  </TabsContent>
+                  </div>}
 
                   {/* Manual de Ayuda - duplicado eliminado; ver primer TabsContent help-manual más arriba */}
                 </>
               )}
 
               {/* Info tab - disponible para admin y subadmin */}
-              <TabsContent value="info" className="space-y-6">
+              {activeTab === 'info' && <div className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <InfoManager />
                 </Suspense>
-              </TabsContent>
+              </div>}
 
               {/* Configuration tab - disponible para admin y subadmin */}
-              <TabsContent value="configuration" className="space-y-6">
+              {activeTab === 'configuration' && <div className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <CompanyConfiguration />
                 </Suspense>
-              </TabsContent>
+              </div>}
 
               {/* Filters tab - disponible para admin y subadmin */}
-              <TabsContent value="filters" className="space-y-6">
+              {activeTab === 'filters' && <div className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <FilterManager />
                 </Suspense>
-              </TabsContent>
+              </div>}
 
               {/* Contacts tab */}
-              <TabsContent value="contacts" className="space-y-6">
+              {activeTab === 'contacts' && <div className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <ContactsManager />
                 </Suspense>
-              </TabsContent>
+              </div>}
 
               {/* Credentials tab */}
-              <TabsContent value="credentials" className="space-y-6">
+              {activeTab === 'credentials' && <div className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <CredentialsManager />
                 </Suspense>
-              </TabsContent>
+              </div>}
 
               {/* Empleados - Nueva sección */}
-              <TabsContent value="employees" className="space-y-6">
+              {activeTab === 'employees' && <div className="space-y-6">
                 <Card className="shadow-lg border-0">
                   <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 border-b">
                     <CardTitle className="text-xl flex items-center gap-2 text-blue-800">
@@ -2573,10 +2552,10 @@ export const AdminPanel: React.FC = () => {
                     </Suspense>
                   </CardContent>
                 </Card>
-              </TabsContent>
+              </div>}
 
               {/* Management tab - nueva sección organizada como cuadrícula */}
-              <TabsContent value="management" className="space-y-6">
+              {activeTab === 'management' && <div className="space-y-6">
                 <Card className="shadow-lg border-0 bg-slate-50/50">
                   <CardHeader className="bg-white border-b px-8 py-6 rounded-t-xl">
                     <div className="flex items-center gap-3">
@@ -2592,25 +2571,25 @@ export const AdminPanel: React.FC = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="p-0 sm:p-2">
-                    <ManagementGrid setActiveTab={setActiveTab} />
+                    <ManagementGrid setActiveTab={handleTabChange} />
                   </CardContent>
                 </Card>
-              </TabsContent>
+              </div>}
 
               {/* Email Inbox */}
-              <TabsContent value="emails" className="space-y-6">
+              {activeTab === 'emails' && <div className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <EmailInbox />
                 </Suspense>
-              </TabsContent>
+              </div>}
 
               {/* AI Assistant - disponible para todos (admin y subadmin) */}
-              <TabsContent value="ai-assistant" className="space-y-6">
+              {activeTab === 'ai-assistant' && <div className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <ChatBotManager />
                 </Suspense>
-              </TabsContent>
-            </Tabs>
+              </div>}
+            </div>
 
             {/* Ofertas Especiales - Si hay */}
             {ofertas.length > 0 && (

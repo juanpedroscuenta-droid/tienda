@@ -197,7 +197,8 @@ export const CartPage: React.FC = () => {
         userPhone
       });
 
-      const apiBaseUrl = import.meta.env.VITE_BACKEND_URL || `http://localhost:3001/api`;
+      const hostname = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : '127.0.0.1';
+      const apiBaseUrl = import.meta.env.VITE_BACKEND_URL || `http://${hostname}:3001/api`;
       const res = await fetch(`${apiBaseUrl}/payments/create-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

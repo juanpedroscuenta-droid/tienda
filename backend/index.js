@@ -48,8 +48,8 @@ app.get('/api/health', (req, res) => {
 });
 
 // Start the server
-const server = app.listen(port, '127.0.0.1', () => {
-  console.log(`Backend server listening at http://127.0.0.1:${port}`);
+const server = app.listen(port, () => {
+  console.log(`Backend server listening on port ${port}`);
 });
 
 // Manejo de errores del servidor (ej. puerto ocupado)
