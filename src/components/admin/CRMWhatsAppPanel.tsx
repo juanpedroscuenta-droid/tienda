@@ -4,7 +4,8 @@ import {
   MoreVertical, Phone, Mail, 
   Send, Paperclip, CheckCheck,
   MessageCircle, Star,
-  CheckSquare, Settings
+  CheckSquare, Settings,
+  AlertCircle
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ export const CRMWhatsAppPanel = () => {
   const [accessToken, setAccessToken] = useState('');
   const [phoneId, setPhoneId] = useState('');
   const [businessId, setBusinessId] = useState('');
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const isFetchingRef = useRef(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -39,7 +41,7 @@ export const CRMWhatsAppPanel = () => {
     scrollToBottom();
   }, [currentChatDetail?.messages]);
 
-  const BACKEND_URL = 'https://76-13-251-220.nip.io/api/crm/chats';
+  const BACKEND_URL = 'http://localhost:3005/api/crm/chats';
 
   const fetchChats = async () => {
     try {
@@ -123,11 +125,35 @@ export const CRMWhatsAppPanel = () => {
     }
   };
 
+  const handleStopAgent = async () => {
+    if (!activeChat) return;
+    try {
+      await fetch(`http://localhost:3005/api/crm/chats/stop/${activeChat}`, {
+        method: 'POST'
+      });
+      fetchChatDetail(activeChat);
+    } catch (e) {
+      console.error('Error stopping agent:', e);
+    }
+  };
+
+  const handleReleaseToAgent = async () => {
+    if (!activeChat) return;
+    try {
+      await fetch(`http://localhost:3005/api/crm/chats/release/${activeChat}`, {
+        method: 'POST'
+      });
+      fetchChatDetail(activeChat);
+    } catch (e) {
+      console.error('Error releasing chat:', e);
+    }
+  };
+
   const handleSimulateConnect = async () => {
     setIsConnectModalOpen(false);
     setIsSettingsModalOpen(false);
     try {
-      await fetch('https://76-13-251-220.nip.io/api/crm/config', {
+      await fetch('http://localhost:3005/api/crm/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -242,6 +268,13 @@ export const CRMWhatsAppPanel = () => {
                       <MessageCircle className="h-3 w-3 text-white fill-current" />
                     </div>
                   )}
+                  {chat.needsIntervention && (
+                    <div className={`absolute -top-1 -left-1 rounded-full p-1 border-2 border-white shadow-md animate-bounce ${
+                      chat.interventionType === 'payment' ? 'bg-green-500' : 'bg-red-500'
+                    }`}>
+                      <AlertCircle className="h-3 w-3 text-white" />
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
@@ -274,32 +307,102 @@ export const CRMWhatsAppPanel = () => {
         {currentChatDetail ? (
           <>
             {/* Chat Header */}
-            <div className="h-[73px] bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0 shadow-sm z-10">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-10 w-10 border border-slate-100 bg-slate-150 text-slate-600 ring-2 ring-slate-50">
-                  <AvatarFallback className="font-bold text-sm">{currentChatDetail.avatar}</AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col">
-                  <h3 className="text-[15px] font-bold text-slate-900 uppercase tracking-wide leading-tight">{currentChatDetail.name}</h3>
-                  <p className="text-[11px] text-green-500 font-bold flex items-center gap-1.5 mt-0.5">
-                    <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-                    En línea a través de WhatsApp
-                  </p>
+            <div className="h-[auto] min-h-[73px] bg-white border-b border-slate-200 flex flex-col px-6 py-2 flex-shrink-0 shadow-sm z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <Avatar className={`h-10 w-10 border bg-slate-150 text-slate-600 ring-2 transition-all ${
+                      currentChatDetail.needsIntervention && currentChatDetail.interventionType === 'payment'
+                      ? 'ring-green-400 shadow-[0_0_15px_rgba(34,197,94,0.4)] border-green-200'
+                      : 'ring-slate-50 border-slate-100'
+                    }`}>
+                      <AvatarFallback className="font-bold text-sm">{currentChatDetail.avatar}</AvatarFallback>
+                    </Avatar>
+                    {currentChatDetail.needsIntervention && (
+                      <div className={`absolute -top-1 -left-1 rounded-full p-1 border-2 border-white shadow-sm animate-bounce ${
+                        currentChatDetail.interventionType === 'payment' ? 'bg-green-500' : 'bg-red-500'
+                      }`}>
+                        <AlertCircle className="h-3 w-3 text-white" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col">
+                    <h3 className="text-[15px] font-bold text-slate-900 uppercase tracking-wide leading-tight">{currentChatDetail.name}</h3>
+                    {currentChatDetail.needsIntervention && currentChatDetail.interventionType === 'payment' ? (
+                      <p className="text-[11px] text-green-600 font-bold flex items-center gap-1.5 mt-0.5">
+                        <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                        💸 PAGO PENDIENTE DE COMPROBAR
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-green-500 font-bold flex items-center gap-1.5 mt-0.5">
+                        <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                        En línea a través de WhatsApp
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <Button 
+                    variant={currentChatDetail.needsIntervention ? "default" : "outline"}
+                    onClick={currentChatDetail.needsIntervention ? handleReleaseToAgent : handleStopAgent}
+                    className={`h-9 px-3 font-bold text-[11px] gap-2 shadow-sm uppercase tracking-tighter transition-all ${
+                      currentChatDetail.needsIntervention 
+                      ? "bg-blue-600 hover:bg-blue-700 text-white" 
+                      : "border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                    }`}
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    {currentChatDetail.needsIntervention ? "ACTIVAR AGENTE IA" : "DETENER AGENTE IA"}
+                  </Button>
+                  <div className="h-6 w-px bg-slate-200 mx-1"></div>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                    <Phone className="h-[18px] w-[18px]" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                    <Mail className="h-[18px] w-[18px]" />
+                  </Button>
+                  <div className="h-6 w-px bg-slate-200 mx-1"></div>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+                    <MoreVertical className="h-[18px] w-[18px]" />
+                  </Button>
                 </div>
               </div>
-              
-              <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                  <Phone className="h-[18px] w-[18px]" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                  <Mail className="h-[18px] w-[18px]" />
-                </Button>
-                <div className="h-6 w-px bg-slate-200 mx-1"></div>
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600 hover:bg-slate-100">
-                  <MoreVertical className="h-[18px] w-[18px]" />
-                </Button>
-              </div>
+
+              {currentChatDetail.needsIntervention && (
+                <div className={`mt-2 mb-1 border rounded-lg p-2.5 flex items-center gap-3 animate-in slide-in-from-top-2 ${
+                  currentChatDetail.interventionType === 'payment' 
+                  ? 'bg-green-50 border-green-100' 
+                  : 'bg-red-50 border-red-100'
+                }`}>
+                  <div className={`${currentChatDetail.interventionType === 'payment' ? 'bg-green-500' : 'bg-red-500'} p-1.5 rounded-full`}>
+                    <AlertCircle className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className={`text-[12px] font-bold uppercase tracking-tight ${currentChatDetail.interventionType === 'payment' ? 'text-green-800' : 'text-red-900'}`}>
+                      {currentChatDetail.interventionType === 'payment' ? '💸 PAGO Y COMPROBANTE' : 'Intervención Humana Requerida'}
+                    </p>
+                    <p className={`text-[11px] font-medium ${currentChatDetail.interventionType === 'payment' ? 'text-green-700' : 'text-red-700'}`}>
+                      {currentChatDetail.interventionReason || 'El cliente requiere atención de un asesor.'}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <Badge className={`text-[10px] ${
+                      currentChatDetail.interventionType === 'payment' 
+                      ? 'bg-green-100 text-green-600 border-green-200' 
+                      : 'bg-red-100 text-red-600 border-red-200'
+                    }`}>
+                      {currentChatDetail.interventionType === 'payment' ? 'PAGO PENDIENTE' : 'ALERTA CRÍTICA'}
+                    </Badge>
+                    <Button 
+                      onClick={handleReleaseToAgent}
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] h-7 px-3 font-bold rounded-lg transition-all shadow-sm"
+                    >
+                      ACTIVAR AGENTE IA
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Chat Messages */}
@@ -314,21 +417,53 @@ export const CRMWhatsAppPanel = () => {
 
                 {currentChatDetail.messages.map((msg: any) => (
                   <React.Fragment key={msg.id}>
-                    {msg.sender === 'user' ? (
+                    {(msg.sender === 'user' || msg.sender === 'customer' || msg.sender === 'client') ? (
                       /* Inbound Message */
                       <div className="flex items-end gap-2 max-w-[80%]">
                         <Avatar className="h-8 w-8 mb-1 border-none shadow-sm flex-shrink-0">
                           <AvatarFallback className="bg-slate-200 text-slate-600 text-xs">{currentChatDetail.avatar}</AvatarFallback>
                         </Avatar>
-                        <div className="bg-white border border-slate-200/80 py-2.5 px-4 rounded-2xl rounded-bl-sm shadow-sm relative group">
-                          <p className="text-[14.5px] text-slate-800 leading-relaxed font-medium">
-                            {msg.content}
-                          </p>
-                          <div className="flex items-center justify-end gap-1 mt-1.5 opacity-60">
-                            <span className="text-[10px] text-slate-500 font-bold uppercase">{msg.time}</span>
+                        <div className="bg-white border border-slate-200/80 p-1 rounded-2xl rounded-bl-sm shadow-sm relative group max-w-sm">
+                          {msg.imageUrl && (
+                            msg.content === 'Nota de voz' ? (
+                              <div className="mt-2 min-w-[200px]">
+                                <audio controls className="h-8 w-full">
+                                  <source src={`http://localhost:3005/api/proxy-image?url=${encodeURIComponent(msg.imageUrl)}`} type="audio/ogg" />
+                                  Tu navegador no soporta el audio.
+                                </audio>
+                              </div>
+                            ) : (
+                              <img 
+                                src={`http://localhost:3005/api/proxy-image?url=${encodeURIComponent(msg.imageUrl)}`} 
+                                alt="Adjunto" 
+                                className="rounded-xl mb-1.5 w-full object-cover max-h-[300px] border border-slate-100 cursor-pointer hover:opacity-90 transition-opacity" 
+                                onClick={() => setSelectedImageUrl(`http://localhost:3005/api/proxy-image?url=${encodeURIComponent(msg.imageUrl)}`)}
+                              />
+                            )
+                          )}
+                          <div className="px-3 py-1.5">
+                            <p className="text-[14.5px] text-slate-800 leading-relaxed font-medium">
+                              {msg.content}
+                            </p>
+                            <div className="flex items-center justify-end gap-1 mt-1 opacity-60">
+                              <span className="text-[10px] text-slate-500 font-bold uppercase">{msg.time}</span>
+                            </div>
                           </div>
                         </div>
                       </div>
+                    ) : (msg.sender === 'assistant' || msg.sender === 'bot') ? (
+                       /* Bot/Agent Outbound (Grey style or specific) */
+                       <div className="flex items-end gap-2 max-w-[85%] self-end">
+                          <div className="bg-[#f0f0f0] border border-slate-300/50 py-2.5 px-4 rounded-2xl rounded-br-sm shadow-sm relative group">
+                            <p className="text-[14.5px] text-slate-700 leading-relaxed font-bold italic">
+                              🤖 {msg.content}
+                            </p>
+                            <div className="flex items-center justify-end gap-1 mt-1.5">
+                              <span className="text-[10px] text-slate-500 font-bold uppercase">{msg.time}</span>
+                              <CheckCheck className="h-3 w-3 text-slate-400" />
+                            </div>
+                          </div>
+                       </div>
                     ) : msg.isCampaign ? (
                       /* Campaign Outbound */
                      <div className="flex items-end gap-2 max-w-[85%] self-end">
@@ -456,6 +591,18 @@ export const CRMWhatsAppPanel = () => {
         )}
       </div>
       
+      {/* Full Size Image Modal */}
+      <Dialog open={!!selectedImageUrl} onOpenChange={(open) => !open && setSelectedImageUrl(null)}>
+        <DialogContent className="max-w-[90vw] max-h-[90vh] p-1 bg-transparent border-none shadow-none flex items-center justify-center">
+          {selectedImageUrl && (
+            <img 
+              src={selectedImageUrl} 
+              alt="Full view" 
+              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" 
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

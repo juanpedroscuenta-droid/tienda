@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, HelpCircle, Search, Menu, X, ChevronDown, ChevronRight, SlidersHorizontal, ChevronLeft, Heart, Bike, ShieldCheck, QrCode, CreditCard } from 'lucide-react';
+import { ShoppingCart, User, HelpCircle, Search, Menu, X, ChevronDown, ChevronRight, SlidersHorizontal, ChevronLeft, Heart, Bike, Car, ShieldCheck, QrCode, CreditCard } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useFavorites } from '@/contexts/FavoritesContext';
@@ -43,8 +43,9 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { getItemCount } = useCart();
+  const { getItemCount, getTotal } = useCart();
   const itemCount = getItemCount();
+  const total = getTotal();
   const { favorites, toggleFavorite } = useFavorites();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuView, setMenuView] = useState<'main' | 'sub'>('main');
@@ -156,9 +157,34 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
   return (
     <div className="w-full font-sans selection:bg-blue-800 selection:text-white" >
-      {/* Top Header - Black Theme */}
-      <header className="bg-black text-white w-full border-b border-zinc-800 overflow-visible relative z-[60]">
-        <div className="w-full max-w-[1400px] mx-auto px-4 md:px-8 py-1.5 flex items-center justify-between overflow-visible">
+      {/* Red Super-Header on top as requested */}
+      <div className="bg-[#ba181b] text-white w-full border-b border-black/5 py-1.5 hidden md:block">
+        <div className="container mx-auto px-4 md:px-8 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider">
+          <div className="flex items-center gap-6">
+            <span className="flex items-center gap-2">
+              <span className="text-white">📍</span> Bogotá, Colombia
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="text-white font-bold">📞</span> 3052830433
+            </span>
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowAccountMenu(true)}
+              onMouseEnter={() => setShowAccountMenu(true)}
+              className="hover:text-red-500 transition-colors flex items-center gap-2"
+            >
+              <User className="w-3.5 h-3.5" strokeWidth={2.5} />
+              {user ? `Hola, ${user.name.split(' ')[0]}` : 'Login'}
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      {/* DESKTOP HEADER */}
+      <header className="hidden md:block bg-white text-gray-900 w-full border-b border-gray-100 overflow-visible relative z-[60] shadow-sm">
+        <div className="container mx-auto px-4 md:px-8 py-4 flex items-center justify-between overflow-visible">
           {/* Logo */}
           <div
             className="flex-shrink-0 cursor-pointer flex items-center gap-3 overflow-visible"
@@ -166,20 +192,20 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
             role="banner"
             aria-label="Ir a inicio de 24/7"
           >
-            <div className="h-8 md:h-10 flex items-center overflow-visible">
+            <div className="h-8 md:h-14 flex items-center overflow-visible bg-white p-2 rounded-sm">
               <img
                 src="/logo.webp"
                 alt="24/7"
-                width="120"
-                height="60"
-                className="h-[40px] md:h-[55px] w-auto object-contain"
+                width="160"
+                height="80"
+                className="h-[55px] md:h-[75px] w-auto object-contain"
               />
             </div>
           </div>
 
           {/* Search Bar - Minimal & White */}
           <form
-            className="hidden md:flex flex-1 max-w-2xl mx-12 relative group"
+            className="flex flex-1 mx-12 relative group"
             onSubmit={handleSearchSubmit}
             role="search"
           >
@@ -189,27 +215,26 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
               placeholder="¿Qué estás buscando?"
               value={localSearchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full py-2.5 px-6 pr-14 text-sm text-gray-800 bg-white border-2 border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all placeholder:text-gray-500 shadow-sm"
+              className="w-full py-3 px-6 pr-32 text-sm text-gray-800 bg-white border border-gray-300 rounded-sm focus:outline-none focus:ring-4 focus:ring-gray-100 transition-all placeholder:text-gray-400"
               aria-label="Buscador de productos"
             />
             <button
               type="submit"
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 group-hover:text-blue-600 transition-colors p-2"
+              className="absolute right-0 top-0 h-full px-10 bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[12px] rounded-sm transition-all shadow-md active:scale-[0.98]"
               aria-label="Ejecutar búsqueda"
             >
-              <Search className="w-5 h-5" />
+              BUSCAR
             </button>
           </form>
 
           {/* Icons - Clean & Minimal */}
           <div className="flex items-center space-x-6">
-            {/* QR Payment - As requested */}
             <div className="hidden lg:flex items-center gap-6 mr-4 border-r border-white/10 pr-6">
               <Dialog>
                 <DialogTrigger asChild>
                   <button className="flex items-center gap-2 group hover:opacity-80 transition-opacity">
-                    <div className="w-8 h-8 bg-white/5 flex items-center justify-center border border-white/10">
-                      <CreditCard className="w-4 h-4 text-white" />
+                    <div className="w-8 h-8 bg-black/5 flex items-center justify-center border border-black/10">
+                      <CreditCard className="w-4 h-4 text-black" />
                     </div>
                     <span className="text-[13px] font-black uppercase tracking-tight">Pagar con QR</span>
                   </button>
@@ -257,7 +282,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                   onMouseLeave={() => setShowHelpMenu(false)}
                 >
                   <a
-                    href="https://wa.me/573212619434"
+                    href="https://wa.me/573239447597"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
@@ -265,7 +290,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                     <span className="text-green-500 text-xl">📱</span>
                     <div className="text-left">
                       <div className="text-sm font-bold text-gray-900">WhatsApp</div>
-                      <div className="text-[11px] text-gray-700 font-medium">+57 321 2619434</div>
+                      <div className="text-[11px] text-gray-700 font-medium">+57 323 9447597</div>
                     </div>
                   </a>
                   <a
@@ -282,7 +307,6 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
               )}
             </div>
 
-            {/* Favorites Dropdown Container */}
             <div
               className="relative hidden md:block"
               onMouseEnter={() => {
@@ -309,88 +333,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 </div>
                 <span className="text-[10px] uppercase font-bold tracking-wider">Favoritos</span>
               </button>
-
-              {/* Favorites Dropdown Overlay */}
-              {showFavoritesMenu && (
-                <div
-                  className="absolute top-full right-0 mt-4 w-80 bg-white text-gray-900 shadow-[0_10px_40px_rgba(0,0,0,0.2)] border border-gray-100 z-[70] rounded-xl overflow-hidden p-4"
-                  onMouseEnter={() => {
-                    if (favoritesMenuTimer.current) clearTimeout(favoritesMenuTimer.current);
-                    setShowFavoritesMenu(true);
-                  }}
-                  onMouseLeave={() => {
-                    if (favoritesMenuTimer.current) clearTimeout(favoritesMenuTimer.current);
-                    favoritesMenuTimer.current = setTimeout(() => setShowFavoritesMenu(false), 200);
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-4 px-1">
-                    <h3 className="text-sm font-black text-gray-900">Favoritos</h3>
-                    <Badge variant="secondary" className="text-[10px] font-black bg-gray-100 text-gray-600 rounded-full h-5">{favorites.length}</Badge>
-                  </div>
-
-                  {favorites.length === 0 ? (
-                    <div className="py-10 text-center">
-                      <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <Heart className="w-6 h-6 text-gray-300" />
-                      </div>
-                      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Tu lista está vacía</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                        {favorites.slice(0, 5).map((item) => (
-                          <div
-                            key={item.id}
-                            className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-xl group/fav transition-all duration-200 border border-transparent hover:border-gray-100 cursor-pointer"
-                            onClick={() => {
-                              navigate(`/producto/${slugify(item.name)}`);
-                              setShowFavoritesMenu(false);
-                            }}
-                          >
-                            <div className="w-16 h-16 bg-white rounded-lg overflow-hidden flex-shrink-0 border border-gray-100 p-1">
-                              <img
-                                src={item.image || '/placeholder.png'}
-                                alt={item.name}
-                                className="w-full h-full object-contain group-hover/fav:scale-105 transition-transform duration-500"
-                              />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[11px] font-bold text-gray-900 line-clamp-2 leading-tight group-hover/fav:text-blue-600 transition-colors">
-                                {item.name}
-                              </p>
-                              <p className="text-xs font-black text-gray-900 mt-1">${item.price?.toLocaleString('es-CO')}</p>
-                            </div>
-                            <button
-                              className="w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleFavorite(item);
-                              }}
-                            >
-                              <Heart className="w-4 h-4 fill-current transition-colors" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-
-                      {favorites.length > 5 && (
-                        <div className="py-2 text-center border-t border-gray-50 mt-2">
-                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                            + {favorites.length - 5} artículos más
-                          </p>
-                        </div>
-                      )}
-
-                      <button
-                        onClick={() => { navigate('/favoritos'); setShowFavoritesMenu(false); }}
-                        className="w-full mt-4 bg-white border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white py-3 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 transform active:scale-[0.98]"
-                      >
-                        Ver todos los favoritos
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
+              {/* Favorites Dropdown Overlay (Moved to shared logic below) */}
             </div>
 
             {/* Mobile Favorites Button (Always navigates) */}
@@ -411,7 +354,6 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
               </button>
             </div>
 
-            {/* Account */}
             <div
               className="relative"
               onMouseEnter={() => {
@@ -431,132 +373,101 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 <User className="w-6 h-6 stroke-[1.5px]" />
                 <span className="text-[10px] uppercase font-bold tracking-wider hidden md:block">Mi cuenta</span>
               </button>
-
-              {showAccountMenu && (
-                <div
-                  className="absolute top-full right-[-70px] md:right-0 mt-3 w-[260px] max-w-[calc(100vw-32px)] bg-white text-gray-900 shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-50 z-[100] rounded-[28px] overflow-hidden p-6"
-                  onMouseEnter={() => {
-                    if (accountMenuTimer.current) clearTimeout(accountMenuTimer.current);
-                    setShowAccountMenu(true);
-                  }}
-                  onMouseLeave={() => {
-                    if (accountMenuTimer.current) clearTimeout(accountMenuTimer.current);
-                    accountMenuTimer.current = setTimeout(() => setShowAccountMenu(false), 150);
-                  }}
-                >
-                  {user ? (
-                    <div className="flex flex-col">
-                      <div className="mb-4">
-                        <p className="text-[17px] font-black text-gray-900">Hola,</p>
-                      </div>
-
-                      <div className="flex flex-col space-y-1">
-                        <button
-                          onClick={() => { navigate('/perfil'); setShowAccountMenu(false); }}
-                          className="w-full text-left px-4 py-3 bg-[#f2f2f2] rounded-2xl text-[15px] font-bold text-gray-800 transition-colors"
-                        >
-                          Perfil
-                        </button>
-                        <button
-                          onClick={() => { navigate('/perfil?tab=addresses'); setShowAccountMenu(false); }}
-                          className="w-full text-left px-4 py-3 rounded-2xl text-[15px] font-bold text-gray-800 hover:bg-gray-50 transition-colors"
-                        >
-                          Mis direcciones
-                        </button>
-                        <button
-                          onClick={() => { navigate('/perfil?tab=orders'); setShowAccountMenu(false); }}
-                          className="w-full text-left px-4 py-3 rounded-2xl text-[15px] font-bold text-gray-800 hover:bg-gray-50 transition-colors"
-                        >
-                          Mis pedidos
-                        </button>
-
-                        {(user.isAdmin || user.subCuenta === "si") && (
-                          <button
-                            onClick={() => { navigate('/admin'); setShowAccountMenu(false); }}
-                            className="w-full text-left px-4 py-3 rounded-2xl text-[15px] font-bold text-gray-800 hover:bg-gray-50 transition-colors"
-                          >
-                            Panel Administrador
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="mt-6">
-                        <button
-                          onClick={async () => { await logout(); setShowAccountMenu(false); }}
-                          className="w-full py-3 px-4 border border-gray-900 text-gray-900 rounded-[12px] font-black text-[13px] uppercase tracking-widest transition-all"
-                        >
-                          CERRAR SESIÓN
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col space-y-4">
-                      <div className="mb-2">
-                        <p className="text-base font-black text-gray-900 uppercase tracking-tight">Bienvenido</p>
-                        <p className="text-xs font-medium text-gray-400">Accede a tu cuenta Yamaha</p>
-                      </div>
-                      <button
-                        onClick={() => { navigate('/login'); setShowAccountMenu(false); }}
-                        className="w-full py-3.5 bg-gray-900 text-white rounded-xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-black transition-all"
-                      >
-                        Ingresar
-                      </button>
-                      <button
-                        onClick={() => { navigate('/register'); setShowAccountMenu(false); }}
-                        className="w-full py-3.5 border-2 border-gray-900 text-gray-900 rounded-xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-gray-900 hover:text-white transition-all"
-                      >
-                        Registrarme
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Account Dropdown Overlay (Moved to shared logic below) */}
             </div>
 
             {/* Cart */}
             <button
-              className="hidden md:flex flex-col items-center gap-1 hover:opacity-80 transition-opacity relative"
+              className="hidden md:flex items-center gap-3 hover:opacity-80 transition-opacity relative group"
               onClick={() => navigate('/cart')}
               aria-label={`Ver carrito de compras, ${itemCount} productos`}
             >
-              <div className="relative">
-                <ShoppingCart className="w-6 h-6 stroke-[1.5px]" />
-                {itemCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-md">
-                    {itemCount}
-                  </span>
-                )}
+              <div className="relative p-2 bg-red-50 rounded-full group-hover:bg-red-100 transition-colors">
+                <ShoppingCart className="w-6 h-6 text-red-600 fill-current" />
               </div>
-              <span className="text-[10px] uppercase font-bold tracking-wider hidden md:block">Mi carrito</span>
+              <div className="flex flex-col items-start leading-tight">
+                <span className="text-[13px] font-black text-gray-900 uppercase">Mi Carrito</span>
+                <span className="text-[12px] font-bold text-red-600">
+                  ${total.toLocaleString('es-CO')} | {itemCount}
+                </span>
+              </div>
             </button>
+          </div> {/* Closing div for the desktop header icons container */}
+        </div> {/* Closing div for the desktop header main container */}
+      </header> {/* Closing header tag for the desktop header */}
 
-            {/* Mobile Toggle */}
-            <button
-              className="md:hidden text-white p-3 -mr-2 min-w-[48px] min-h-[48px] flex items-center justify-center"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              aria-label={isMenuOpen ? "Cerrar menú principal" : "Abrir menú principal"}
-            >
-              {isMenuOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
-            </button>
-          </div>
-        </div>
 
-        {/* Persistent Mobile Search Bar (Mobile only) */}
-        <div className="md:hidden px-4 pb-3 pt-1" >
-          <form className="relative" onSubmit={handleSearchSubmit}>
+      {/* MOBILE HEADER (Screenshot Red Style) */}
+      <header className="md:hidden flex flex-col w-full z-[60] sticky top-0 bg-white">
+        {/* Row 1: Search Bar (Red BG) */}
+        <div className="bg-[#E2343E] px-4 py-3">
+          <form className="flex w-full h-11" onSubmit={handleSearchSubmit}>
             <input
               type="text"
               placeholder="¿Qué estás buscando?"
               value={localSearchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full py-2.5 px-5 pr-12 text-sm text-white bg-white/10 border border-white/20 rounded-full focus:outline-none focus:border-white/40 placeholder:text-gray-400 backdrop-blur-sm"
+              className="flex-1 py-0 px-4 text-sm text-gray-800 bg-white border-0 outline-none rounded-l-md"
+              aria-label="Buscador móvil"
             />
-            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70">
-              <Search className="w-5 h-5" />
+            <button
+              type="submit"
+              className="bg-black text-white px-5 font-black text-[12px] uppercase flex items-center justify-center rounded-r-md"
+            >
+              BUSCAR
             </button>
           </form>
-        </div >
-      </header >
+        </div>
+
+        {/* Row 2: Icons & Logo (Red BG) */}
+        <div className="bg-[#E2343E] px-4 py-3 flex items-center justify-between border-t border-white/10 relative">
+          <div className="flex-1 flex justify-start">
+            <button 
+              onClick={() => setIsMenuOpen(true)}
+              className="text-white p-2 -ml-2"
+              aria-label="Abrir menú"
+            >
+              <Menu className="w-7 h-7" />
+            </button>
+          </div>
+          
+          <div 
+            className="flex items-center cursor-pointer absolute left-1/2 -translate-x-1/2 z-[70] h-full"
+            onClick={() => {
+              navigate('/');
+              window.scrollTo(0, 0);
+            }}
+          >
+            <img
+              src="/logo.webp"
+              alt="24/7"
+              className="h-10 w-auto object-contain brightness-0 invert cursor-pointer" // Invert color to make it white/accessible on red if it's dark
+            />
+          </div>
+
+          <div className="flex-1 flex items-center justify-end gap-3">
+             <button 
+               onClick={() => navigate('/cart')}
+               className="text-white relative p-1"
+               aria-label="Ver carrito"
+             >
+               <ShoppingCart className="w-6 h-6" />
+               {itemCount > 0 && (
+                 <span className="absolute -top-1 -right-1 bg-white text-red-600 text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center">
+                   {itemCount}
+                 </span>
+               )}
+             </button>
+             <button 
+               onClick={() => setShowAccountMenu(!showAccountMenu)}
+               className="text-white p-1"
+               aria-label="Ver cuenta"
+             >
+               <User className="w-6 h-6" />
+             </button>
+          </div>
+        </div>
+      </header>
 
       {/* Mobile Drawer Overlay */}
       {
@@ -571,15 +482,15 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
       {/* Mobile Drawer Content */}
       <div
-        className={`fixed inset-y-0 left-0 w-[85%] max-w-[320px] bg-white z-[110] md:hidden transform transition-transform duration-300 ease-out shadow-2xl flex flex-col ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
+        className={`fixed inset-y-0 left-0 w-[85%] max-w-[320px] bg-white z-[110] md:hidden transform transition-transform duration-300 ease-out shadow-2xl flex flex-col ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Drawer Header - Black Theme for continuity */}
-        <div className="flex items-center justify-between p-6 bg-black text-white border-b border-zinc-800">
+        <div className="flex items-center justify-between p-6 bg-black text-white border-b border-zinc-800 shrink-0">
           <img
             src="/logo.webp"
             alt="24/7"
-            className="h-8 w-auto object-contain"
+            className="h-8 w-auto object-contain cursor-pointer"
+            onClick={() => { navigate('/'); setIsMenuOpen(false); }}
           />
           <button
             onClick={() => setIsMenuOpen(false)}
@@ -587,6 +498,48 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
           >
             <X className="w-6 h-6" />
           </button>
+        </div>
+
+        {/* Categories Section Label */}
+        <div className="px-6 pt-6 -mb-2">
+          <h3 className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Navegación</h3>
+        </div>
+
+        {/* Main Nav Links in Drawer */}
+        <div className="px-6 py-4 grid grid-cols-3 gap-2 border-b border-neutral-100">
+          <button
+            onClick={() => { navigate('/?tienda=true'); setIsMenuOpen(false); }}
+            className="flex flex-col items-center gap-2 p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
+          >
+            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-neutral-100 shadow-sm">
+              <Search className="w-5 h-5 text-blue-500" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-tight text-neutral-800">Tienda</span>
+          </button>
+
+          <button
+            onClick={() => { navigate('/cotizacion'); setIsMenuOpen(false); }}
+            className="flex flex-col items-center gap-2 p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
+          >
+            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-neutral-100 shadow-sm">
+              <HelpCircle className="w-5 h-5 text-[#ba181b]" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-tight text-neutral-800">Cotizar</span>
+          </button>
+
+          <button
+            onClick={() => { navigate('/promociones'); setIsMenuOpen(false); }}
+            className="flex flex-col items-center gap-2 p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
+          >
+            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-neutral-100 shadow-sm">
+              <SlidersHorizontal className="w-5 h-5 text-red-500" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-tight text-neutral-800">Ofertas</span>
+          </button>
+        </div>
+
+        <div className="px-6 pt-6 -mb-2">
+          <h3 className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Categorías</h3>
         </div>
 
         {/* Drawer Scrollable Content */}
@@ -785,87 +738,77 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
         </div>
       </div>
 
-      {/* Desktop Navigation Bar - Black & Clean */}
       <nav
-        className="relative hidden md:block bg-black border-t border-white/10 border-b border-zinc-800 z-50"
+        className="relative hidden md:block bg-white border-t border-gray-100 border-b-2 border-neutral-300 z-[100] sticky top-0 shadow-lg"
         onMouseLeave={() => {
           categoryDropdownTimer.current = setTimeout(() => setOpenCategoryDropdown(null), 100);
         }}
       >
-        <div className="w-full max-w-[1440px] mx-auto px-1">
-          <ul className="grid grid-flow-col auto-cols-fr w-full h-[60px] text-white">
-            {mainCategoriesForNav.map((category) => {
-              const isActive = selectedCategory === category;
-              const subs = getSubsForMain(category);
-              const hasDropdown = subs.length > 0;
-              const isDropdownOpen = openCategoryDropdown === category;
+        <div className="container mx-auto px-4 md:px-8">
+          <ul className="flex items-center h-[55px] gap-8 text-neutral-800">
+            {/* Category Button - styled like the image */}
+            <li className="flex-shrink-0">
+              <button
+                onMouseEnter={() => setOpenCategoryDropdown("Categories")}
+                className="flex items-center gap-4 px-8 py-2.5 border border-gray-900 rounded-sm font-black text-[13px] uppercase tracking-tighter hover:bg-gray-50 transition-all text-gray-900"
+              >
+                TODAS LAS CATEGORIAS
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              </button>
+            </li>
 
-              // Explicit splitting for common long categories with "y"
-              const lowerName = category.toLowerCase();
-              let labelElement: React.ReactNode = category;
+            {/* Other Navigation Links */}
+            <li className="flex items-center gap-8">
+              <button
+                onClick={() => navigate('/')}
+                className="text-[16px] font-bold text-neutral-800 hover:text-red-600 transition-colors uppercase tracking-tight"
+              >
+                Inicio
+              </button>
+              <button
+                onClick={() => navigate('/cotizacion')}
+                className="text-[16px] font-bold text-neutral-800 hover:text-red-600 transition-colors uppercase tracking-tight"
+              >
+                Cotización
+              </button>
+              <button
+                onClick={() => navigate('/promociones')}
+                className="text-[16px] font-bold text-neutral-800 hover:text-red-600 transition-colors uppercase tracking-tight"
+              >
+                Promociones
+              </button>
+              <button
+                onClick={() => navigate('/?tienda=true')}
+                className="text-[16px] font-bold text-neutral-800 hover:text-red-600 transition-colors uppercase tracking-tight"
+              >
+                Tienda
+              </button>
+              <button
+                onClick={() => navigate('/faq')}
+                className="text-[16px] font-bold text-neutral-800 hover:text-red-600 transition-colors uppercase tracking-tight"
+              >
+                FAQ
+              </button>
+            </li>
 
-              if (lowerName.includes(' y ')) {
-                const parts = category.split(/\s+[yY]\s+/);
-                labelElement = (
-                  <>
-                    <span className="block leading-none">{parts[0]} Y</span>
-                    <span className="block leading-none">{parts.slice(1).join(' Y ')}</span>
-                  </>
-                );
-              } else if (category.length > 10 && category.includes(' ')) {
-                const parts = category.split(' ');
-                labelElement = (
-                  <>
-                    <span className="block leading-none">{parts[0]}</span>
-                    <span className="block leading-none">{parts.slice(1).join(' ')}</span>
-                  </>
-                );
-              }
+            {/* Spacer for categories (we will handle the categories list separately if needed, but for now we follow the image) */}
+            <div className="flex-1"></div>
 
-              return (
-                <li
-                  key={category}
-                  className="flex items-center justify-center h-full border-r border-white/5 last:border-0"
-                  onMouseEnter={() => {
-                    if (categoryDropdownTimer.current) clearTimeout(categoryDropdownTimer.current);
-                    if (hasDropdown) setOpenCategoryDropdown(category);
-                  }}
-                  onMouseLeave={() => {
-                    categoryDropdownTimer.current = setTimeout(() => setOpenCategoryDropdown(null), 150);
-                  }}
-                >
-                  <button
-                    type="button"
-                    className={`flex flex-col items-center justify-center w-full min-h-[50px] px-1 text-center transition-all uppercase relative group ${isActive || isDropdownOpen
-                      ? "text-white opacity-100"
-                      : "text-white/70 hover:text-white"
-                      }`}
-                    onClick={() => {
-                      goToCategory(category);
-                    }}
-                  >
-                    <div className="text-[10px] xl:text-[11px] font-bold uppercase flex flex-col items-center leading-tight">
-                      {labelElement}
-                    </div>
-                    {(isActive || isDropdownOpen) && (
-                      <span className="absolute -bottom-0 left-1 right-1 h-0.5 bg-white animate-in fade-in" />
-                    )}
-                  </button>
-                </li>
-              );
-            })}
           </ul>
+
 
         </div>
 
         {/* Dropdown Categorías (Mega-Menu) - Blue Minimal Style */}
         {openCategoryDropdown && (() => {
-          const subs = getSubsForMain(openCategoryDropdown);
+          const isAllCategories = openCategoryDropdown === "Categories";
+          const subs = isAllCategories ? (mainCategories || []).filter(c => c.id !== "todos") : getSubsForMain(openCategoryDropdown);
+
           if (subs.length === 0) return null;
 
           return (
             <div
-              className="absolute left-1/2 -translate-x-1/2 top-full w-full max-w-4xl bg-white shadow-[0_40px_80px_-15px_rgba(0,0,0,0.15)] z-50 border border-gray-100 rounded-b-[2rem] animate-in fade-in slide-in-from-top-2 duration-300"
+              className="absolute left-1/2 -translate-x-1/2 top-full w-full max-w-[1400px] bg-white shadow-[0_40px_80px_-15px_rgba(0,0,0,0.15)] z-50 border border-gray-100 rounded-b-[2rem] animate-in fade-in slide-in-from-top-2 duration-300 mx-auto"
               onMouseEnter={() => {
                 if (categoryDropdownTimer.current) clearTimeout(categoryDropdownTimer.current);
                 setOpenCategoryDropdown(openCategoryDropdown);
@@ -873,7 +816,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
             >
               <div className="flex" style={{ maxHeight: '70vh' }}>
                 {/* Col 1: Level 1 Subcategories & Promo */}
-                <div className="w-[320px] bg-[#f8f9fa] p-5 flex flex-col overflow-y-scroll" style={{ maxHeight: '70vh', scrollbarWidth: 'auto' }}>
+                <div className="w-[350px] bg-[#f8f9fa] p-5 flex flex-col overflow-y-scroll" style={{ maxHeight: '70vh', scrollbarWidth: 'auto' }}>
                   <div className="flex flex-col gap-1 mb-10">
                     {subs.map((s) => (
                       <button
@@ -899,30 +842,33 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                       Encuentra el repuesto ideal <span className="font-medium text-gray-400 lowercase">{openCategoryDropdown}</span>
                     </p>
                     <button className="w-full bg-[#2a2a2a] text-white py-2.5 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] flex items-center justify-center gap-2 hover:bg-black transition-all shadow-md active:scale-[0.98] group">
-                      <Bike className="w-4 h-4 text-white/80 group-hover:scale-110 transition-transform" />
+                      <Car className="w-4 h-4 text-white/80 group-hover:scale-110 transition-transform" />
                       <span>Búsqueda Por Modelo</span>
                     </button>
                   </div>
                 </div>
 
                 {/* Col 2: Level 2 Subcategories */}
-                <div className="w-[300px] border-l border-gray-100 p-5 flex flex-col bg-white overflow-y-scroll" style={{ maxHeight: '70vh', scrollbarWidth: 'auto' }}>
+                <div className="w-[350px] border-l border-gray-100 p-5 flex flex-col bg-white overflow-y-scroll" style={{ maxHeight: '70vh', scrollbarWidth: 'auto' }}>
                   {activeSub && (() => {
-                    const thirdLevels = thirdLevelBySubcategory[activeSub.id || ''] || [];
+                    const nextLevelItems = isAllCategories
+                      ? (subcategoriesByParent[activeSub.name] || [])
+                      : (thirdLevelBySubcategory[activeSub.id || ''] || []);
+
                     return (
                       <div className="flex flex-col gap-1 h-full">
                         <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 px-4">Categorías</h4>
-                        {thirdLevels.length > 0 ? (
-                          thirdLevels.map((t) => (
+                        {nextLevelItems.length > 0 ? (
+                          nextLevelItems.map((s) => (
                             <button
-                              key={t.id}
-                              onMouseEnter={() => setActiveThird(t)}
-                              onClick={() => goToCategory(t.name)}
-                              className={`flex items-center justify-between px-5 py-3.5 rounded-xl transition-all text-left group ${activeThird?.id === t.id ? 'bg-[#f8f9fa] text-black shadow-sm' : 'text-gray-500 hover:text-black hover:bg-[#f8f9fa]/50'}`}
+                              key={s.id}
+                              onMouseEnter={() => setActiveThird(s)}
+                              onClick={() => goToCategory(s.name)}
+                              className={`flex items-center justify-between px-5 py-3.5 rounded-xl transition-all text-left group ${activeThird?.id === s.id ? 'bg-[#f8f9fa] text-black shadow-sm' : 'text-gray-500 hover:text-black hover:bg-[#f8f9fa]/50'}`}
                             >
-                              <span className="text-[14px] font-bold tracking-tight">{t.name}</span>
-                              {getFourthLevel(t.id || '').length > 0 && (
-                                <ChevronRight className={`w-4 h-4 transition-all ${activeThird?.id === t.id ? 'translate-x-1 opacity-100' : 'opacity-100 text-gray-300'}`} />
+                              <span className="text-[14px] font-bold tracking-tight">{s.name}</span>
+                              {(isAllCategories ? (thirdLevelBySubcategory[s.id || ''] || []).length > 0 : getFourthLevel(s.id || '').length > 0) && (
+                                <ChevronRight className={`w-4 h-4 transition-all ${activeThird?.id === s.id ? 'translate-x-1 opacity-100' : 'opacity-100 text-gray-300'}`} />
                               )}
                             </button>
                           ))
@@ -944,31 +890,39 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 {/* Col 3: Level 3 Items */}
                 <div className="flex-1 p-10 bg-white overflow-y-auto custom-scrollbar border-l border-gray-100 min-h-0">
                   {activeThird ? (
-                    <div className="flex flex-col gap-1">
-                      <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 px-4">Productos</h4>
-                      <div className="grid grid-cols-1 gap-y-1">
-                        {getFourthLevel(activeThird.id || '').map((f) => (
-                          <button
-                            key={f.id}
-                            onClick={() => goToCategory(f.name)}
-                            className="text-left py-3 px-5 text-[14px] font-medium text-gray-500 hover:text-black hover:bg-[#f8f9fa] rounded-xl transition-all"
-                          >
-                            {f.name}
-                          </button>
-                        ))}
-                        {getFourthLevel(activeThird.id || '').length === 0 && (
-                          <div className="px-5 py-10 text-center border-2 border-dashed border-gray-50 rounded-2xl">
-                            <p className="text-gray-400 text-sm">Explora toda la sección de <br /><span className="font-bold text-black">{activeThird.name}</span></p>
-                            <button
-                              onClick={() => goToCategory(activeThird.name)}
-                              className="mt-4 text-xs font-black uppercase underline decoration-2 underline-offset-4 pointer-events-auto"
-                            >
-                              Ver catálogo completo
-                            </button>
+                    (() => {
+                      const finalLevelItems = isAllCategories
+                        ? (getThirdsForSub(activeThird.id || ''))
+                        : (getFourthLevel(activeThird.id || ''));
+
+                      return (
+                        <div className="flex flex-col gap-1">
+                          <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 px-4">Productos</h4>
+                          <div className="grid grid-cols-1 gap-y-1">
+                            {finalLevelItems.map((f) => (
+                              <button
+                                key={f.id}
+                                onClick={() => goToCategory(f.name)}
+                                className="text-left py-3 px-5 text-[14px] font-medium text-gray-500 hover:text-black hover:bg-[#f8f9fa] rounded-xl transition-all"
+                              >
+                                {f.name}
+                              </button>
+                            ))}
+                            {finalLevelItems.length === 0 && (
+                              <div className="px-5 py-10 text-center border-2 border-dashed border-gray-50 rounded-2xl">
+                                <p className="text-gray-400 text-sm">Explora toda la sección de <br /><span className="font-bold text-black">{activeThird.name}</span></p>
+                                <button
+                                  onClick={() => goToCategory(activeThird.name)}
+                                  className="mt-4 text-xs font-black uppercase underline decoration-2 underline-offset-4 pointer-events-auto"
+                                >
+                                  Ver catálogo completo
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </div>
+                        </div>
+                      );
+                    })()
                   ) : activeSub ? (
                     <div className="h-full w-full flex flex-col items-center justify-center text-center space-y-4 max-w-sm mx-auto transition-all duration-300 animate-in fade-in zoom-in-95">
                       <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-gray-100">
@@ -976,7 +930,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                       </div>
                       <h4 className="text-xl font-black text-gray-800">Sección {activeSub.name}</h4>
                       <p className="text-sm text-gray-500 font-medium leading-relaxed">
-                        {(thirdLevelBySubcategory[activeSub.id || ''] || []).length > 0
+                        {(isAllCategories ? (getThirdsForSub(activeSub.id || '')) : (getThirdsForSub(activeSub.id || ''))).length > 0
                           ? "Selecciona una categoría de la izquierda para ver más detalles y productos específicos."
                           : "No existen más subcategorías para este departamento. Selecciona el botón para ver todo el inventario de esta sección."}
                       </p>
@@ -994,6 +948,174 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
           );
         })()}
       </nav>
-    </div >
+
+      {/* Shared Dropdowns Overlays (Always available for both headers) */}
+      <div className="relative z-[150]">
+        {/* Shared Account Menu Dropdown */}
+        {showAccountMenu && (
+          <div
+            className="fixed top-[135px] md:top-[85px] right-4 md:right-10 w-[280px] max-w-[calc(100vw-32px)] bg-white text-gray-900 shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-50 z-[160] rounded-[28px] overflow-hidden p-6"
+            onMouseEnter={() => {
+              if (accountMenuTimer.current) clearTimeout(accountMenuTimer.current);
+              setShowAccountMenu(true);
+            }}
+            onMouseLeave={() => {
+              if (accountMenuTimer.current) clearTimeout(accountMenuTimer.current);
+              accountMenuTimer.current = setTimeout(() => setShowAccountMenu(false), 150);
+            }}
+          >
+            {user ? (
+              <div className="flex flex-col">
+                <div className="mb-4">
+                  <p className="text-[17px] font-black text-gray-900">Hola, {user.email?.split('@')[0]}</p>
+                </div>
+
+                <div className="flex flex-col space-y-1">
+                  <button
+                    onClick={() => { navigate('/perfil'); setShowAccountMenu(false); }}
+                    className="w-full text-left px-4 py-3 bg-[#f2f2f2] rounded-2xl text-[15px] font-bold text-gray-800 transition-colors"
+                  >
+                    Perfil
+                  </button>
+                  <button
+                    onClick={() => { navigate('/perfil?tab=addresses'); setShowAccountMenu(false); }}
+                    className="w-full text-left px-4 py-3 rounded-2xl text-[15px] font-bold text-gray-800 hover:bg-gray-50 transition-colors"
+                  >
+                    Mis direcciones
+                  </button>
+                  <button
+                    onClick={() => { navigate('/perfil?tab=orders'); setShowAccountMenu(false); }}
+                    className="w-full text-left px-4 py-3 rounded-2xl text-[15px] font-bold text-gray-800 hover:bg-gray-50 transition-colors"
+                  >
+                    Mis pedidos
+                  </button>
+
+                  {(user.isAdmin || user.subCuenta === "si") && (
+                    <button
+                      onClick={() => { navigate('/admin'); setShowAccountMenu(false); }}
+                      className="w-full text-left px-4 py-3 rounded-2xl text-[15px] font-bold text-gray-800 hover:bg-gray-50 transition-colors"
+                    >
+                      Panel Administrador
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-6">
+                  <button
+                    onClick={async () => { await logout(); setShowAccountMenu(false); }}
+                    className="w-full py-3 px-4 border border-gray-900 text-gray-900 rounded-[12px] font-black text-[13px] uppercase tracking-widest transition-all hover:bg-gray-900 hover:text-white"
+                  >
+                    CERRAR SESIÓN
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col space-y-4">
+                <div className="mb-2">
+                  <p className="text-base font-black text-gray-900 uppercase tracking-tight">Bienvenido</p>
+                  <p className="text-xs font-medium text-gray-400">Accede a tu cuenta 24/7</p>
+                </div>
+                <button
+                  onClick={() => { navigate('/login'); setShowAccountMenu(false); }}
+                  className="w-full py-3.5 bg-gray-900 text-white rounded-xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-black transition-all"
+                >
+                  Ingresar
+                </button>
+                <button
+                  onClick={() => { navigate('/register'); setShowAccountMenu(false); }}
+                  className="w-full py-3.5 border-2 border-gray-900 text-gray-900 rounded-xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-gray-900 hover:text-white transition-all"
+                >
+                  Registrarme
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Shared Favorites Dropdown Overlay */}
+        {showFavoritesMenu && (
+          <div
+            className="fixed top-[135px] md:top-[85px] right-4 md:right-32 w-80 bg-white text-gray-900 shadow-[0_10px_40px_rgba(0,0,0,0.2)] border border-gray-100 z-[160] rounded-xl overflow-hidden p-4"
+            onMouseEnter={() => {
+              if (favoritesMenuTimer.current) clearTimeout(favoritesMenuTimer.current);
+              setShowFavoritesMenu(true);
+            }}
+            onMouseLeave={() => {
+              if (favoritesMenuTimer.current) clearTimeout(favoritesMenuTimer.current);
+              favoritesMenuTimer.current = setTimeout(() => setShowFavoritesMenu(false), 200);
+            }}
+          >
+            <div className="flex items-center justify-between mb-4 px-1">
+              <h3 className="text-sm font-black text-gray-900">Favoritos</h3>
+              <Badge variant="secondary" className="text-[10px] font-black bg-gray-100 text-gray-600 rounded-full h-5">{favorites.length}</Badge>
+            </div>
+
+            {favorites.length === 0 ? (
+              <div className="py-10 text-center">
+                <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Heart className="w-6 h-6 text-gray-300" />
+                </div>
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Tu lista está vacía</p>
+              </div>
+            ) : (
+              <>
+                <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                  {favorites.slice(0, 5).map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-xl group/fav transition-all duration-200 border border-transparent hover:border-gray-100 cursor-pointer"
+                      onClick={() => {
+                        navigate(`/producto/${slugify(item.name)}`);
+                        setShowFavoritesMenu(false);
+                      }}
+                    >
+                      <div className="w-16 h-16 bg-white rounded-lg overflow-hidden flex-shrink-0 border border-gray-100 p-1">
+                        <img
+                          src={item.image || '/placeholder.png'}
+                          alt={item.name}
+                          className="w-full h-full object-contain group-hover/fav:scale-105 transition-transform duration-500"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-bold text-gray-900 line-clamp-2 leading-tight group-hover/fav:text-blue-600 transition-colors">
+                          {item.name}
+                        </p>
+                        <p className="text-xs font-black text-gray-900 mt-1">${item.price?.toLocaleString('es-CO')}</p>
+                      </div>
+                      <button
+                        className="w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(item);
+                        }}
+                      >
+                        <Heart className="w-4 h-4 fill-current transition-colors" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {favorites.length > 5 && (
+                  <div className="py-2 text-center border-t border-gray-50 mt-2">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                      + {favorites.length - 5} artículos más
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => { navigate('/favoritos'); setShowFavoritesMenu(false); }}
+                  className="w-full mt-4 bg-white border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white py-3 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 transform active:scale-[0.98]"
+                >
+                  Ver todos los favoritos
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
+
+export default AdvancedHeader;

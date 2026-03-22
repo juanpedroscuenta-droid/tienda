@@ -28,6 +28,8 @@ const storageRouter = require('./routes/storage');
 const chatbotRouter = require('./routes/chatbot');
 const paymentsRouter = require('./routes/payments');
 const mailRouter = require('./routes/mail');
+const aiEnrichmentRouter = require('./routes/ai_enrichment');
+
 
 app.use('/api/products', productsRouter);
 app.use('/api/categories', categoriesRouter);
@@ -40,6 +42,8 @@ app.use('/api/storage', storageRouter);
 app.use('/api/chatbot', chatbotRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/mail', mailRouter);
+app.use('/api/ai-enrichment', aiEnrichmentRouter);
+
 
 // Basic health check endpoint
 app.get('/api/health', (req, res) => {

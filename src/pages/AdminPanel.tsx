@@ -96,6 +96,9 @@ const ChatBotManager = lazy(() => import('@/components/admin/ChatBotManager'));
 const EmailInbox = lazy(() => import('@/components/admin/EmailInbox'));
 const SupplierManager = lazy(() => import('@/components/admin/SupplierManager').then(m => ({ default: m.SupplierManager })));
 const CRMWhatsAppPanel = lazy(() => import('@/components/admin/CRMWhatsAppPanel').then(m => ({ default: m.CRMWhatsAppPanel })));
+const QuoteManager = lazy(() => import('@/components/admin/QuoteManager').then(m => ({ default: m.QuoteManager })));
+const AIEnrichment = lazy(() => import('@/components/admin/AIEnrichment').then(m => ({ default: m.AIEnrichment })));
+
 // (ya importado arriba)
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { setDoc, doc } from "firebase/firestore";
@@ -183,7 +186,24 @@ const ManagementGrid = ({ setActiveTab }: { setActiveTab: (tab: string) => void 
       color: 'from-sky-400 to-blue-500',
       size: 'small'
     },
+    {
+      id: 'quotes',
+      label: 'Cotizaciones',
+      description: 'Supervisa y responde a las solicitudes de cotización.',
+      Icon: ClipboardList,
+      color: 'from-indigo-500 to-blue-600',
+      size: 'small'
+    },
+    {
+      id: 'ai-enrichment',
+      label: 'IA Enriquecer',
+      description: 'Generar imágenes profesionales 1 a 1 automáticamente.',
+      Icon: Sparkles,
+      color: 'from-blue-600 to-cyan-500',
+      size: 'medium'
+    },
   ];
+
 
   return (
     <div className="w-full p-4 lg:p-6 bg-white rounded-3xl">
@@ -1407,6 +1427,12 @@ export const AdminPanel: React.FC = () => {
                 </Suspense>
               </div>}
 
+              {activeTab === 'ai-enrichment' && <div className="space-y-6">
+                <Suspense fallback={<LoadingFallback />}>
+                  <AIEnrichment />
+                </Suspense>
+              </div>}
+
 
               {!isSubAdmin && activeTab === 'dashboard' && <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
@@ -2587,6 +2613,13 @@ export const AdminPanel: React.FC = () => {
               {activeTab === 'ai-assistant' && <div className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <ChatBotManager />
+                </Suspense>
+              </div>}
+
+              {/* Cotizaciones tab */}
+              {activeTab === 'quotes' && <div className="space-y-6">
+                <Suspense fallback={<LoadingFallback />}>
+                  <QuoteManager />
                 </Suspense>
               </div>}
             </div>

@@ -777,9 +777,20 @@ export const fetchInboundEmails = async () => {
     }
 }
 
-/**
- * Sincronizar bandeja de entrada (IMAP)
- */
+export const generateAIImage = async (productId: string, productName: string, category?: string) => {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/ai-enrichment/generate-image`, {
+        method: 'POST',
+        timeout: UPLOAD_TIMEOUT,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId, productName, category }),
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.details || err.error || 'Error al generar imagen');
+    }
+    return await response.json();
+}
 export const syncInboundEmails = async () => {
     const savedConfig = localStorage.getItem('__mail_config');
     let smtpConfig = null;

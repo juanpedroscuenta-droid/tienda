@@ -3,113 +3,38 @@ import { TopPromoBar } from "@/components/layout/TopPromoBar";
 import { AdvancedHeader } from "@/components/layout/AdvancedHeader";
 import { useCategories } from "@/hooks/use-categories";
 import { getInfoSection } from "@/lib/info-sections";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, ChevronRight, ChevronDown, Phone, Monitor, User } from "lucide-react";
 
 const FAQPage = () => {
   const { categories, mainCategories, subcategoriesByParent, thirdLevelBySubcategory } = useCategories();
   const [selectedCategory, setSelectedCategory] = React.useState("Todos");
   const [promoVisible, setPromoVisible] = React.useState(true);
-  const [faqContent, setFaqContent] = useState<string>('');
-  const [enabled, setEnabled] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [activeIndex, setActiveIndex] = useState<number | null>(0);
 
-  useEffect(() => {
-    const fetchFAQ = async () => {
-      setLoading(true);
-      try {
-        const row = await getInfoSection("faqs");
-        if (row) {
-          setFaqContent(row.content || "");
-          setEnabled(row.enabled ?? false);
-        } else {
-          setFaqContent("");
-          setEnabled(false);
-        }
-      } catch (error) {
-        console.error('Error fetching FAQ:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchFAQ();
-  }, []);
-
-  // Parsear el contenido de FAQ en preguntas y respuestas
-  const parseFAQContent = (content: string) => {
-    if (!content) return [];
-    
-    // Dividir por bloques separados por múltiples líneas vacías o preguntas
-    const faqs: { question: string; answer: string }[] = [];
-    
-    // Primero intentar dividir por bloques separados por dos o más líneas vacías
-    const blocks = content.split(/\n\s*\n\s*\n/).filter(block => block.trim());
-    
-    blocks.forEach(block => {
-      const lines = block.split('\n').filter(line => line.trim());
-      if (lines.length === 0) return;
-      
-      // Buscar la primera línea que parece una pregunta
-      let questionIndex = -1;
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line.startsWith('¿') && line.length > 3) {
-          questionIndex = i;
-          break;
-        }
-      }
-      
-      if (questionIndex >= 0) {
-        const question = lines[questionIndex].trim().replace(/^¿\s*/, '').replace(/\?$/, '').trim();
-        const answerLines = lines.slice(questionIndex + 1);
-        const answer = answerLines.join('\n').trim();
-        
-        if (question && answer) {
-          faqs.push({ question, answer });
-        }
-      }
-    });
-    
-    // Si no se encontraron FAQs con el método anterior, intentar dividir por líneas que empiezan con "¿"
-    if (faqs.length === 0) {
-      const lines = content.split('\n');
-      let currentQuestion = '';
-      let currentAnswer: string[] = [];
-      
-      lines.forEach((line) => {
-        const trimmed = line.trim();
-        
-        if (trimmed.startsWith('¿') && trimmed.length > 3) {
-          // Guardar pregunta anterior
-          if (currentQuestion && currentAnswer.length > 0) {
-            faqs.push({
-              question: currentQuestion.replace(/^¿\s*/, '').replace(/\?$/, '').trim(),
-              answer: currentAnswer.join('\n').trim()
-            });
-          }
-          // Nueva pregunta
-          currentQuestion = trimmed;
-          currentAnswer = [];
-        } else if (currentQuestion && trimmed.length > 0) {
-          currentAnswer.push(trimmed);
-        }
-      });
-      
-      // Agregar última pregunta
-      if (currentQuestion && currentAnswer.length > 0) {
-        faqs.push({
-          question: currentQuestion.replace(/^¿\s*/, '').replace(/\?$/, '').trim(),
-          answer: currentAnswer.join('\n').trim()
-        });
-      }
+  // Hardcoded FAQs from the image
+  const faqs = [
+    {
+      question: "QUIÉNES SOMOS?",
+      answer: "Somos distribuidores de repuestos a nivel nacional, con más de 10 años de experiencia y contamos con personal altamente calificado en el mercado de Auto Partes. Vendemos repuestos originales y homologados."
+    },
+    {
+      question: "DÓNDE ESTAMOS UBICADOS?",
+      answer: "Nuestras oficinas principales y centro de distribución están ubicados estratégicamente para cubrir todo el país. Realizamos despachos inmediatos a cualquier ciudad de Colombia."
+    },
+    {
+      question: "CUÁL ES EL TIEMPO DE ENTREGA?",
+      answer: "El tiempo de entrega estándar es de 24 a 72 horas hábiles, dependiendo de la ciudad de destino y la disponibilidad del repuesto en nuestras bodegas."
+    },
+    {
+      question: "CUÁLES SON SUS FORMAS DE PAGO?",
+      answer: "Ofrecemos múltiples opciones de pago incluyendo Transferencias Bancarias, PSE, Tarjetas de Crédito y pagos mediante billeteras digitales como Nequi o Daviplata."
     }
+  ];
 
-    return faqs;
-  };
-
-  const faqs = parseFAQContent(faqContent);
+  const loading = false; // Static content needs no loading state
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-white font-sans text-gray-900">
       {promoVisible && <TopPromoBar setPromoVisible={setPromoVisible} />}
       <AdvancedHeader
         categories={categories}
@@ -120,109 +45,159 @@ const FAQPage = () => {
         subcategoriesByParent={subcategoriesByParent}
         thirdLevelBySubcategory={thirdLevelBySubcategory}
       />
-      <main className="flex-1 flex flex-col bg-white">
-        {/* FAQ Content Section - Diseño limpio y organizado */}
-        <section className="py-12 md:py-16 bg-white">
-          <div className="max-w-4xl mx-auto px-4 md:px-6">
-            {/* Título principal */}
-            <h1 className="text-4xl md:text-5xl font-bold text-black text-center mb-12 md:mb-16 tracking-tight">
-              PREGUNTAS FRECUENTES
-            </h1>
+      
+      <main className="flex-1 bg-white pt-6 pb-24">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8">
+          {/* Breadcrumbs */}
+          <nav className="flex items-center gap-1.5 text-[12px] font-bold mb-8">
+            <a href="/" className="text-gray-400 hover:text-[#ba181b] transition-colors">Repuesto.co</a>
+            <span className="text-gray-300 mx-1">&gt;</span>
+            <span className="text-[#ba181b]">FAQ</span>
+          </nav>
 
-            {loading ? (
-              <div className="text-center py-20">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-400"></div>
-                <p className="mt-4 text-gray-600 font-medium">Cargando ayuda rápida...</p>
+          <div className="flex flex-col md:flex-row gap-8 lg:gap-16">
+            {/* Column 1: FAQ Content */}
+            <div className="flex-1">
+              <div className="mb-10 text-left">
+                <h1 className="text-[54px] font-black text-[#ba181b] leading-tight tracking-tighter uppercase">
+                  FAQ
+                </h1>
+                <p className="text-[14px] font-bold text-[#ba181b] uppercase tracking-wide">
+                  Preguntas y respuestas
+                </p>
               </div>
-            ) : enabled && faqs.length > 0 ? (
-              <div className="space-y-0">
-                {faqs.map((faq, index) => (
-                  <div key={index} className="pb-8 md:pb-10">
-                    {/* Pregunta */}
-                    <h3 className="text-lg md:text-xl font-bold text-black mb-3 md:mb-4 leading-tight">
-                      {faq.question.startsWith('¿') ? faq.question : `¿${faq.question}?`}
-                    </h3>
-                    
-                    {/* Respuesta */}
-                    <div className="text-base md:text-lg text-gray-700 leading-relaxed mb-6 md:mb-8">
-                      {faq.answer.split('\n').map((line, lineIndex, lines) => {
-                        const trimmed = line.trim();
-                        
-                        // Detectar listas con viñetas (- o •)
-                        if (trimmed.startsWith('-') || trimmed.startsWith('•')) {
-                          const content = trimmed.replace(/^[-•]\s*/, '');
-                          return (
-                            <div key={lineIndex} className="ml-4 mb-2 flex items-start">
-                              <span className="mr-2">•</span>
-                              <span>{content}</span>
-                            </div>
-                          );
-                        }
-                        
-                        // Detectar listas numeradas (1. o 1))
-                        const numberedMatch = trimmed.match(/^(\d+)[\.\)]\s*(.+)$/);
-                        if (numberedMatch) {
-                          return (
-                            <div key={lineIndex} className="ml-4 mb-2 flex items-start">
-                              <span className="mr-2 font-medium">{numberedMatch[1]}.</span>
-                              <span>{numberedMatch[2]}</span>
-                            </div>
-                          );
-                        }
-                        
-                        // Párrafos normales
-                        if (trimmed.length > 0) {
-                          // Verificar si la línea anterior o siguiente es una lista para mantener el espaciado
-                          const prevIsList = lineIndex > 0 && (
-                            lines[lineIndex - 1].trim().startsWith('-') ||
-                            lines[lineIndex - 1].trim().startsWith('•') ||
-                            /^\d+[\.\)]/.test(lines[lineIndex - 1].trim())
-                          );
-                          const nextIsList = lineIndex < lines.length - 1 && (
-                            lines[lineIndex + 1].trim().startsWith('-') ||
-                            lines[lineIndex + 1].trim().startsWith('•') ||
-                            /^\d+[\.\)]/.test(lines[lineIndex + 1].trim())
-                          );
-                          
-                          return (
-                            <p key={lineIndex} className={`mb-2 ${prevIsList ? 'mt-3' : ''} ${nextIsList ? 'mb-3' : ''}`}>
-                              {trimmed}
-                            </p>
-                          );
-                        }
-                        
-                        // Líneas vacías (solo si no están entre listas)
-                        return null;
-                      })}
-                    </div>
-                    
-                    {/* Separador horizontal - solo si no es el último */}
-                    {index < faqs.length - 1 && (
-                      <div className="border-t border-gray-300"></div>
+
+              <div className="flex flex-col border border-gray-100 divide-y divide-gray-100 mb-16">
+                {faqs.map((faq, idx) => (
+                  <div key={idx} className="flex flex-col">
+                    <button
+                      onClick={() => setActiveIndex(activeIndex === idx ? null : idx)}
+                      className={`w-full flex items-center justify-between px-6 py-4 text-left transition-all ${
+                        activeIndex === idx ? "bg-[#ba181b] text-white" : "bg-[#f8f9fa] hover:bg-gray-100 text-gray-900"
+                      }`}
+                    >
+                      <span className="text-[13px] font-black uppercase tracking-widest">
+                        ¿{faq.question}?
+                      </span>
+                      <ChevronDown className={`w-5 h-5 ${activeIndex === idx ? "text-white" : "text-gray-900"}`} />
+                    </button>
+                    {activeIndex === idx && (
+                      <div className="bg-white p-8">
+                        <p className="text-[13px] leading-relaxed text-gray-500 font-medium">
+                          {faq.answer}
+                        </p>
+                      </div>
                     )}
                   </div>
                 ))}
               </div>
-            ) : enabled && faqContent ? (
-              // Si hay contenido pero no se pudo parsear, mostrar el contenido completo
-              <div className="bg-white">
-                <div className="text-base md:text-lg text-gray-700 font-normal leading-relaxed w-full max-w-none whitespace-pre-line">
-                  {faqContent}
+
+              {/* Pasos Section in Column 1 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-12 mb-16">
+                 {[1,2,3,4,5,6].map(num => (
+                    <div key={num} className="flex flex-col gap-2">
+                       <div className="flex items-center gap-3">
+                          <div className="w-2.5 h-2.5 rounded-full bg-[#ba181b]" />
+                          <h4 className="text-[18px] font-bold text-gray-900">Paso {num}</h4>
+                       </div>
+                       <p className="text-[11px] font-medium text-gray-500 leading-tight pl-5.5">
+                          {num === 1 && "Empieza tu búsqueda"}
+                          {num === 2 && "Encuentra el repuesto o realiza una cotización"}
+                          {num === 3 && "En caso de dudas solicita nuestra asesoría."}
+                          {num === 4 && "Realiza tu pago"}
+                          {num === 5 && "Recibe notificaciones sobre el estado de tu pedido"}
+                          {num === 6 && "Recibe tu repuesto y recomienda Repuesto.co"}
+                       </p>
+                    </div>
+                 ))}
+              </div>
+
+              {/* Map in Column 1 */}
+              <div className="w-full h-[500px] relative border border-gray-100 p-1 bg-white mb-20">
+                <iframe 
+                   src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3976.846560416!2d-74.0817!3d4.6097!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8e3f990f1d564887%3A0xe5a363d6f1947a50!2sBogot%C3%A1%2C%20Colombia!5e0!3m2!1ses!2sco!4v1711050000000!5m2!1ses!2sco" 
+                   className="w-full h-full border-0 grayscale"
+                   loading="lazy"
+                ></iframe>
+                <div className="absolute top-8 left-8 bg-white p-6 shadow-2xl border border-gray-50 flex flex-col max-w-[280px]">
+                   <span className="text-[14px] font-bold text-gray-900 uppercase mb-1">Repuesto Punto Co</span>
+                   <span className="text-[10px] font-bold text-[#ba181b] mb-4">(Repuesto.co)</span>
+                   <p className="text-[10px] text-gray-400 font-bold uppercase leading-tight mb-2">
+                      SEDE PRINCIPAL - BOGOTÁ.<br/>
+                      Bogotá, Colombia
+                   </p>
+                   <div className="flex items-center gap-2 mt-2">
+                      <span className="text-[10px] font-bold">5.0</span>
+                      <div className="flex gap-0.5 text-yellow-400">
+                         {"★★★★★".split("").map((s, i) => <span key={i} className="text-[10px]">{s}</span>)}
+                      </div>
+                      <span className="text-[10px] text-blue-500">(31)</span>
+                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="text-center py-20">
-                <HelpCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 text-lg">
-                  La ayuda rápida estará disponible pronto.
-                </p>
-                <p className="text-gray-500 text-sm mt-2">
-                  Por favor, contacta con nosotros si tienes alguna pregunta.
-                </p>
+            </div>
+
+            {/* Column 2: Sidebar (Total Vertical Stack) */}
+            <div className="w-full md:w-[320px] lg:w-[380px] flex flex-col gap-10">
+              <div className="flex flex-col items-center">
+                 <div className="w-full aspect-square border-4 border-gray-100 rounded-3xl bg-white shadow-xl flex flex-col items-center justify-end overflow-hidden pb-4">
+                    <img 
+                      src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&hair=shortCombover&backgroundColor=ba181b&mouth=smile&shirt=suit" 
+                      alt="Agente"
+                      className="w-[200px] h-[200px] mb-[-20px]"
+                    />
+                    <div className="py-2 px-6 bg-[#ba181b] text-white text-[10px] font-black uppercase rounded-lg">
+                       Repuesto.co
+                    </div>
+                 </div>
               </div>
-            )}
+
+              <div className="w-full h-[1px] bg-gray-100" />
+
+              <div className="text-center px-6">
+                 <h3 className="text-[18px] font-black text-[#ba181b] uppercase tracking-tighter mb-2">
+                    PREGUNTAS?
+                 </h3>
+                 <p className="text-[12px] font-bold text-gray-400 uppercase tracking-tight mb-10 leading-relaxed">
+                    Nuestros expertos están listos para ayudar.
+                 </p>
+
+                 <div className="flex flex-col items-center gap-2">
+                    <div className="w-14 h-14 rounded-full border-2 border-[#ba181b] flex items-center justify-center text-[#ba181b] mb-2">
+                       <Phone className="w-6 h-6 fill-current" />
+                    </div>
+                    <span className="text-[14px] font-black text-gray-900 uppercase">Llamanos!</span>
+                    <span className="text-[28px] font-black text-gray-900 tracking-tighter">
+                       3136571338
+                    </span>
+                 </div>
+              </div>
+
+              {/* Form aligned in the same Column 2 */}
+              <form className="space-y-4 px-2">
+                 <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-gray-400 uppercase">Nombre (requerido)</label>
+                    <input type="text" className="w-full h-11 border border-gray-100 px-4 focus:outline-none focus:border-[#ba181b]" required />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-gray-400 uppercase">Telefono (requerido)</label>
+                    <input type="tel" className="w-full h-11 border border-gray-100 px-4 focus:outline-none focus:border-[#ba181b]" required />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-gray-400 uppercase">Email (requerido)</label>
+                    <input type="email" className="w-full h-11 border border-gray-100 px-4 focus:outline-none focus:border-[#ba181b]" required />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-gray-400 uppercase">Consulta/Mensaje</label>
+                    <textarea className="w-full border border-gray-100 px-4 py-2 focus:outline-none focus:border-[#ba181b] resize-none" rows={3} />
+                 </div>
+                 <button className="w-full py-3 bg-[#ba181b] text-white font-black uppercase text-[11px] tracking-widest hover:bg-black transition-all">
+                    ENVIAR CONSULTA
+                 </button>
+              </form>
+            </div>
           </div>
-        </section>
+        </div>
       </main>
     </div>
   );

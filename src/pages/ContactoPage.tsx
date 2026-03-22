@@ -20,8 +20,8 @@ const ContactoPage = () => (
                     </div>
                     <h3 className="font-bold text-slate-900 text-lg mb-2">WhatsApp Directo</h3>
                     <p className="text-sm text-slate-500 mb-4">Ideal para cotizaciones rápidas y fotos de repuestos.</p>
-                    <a href="https://wa.me/573212619434" target="_blank" rel="noreferrer" className="text-green-600 font-bold text-lg hover:underline">
-                        +57 321 2619434
+                    <a href="https://wa.me/573239447597" target="_blank" rel="noreferrer" className="text-green-600 font-bold text-lg hover:underline">
+                        +57 323 9447597
                     </a>
                 </div>
 

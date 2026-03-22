@@ -1,16 +1,39 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Mock Data
+// Ubicación de base de datos local
+const DB_PATH = path.join(__dirname, 'chats.json');
+
+// Mock Data (Persistente)
 let chats = [];
+if (fs.existsSync(DB_PATH)) {
+    try {
+        chats = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+        console.log("📂 Chats cargados desde el archivo local.");
+    } catch (e) {
+        console.error("Error cargando base de datos:", e);
+        chats = [];
+    }
+}
+
+function saveChats() {
+    try {
+        fs.writeFileSync(DB_PATH, JSON.stringify(chats, null, 2));
+    } catch (e) {
+        console.error("❌ Error guardando chats:", e);
+    }
+}
+
 let metaConfig = {
-  accessToken: '',
-  phoneId: '',
-  businessId: '',
+  accessToken: 'EAAQPOigEjZCwBQ4x8yKC0dOrk4BvRf02AKRIMxtFUC5qas2HPkywlBpDY38BNvyxcINx07guKIF74GiHr2D8rypN08uiPZBNTkBTu8ZBhnFiCqX8lzB7lNgzZAomQHs4iAPfFz9GeavVBbZAwKezFCTxXPPxyEEklPpVTn8P2AxGfAIvzQAZAcZCNu8EFWpNwArv1jsCafZCFFYqZAgw0yEwJ34jFmLt7ZB3HxBsPfT0ISNMCaOZB8ObxbpTOS66pYs8DwJqRoaMos6Tl5tiAgvhImtjUsRkGRpH8TZBdAZDZD',
+  phoneId: '833690719823401',
+  businessId: '1029384756', // Dejamos el genérico o el que tenga
   verifyToken: 'fuego_shop_wpp_token_2026'
 };
 
@@ -57,19 +80,58 @@ app.get('/webhook', (req, res) => {
 });
 
 // WEBHOOK de Meta (Recibir mensajes entrantes)
-app.post('/webhook', (req, res) => {
+app.post('/webhook', async (req, res) => {
   let body = req.body;
   if (body.object) {
     if (body.entry && body.entry[0].changes && body.entry[0].changes[0].value.messages && body.entry[0].changes[0].value.messages[0]) {
-      let phoneNumber = body.entry[0].changes[0].value.contacts[0].wa_id;
-      let name = body.entry[0].changes[0].value.contacts[0].profile.name;
-      let msg = body.entry[0].changes[0].value.messages[0];
-      let msgText = msg.text ? msg.text.body : 'Mensaje multimedia';
+      const value = body.entry[0].changes[0].value;
+      const contact = value.contacts ? value.contacts[0] : null;
+      const msg = value.messages[0];
+
+      let phoneNumber = contact ? contact.wa_id : msg.from;
+      let name = contact?.profile?.name || `Cliente ${phoneNumber}`;
+      
+      let msgText = msg.text ? msg.text.body : '';
+      let imageUrl = null;
+      let type = msg.type;
+
+      if (msg.type === 'image') {
+        msgText = msg.image.caption || 'Imagen';
+        const imageId = msg.image.id;
+        if (metaConfig.accessToken) {
+            try {
+                const imgRes = await fetch(`https://graph.facebook.com/v20.0/${imageId}`, {
+                    headers: { 'Authorization': `Bearer ${metaConfig.accessToken}` }
+                });
+                const imgData = await imgRes.json();
+                imageUrl = imgData.url;
+            } catch (e) {
+                console.error("Error fetching image URL:", e);
+            }
+        }
+      } else if (msg.type === 'audio' || msg.type === 'voice') {
+          msgText = 'Nota de voz';
+          const audioId = msg.audio ? msg.audio.id : msg.voice.id;
+          if (metaConfig.accessToken) {
+              try {
+                  const audioRes = await fetch(`https://graph.facebook.com/v20.0/${audioId}`, {
+                      headers: { 'Authorization': `Bearer ${metaConfig.accessToken}` }
+                  });
+                  const audioData = await audioRes.json();
+                  imageUrl = audioData.url; // Reutilizamos imageUrl para el proxy o guardamos en newMessage.audioUrl
+              } catch (e) {
+                  console.error("Error fetching audio URL:", e);
+              }
+          }
+      }
+ else if (!msgText && !msg.type) {
+          msgText = 'Mensaje multimedia';
+      }
       
       let chat = chats.find(c => c.phone === phoneNumber);
       if (!chat) {
          chat = {
-            id: phoneNumber, // usamos el teléfono como id
+            id: phoneNumber,
             name: name,
             platform: 'wpp',
             time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
@@ -78,7 +140,8 @@ app.post('/webhook', (req, res) => {
             avatar: name.substring(0,2).toUpperCase(),
             phone: phoneNumber,
             email: '',
-            messages: []
+            messages: [],
+            needsIntervention: false
          };
          chats.push(chat);
       } else {
@@ -91,9 +154,11 @@ app.post('/webhook', (req, res) => {
          content: msgText,
          sender: 'user',
          time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-         type: 'text'
+         type: type,
+         imageUrl: imageUrl
       });
-      console.log(`📩 Mensaje Entrante de ${name} (${phoneNumber}): ${msgText}`);
+      saveChats(); // PERSIST
+      console.log(`📩 Mensaje Entrante de ${name} (${phoneNumber}): ${msgText}${imageUrl ? ' [Imagen]' : ''}`);
     }
     return res.sendStatus(200);
   } else {
@@ -134,7 +199,9 @@ app.get('/api/crm/chats', (req, res) => {
       time: chat.time,
       unread: chat.unread,
       isStarred: chat.isStarred,
-      avatar: chat.avatar
+      avatar: chat.avatar,
+      needsIntervention: chat.needsIntervention,
+      interventionReason: chat.interventionReason
     };
   });
   res.json(result);
@@ -168,6 +235,10 @@ app.post('/api/crm/chats/:id/messages', async (req, res) => {
   chat.messages.push(newMessage);
   chat.time = timeString;
   
+  // Mantenemos needsIntervention como esté. Solo el botón manual devuelve control a la IA.
+  
+  saveChats(); // PERSIST
+
   // Real outbound push to Meta WhatsApp API
   if (sender === 'agent' && metaConfig.accessToken && metaConfig.phoneId && chat.phone && chat.id !== 'system') {
      console.log(`🚀 Enviando mensaje en la vida real a ${chat.phone} usando Graph API...`);
@@ -203,6 +274,100 @@ app.put('/api/crm/chats/:id', (req, res) => {
   
   chats[chatIndex] = { ...chats[chatIndex], ...req.body };
   res.json(chats[chatIndex]);
+});
+
+// POST flag for human intervention
+app.post('/api/crm/chats/intervention/:phone', (req, res) => {
+  const { phone } = req.params;
+  const { reason, type = 'danger' } = req.body;
+  
+  const chat = chats.find(c => c.phone === phone);
+  if (chat) {
+    chat.needsIntervention = true;
+    chat.interventionReason = reason;
+    chat.interventionType = type; // 'danger' or 'payment'
+    console.log(`⚠️ ALERTA (${type}): Intervención humana requerida para ${phone}. Razón: ${reason}`);
+    saveChats(); // PERSIST
+    res.json({ success: true, chat });
+  } else {
+    // Si no existe el chat, creamos uno básico
+    const newChat = {
+        id: phone,
+        name: `Cliente ${phone}`,
+        platform: 'wpp',
+        time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+        unread: 1,
+        isStarred: false,
+        avatar: 'C',
+        phone: phone,
+        email: '',
+        messages: [],
+        needsIntervention: true,
+        interventionReason: reason,
+        interventionType: type
+    };
+    chats.push(newChat);
+    saveChats(); // PERSIST
+    res.json({ success: true, chat: newChat });
+  }
+});
+
+// POST stop/pause agent (Cambiar de IA a Humano)
+app.post('/api/crm/chats/stop/:id', async (req, res) => {
+    const chat = chats.find(c => c.id === req.params.id);
+    if (!chat) return res.status(404).json({ error: 'Chat not found' });
+
+    chat.needsIntervention = true;
+    chat.interventionReason = "Control manual (Asesor)";
+    
+    try {
+        await fetch(`http://localhost:3000/api/agent/session/stop/${chat.phone}`, { method: 'POST' });
+        console.log(`👨‍💻 Chat ${chat.phone} tomado bajo control humano.`);
+    } catch (e) {
+        console.error("Error notificando parada al agente:", e.message);
+    }
+
+    saveChats(); // PERSIST
+    res.json({ success: true, chat });
+});
+
+// POST release chat back to agent (IA)
+app.post('/api/crm/chats/release/:id', async (req, res) => {
+    const chat = chats.find(c => c.id === req.params.id);
+    if (!chat) return res.status(404).json({ error: 'Chat not found' });
+
+    chat.needsIntervention = false;
+    chat.interventionReason = null;
+    
+    // Notificar al Agente AI para que retome el control (Puerto 3000)
+    try {
+        await fetch(`http://localhost:3000/api/agent/session/reset/${chat.phone}`, { method: 'POST' });
+        console.log(`🤖 Chat ${chat.phone} devuelto a la IA.`);
+    } catch (e) {
+        console.error("Error notificando al agente:", e.message);
+    }
+
+    saveChats(); // PERSIST
+    res.json({ success: true, chat });
+});
+
+// Endpoint para proxy de imágenes (WhatsApp bloquea los enlaces directos en el navegador)
+app.get('/api/proxy-image', async (req, res) => {
+    const imageUrl = req.query.url;
+    if (!imageUrl) return res.sendStatus(400);
+
+    try {
+        console.log("📷 Proxying image from Meta:", imageUrl.substring(0, 50) + "...");
+        const response = await fetch(imageUrl, {
+            headers: { 'Authorization': `Bearer ${metaConfig.accessToken}` }
+        });
+        const buffer = await response.arrayBuffer();
+        res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
+        res.send(Buffer.from(buffer));
+    } catch (err) {
+        console.error("❌ Error proxying image:", err);
+        res.sendStatus(500);
+    }
 });
 
 const PORT = 3005;

@@ -250,7 +250,7 @@ export const Footer: React.FC = () => {
             <h5 className="text-sm font-bold uppercase tracking-wider mb-6 pb-2 border-b border-white/10">Atención al cliente</h5>
             <div className="space-y-4">
               <div className="flex items-center gap-3 text-gray-400">
-                <span className="text-[13px]">+57 321 2619434</span>
+                <span className="text-[13px]">+57 323 9447597</span>
                 <PhoneCall className="w-4 h-4" />
               </div>
               <div className="flex items-center gap-3 text-gray-400">
@@ -320,7 +320,7 @@ export const Footer: React.FC = () => {
 
       {/* Floating WhatsApp Button */}
       <a
-        href="https://wa.me/573212619434"
+        href="https://wa.me/573239447597"
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white p-2.5 rounded-full shadow-[0_4px_15px_rgba(37,211,102,0.4)] hover:scale-110 active:scale-95 transition-all group flex items-center justify-center overflow-hidden h-[48px] min-w-[48px] hover:px-5"

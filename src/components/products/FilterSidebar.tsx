@@ -74,27 +74,37 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                 </h3>
 
                 <div className="space-y-8">
-                    {!filtersLoading && filters.map(f => (
-                        <div key={f.id} className="pb-4">
-                            <h4 className="text-[14px] font-black uppercase tracking-tight text-gray-900 mb-4">{f.name}</h4>
-                            <div className="space-y-3">
-                                {f.options.slice(0, 10).map(o => (
-                                    <button
-                                        key={o.id}
-                                        onClick={() => toggleFilterOption(f.id, o.id)}
-                                        className={`flex items-center justify-between w-full text-left group`}
-                                    >
-                                        <span className={`text-[13px] font-bold transition-colors ${(selectedFilterOptions[f.id] || []).includes(o.id) ? 'text-black' : 'text-gray-400 hover:text-gray-900'}`}>
-                                            {o.name}
-                                        </span>
-                                        <span className="text-[10px] font-bold text-gray-200">
-                                            ({filterOptionCounts[f.id]?.[o.id] || 0})
-                                        </span>
-                                    </button>
-                                ))}
+                    {filtersLoading ? (
+                        Array.from({ length: 3 }).map((_, i) => (
+                            <div key={i} className="animate-pulse space-y-3">
+                                <div className="h-4 w-24 bg-gray-100 rounded"></div>
+                                <div className="h-3 w-32 bg-gray-50 rounded"></div>
+                                <div className="h-3 w-28 bg-gray-50 rounded"></div>
                             </div>
-                        </div>
-                    ))}
+                        ))
+                    ) : (
+                        filters.map(f => (
+                            <div key={f.id} className="pb-4">
+                                <h4 className="text-[14px] font-black uppercase tracking-tight text-gray-900 mb-4">{f.name}</h4>
+                                <div className="space-y-3">
+                                    {f.options.slice(0, 10).map(o => (
+                                        <button
+                                            key={o.id}
+                                            onClick={() => toggleFilterOption(f.id, o.id)}
+                                            className={`flex items-center justify-between w-full text-left group`}
+                                        >
+                                            <span className={`text-[13px] font-bold transition-colors ${(selectedFilterOptions[f.id] || []).includes(o.id) ? 'text-black' : 'text-gray-400 hover:text-gray-900'}`}>
+                                                {o.name}
+                                            </span>
+                                            <span className="text-[10px] font-bold text-gray-200">
+                                                ({filterOptionCounts[f.id]?.[o.id] || 0})
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
 

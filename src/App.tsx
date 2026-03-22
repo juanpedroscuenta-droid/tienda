@@ -46,6 +46,7 @@ const CambiosPage = lazy(() => import("./pages/CambiosPage"));
 const SupplierCatalogForm = lazy(() => import("./pages/SupplierCatalogForm"));
 const SupplierCatalogView = lazy(() => import("./pages/SupplierCatalogView"));
 const NewArrivalsPage = lazy(() => import("./pages/NewArrivalsPage"));
+const CotizacionPage = lazy(() => import("./pages/CotizacionPage"));
 const PaymentResultPage = lazy(() => import("./pages/PaymentResultPage").then(m => ({ default: m.PaymentResultPage })));
 
 const queryClient = new QueryClient();
@@ -57,13 +58,13 @@ const queryClient = new QueryClient();
  */
 const AdminPanelFreezer = React.memo(({ children, active }: { children: React.ReactNode, active: boolean }) => {
   const lastChildren = useRef(children);
-  
+
   if (active) {
     lastChildren.current = children;
   }
-  
+
   return (
-    <div style={{ 
+    <div style={{
       display: active ? 'block' : 'none',
       visibility: active ? 'visible' : 'hidden',
       pointerEvents: active ? 'auto' : 'none'
@@ -156,7 +157,7 @@ const App = () => {
                 <BrowserRouter>
                   {/* ⚡ Persistent Admin Panel — stays mounted across navigations */}
                   <PersistentAdminPanel />
-                  
+
                   <Suspense fallback={<div className="min-h-screen bg-white"></div>}>
                     <Routes>
                       {/* Define home page as a base for many views if needed */}
@@ -167,6 +168,7 @@ const App = () => {
                       <Route path="/register" element={<><AdvancedIndex /><RegisterPage /></>} />
 
                       <Route path="/categoria/:categorySlug" element={<CategoryViewPage />} />
+                      <Route path="/cotizacion" element={<CotizacionPage />} />
                       <Route path="/auth" element={<AuthPage />} />
                       <Route path="/cart" element={<CartPage />} />
                       {/* Admin route now renders nothing — PersistentAdminPanel handles it */}
@@ -179,6 +181,7 @@ const App = () => {
                       <Route path="/testimonios" element={<Testimonios />} />
                       <Route path="/retiros" element={<Retiros />} />
                       <Route path="/preguntas-frecuentes" element={<FAQPage />} />
+                      <Route path="/faq" element={<FAQPage />} />
                       <Route path="/shared/employees" element={<SharedEmployeeManager />} />
                       <Route path="/admin/image-downloader" element={<ImageDownloaderPage />} />
                       <Route path="/admin/update-image-urls" element={<ImageUrlUpdaterPage />} />

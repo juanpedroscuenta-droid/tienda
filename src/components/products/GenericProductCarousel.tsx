@@ -73,7 +73,7 @@ export const GenericProductCarousel: React.FC<GenericProductCarouselProps> = ({ 
                         <button
                             onClick={scrollLeft}
                             aria-label="Anterior"
-                            className="bg-[#005cb3] text-white rounded-full p-3 shadow-xl transition-all hover:bg-[#004a96] hover:scale-110 active:scale-95 flex items-center justify-center flex-shrink-0"
+                            className="bg-[#E2343E] text-white rounded-full p-3 shadow-xl transition-all hover:bg-[#c42831] hover:scale-110 active:scale-95 flex items-center justify-center flex-shrink-0"
                         >
                             <ChevronLeft className="h-6 w-6" strokeWidth={2.5} />
                         </button>
@@ -83,7 +83,7 @@ export const GenericProductCarousel: React.FC<GenericProductCarouselProps> = ({ 
                     <button
                         onClick={scrollLeft}
                         aria-label="Anterior"
-                        className="sm:hidden absolute left-0 top-1/2 -translate-y-1/2 z-40 bg-[#005cb3]/90 text-white rounded-full p-2 shadow-xl -translate-x-1/2 flex items-center justify-center"
+                        className="sm:hidden absolute left-0 top-1/2 -translate-y-1/2 z-40 bg-[#E2343E]/90 text-white rounded-full p-2 shadow-xl -translate-x-1/2 flex items-center justify-center"
                     >
                         <ChevronLeft className="h-5 w-5" strokeWidth={2.5} />
                     </button>
@@ -110,7 +110,7 @@ export const GenericProductCarousel: React.FC<GenericProductCarouselProps> = ({ 
                         <button
                             onClick={scrollRight}
                             aria-label="Siguiente"
-                            className="bg-[#005cb3] text-white rounded-full p-3 shadow-xl transition-all hover:bg-[#004a96] hover:scale-110 active:scale-95 flex items-center justify-center flex-shrink-0"
+                            className="bg-[#E2343E] text-white rounded-full p-3 shadow-xl transition-all hover:bg-[#c42831] hover:scale-110 active:scale-95 flex items-center justify-center flex-shrink-0"
                         >
                             <ChevronRight className="h-6 w-6" strokeWidth={2.5} />
                         </button>
@@ -120,7 +120,7 @@ export const GenericProductCarousel: React.FC<GenericProductCarouselProps> = ({ 
                     <button
                         onClick={scrollRight}
                         aria-label="Siguiente"
-                        className="sm:hidden absolute right-0 top-1/2 -translate-y-1/2 z-40 bg-[#005cb3]/90 text-white rounded-full p-2 shadow-xl translate-x-1/2 flex items-center justify-center"
+                        className="sm:hidden absolute right-0 top-1/2 -translate-y-1/2 z-40 bg-[#E2343E]/90 text-white rounded-full p-2 shadow-xl translate-x-1/2 flex items-center justify-center"
                     >
                         <ChevronRight className="h-5 w-5" strokeWidth={2.5} />
                     </button>
@@ -134,7 +134,7 @@ export const GenericProductCarousel: React.FC<GenericProductCarouselProps> = ({ 
                         key={i}
                         onClick={() => jumpToSegment(i)}
                         className={`h-1.5 transition-all duration-300 rounded-full ${activeIndex === i
-                            ? "w-10 bg-[#005cb3]"
+                            ? "w-10 bg-[#E2343E]"
                             : "w-6 bg-gray-300 hover:bg-gray-400"
                             }`}
                     />

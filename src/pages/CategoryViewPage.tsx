@@ -45,7 +45,7 @@ const CategoryViewPage = () => {
   if (!categoryName) return <Navigate to="/" replace />;
 
   return (
-    <div className="min-h-screen bg-white text-neutral-900 overflow-x-hidden font-sans">
+    <div className="min-h-screen bg-white text-neutral-900 font-sans">
       <div className="w-full">
         <TopPromoBar setPromoVisible={setPromoVisible} />
       </div>

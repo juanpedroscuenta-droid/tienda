@@ -153,7 +153,7 @@ export const PaymentResultPage: React.FC = () => {
                 <p className="mt-6 text-center text-sm text-gray-500">
                     ¿Tienes dudas? Contáctanos por{' '}
                     <a
-                        href="https://wa.me/573212619434"
+                        href="https://wa.me/573239447597"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-[#25D366] font-semibold hover:underline"

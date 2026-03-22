@@ -31,7 +31,9 @@ const AdvancedIndex = () => {
   useEffect(() => {
     if (searchParam) setSearchTerm(searchParam);
     else setSearchTerm("");
-  }, [searchParam]);
+
+    setShowCatalog(params.get("tienda") === "true");
+  }, [searchParam, location.search]);
 
   useEffect(() => {
     const handleSetCatalog = (e: any) => {
@@ -52,7 +54,7 @@ const AdvancedIndex = () => {
     navigate(`/categoria/${encodeURIComponent(cat)}`);
   };
 
-  const whatsappNumber = "+573212619434";
+  const whatsappNumber = "+573239447597";
   const whatsappUrl = `https://wa.me/${whatsappNumber.replace(/\D/g, "")}`;
 
   if (categoryParam) {
@@ -60,7 +62,7 @@ const AdvancedIndex = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white text-neutral-900 overflow-x-hidden font-sans">
+    <div className="min-h-screen bg-white text-neutral-900 font-sans">
       <StoreStructuredData
         name="24/7"
         description="Tu tienda de confianza 24/7. Fragancias, regalería y más con envíos a todo el país."

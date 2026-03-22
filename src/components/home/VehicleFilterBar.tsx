@@ -2,12 +2,12 @@
 import React, { useState } from 'react';
 import { useFilters } from '@/hooks/use-filters';
 import { useCategories } from '@/hooks/use-categories';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Search, ChevronDown } from "lucide-react";
@@ -15,7 +15,7 @@ import { Search, ChevronDown } from "lucide-react";
 export const VehicleFilterBar = () => {
   const { filters } = useFilters();
   const { categories } = useCategories();
-  const [selections, setSelections] = useState<{[key: string]: string}>({});
+  const [selections, setSelections] = useState<{ [key: string]: string }>({});
 
   // Identificar filtros por nombre
   const brandFilter = filters.find(f => f.name.toLowerCase().includes('marca'));
@@ -24,7 +24,7 @@ export const VehicleFilterBar = () => {
 
   const handleSearch = () => {
     // 1. Preparar filtros de atributos
-    const filterPayload: {[key: string]: string[]} = {};
+    const filterPayload: { [key: string]: string[] } = {};
     if (brandFilter && selections.brand && selections.brand !== 'all') {
       filterPayload[brandFilter.id] = [selections.brand];
     }
@@ -37,8 +37,8 @@ export const VehicleFilterBar = () => {
 
     // 2. Si se seleccionó una categoría específica
     if (selections.category && selections.category !== 'all') {
-        // Podríamos disparar un cambio de categoría global
-        // Pero por ahora solo aplicamos los filtros de vehículo
+      // Podríamos disparar un cambio de categoría global
+      // Pero por ahora solo aplicamos los filtros de vehículo
     }
 
     // 3. Despachar evento para que ProductsSection reaccione
@@ -64,10 +64,10 @@ export const VehicleFilterBar = () => {
     <div className="relative w-full max-w-6xl mx-auto animate-in fade-in zoom-in-95 duration-500">
       <div className="bg-white rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-gray-100 p-2 md:p-3 relative z-10">
         <div className="flex flex-col md:flex-row items-center gap-2 md:gap-0">
-          
+
           {/* Categoría */}
           <div className="w-full md:w-48 border-r-0 md:border-r border-gray-100 px-2 flex items-center">
-            <Select onValueChange={(val) => setSelections(prev => ({...prev, category: val}))}>
+            <Select onValueChange={(val) => setSelections(prev => ({ ...prev, category: val }))}>
               <SelectTrigger className="border-none bg-transparent focus:ring-0 shadow-none h-12 font-medium text-zinc-600 hover:text-zinc-900 transition-colors">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
@@ -82,7 +82,7 @@ export const VehicleFilterBar = () => {
 
           {/* Marca */}
           <div className="w-full md:flex-1 border-r-0 md:border-r border-gray-100 px-2 flex items-center">
-            <Select onValueChange={(val) => setSelections(prev => ({...prev, brand: val}))}>
+            <Select onValueChange={(val) => setSelections(prev => ({ ...prev, brand: val }))}>
               <SelectTrigger className="border-none bg-transparent focus:ring-0 shadow-none h-12 font-medium text-zinc-600 hover:text-zinc-900 transition-colors">
                 <SelectValue placeholder="Marca de Vehículo" />
               </SelectTrigger>
@@ -106,7 +106,7 @@ export const VehicleFilterBar = () => {
 
           {/* Modelo / Año */}
           <div className="w-full md:flex-1 px-4 flex items-center">
-            <Select onValueChange={(val) => setSelections(prev => ({...prev, model: val}))}>
+            <Select onValueChange={(val) => setSelections(prev => ({ ...prev, model: val }))}>
               <SelectTrigger className="border-none bg-transparent focus:ring-0 shadow-none h-12 font-medium text-zinc-400">
                 <SelectValue placeholder="MODELO / AÑO" />
               </SelectTrigger>
@@ -129,7 +129,7 @@ export const VehicleFilterBar = () => {
           </div>
 
           {/* Botón BUSCAR */}
-          <Button 
+          <Button
             onClick={handleSearch}
             className="w-full md:w-auto min-w-[140px] h-12 bg-[#ffd814] hover:bg-[#f7ca00] text-[#0f1111] font-bold uppercase tracking-widest rounded-md transition-all shadow-lg active:scale-95 m-1 border border-[#fcd200]"
           >
@@ -137,11 +137,11 @@ export const VehicleFilterBar = () => {
           </Button>
         </div>
       </div>
-      
+
       {/* Flechita decorativa abajo (Estilo de la imagen) */}
       <div className="flex justify-center -mt-px relative z-0">
-        <div className="w-10 h-6 bg-white shadow-lg border-b border-l border-r border-gray-50 flex justify-center items-end pb-1" 
-             style={{ clipPath: 'polygon(0 0, 100% 0, 50% 100%)' }}>
+        <div className="w-10 h-6 bg-white shadow-lg border-b border-l border-r border-gray-50 flex justify-center items-end pb-1"
+          style={{ clipPath: 'polygon(0 0, 100% 0, 50% 100%)' }}>
           <ChevronDown className="w-4 h-4 text-zinc-800" />
         </div>
       </div>

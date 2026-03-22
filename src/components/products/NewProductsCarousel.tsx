@@ -94,24 +94,27 @@ export const NewProductsCarousel: React.FC = () => {
 
                             {/* Slanted Tag */}
                             <div className="relative z-10">
-                                <div className="bg-[#FFD700] px-4 py-1.5 transform -rotate-3 mb-2 shadow-sm ring-1 ring-black/5">
-                                    <span className="text-[10px] font-black uppercase tracking-tight text-black">
-                                        Descubre nuestros
+                                <div className="bg-[#E2343E] px-4 py-1.5 transform -rotate-3 mb-2 shadow-sm ring-1 ring-black/5">
+                                    <span className="text-[10px] font-black uppercase tracking-tight text-white">
+                                        Autopartes
                                     </span>
                                 </div>
                             </div>
 
                             {/* MAIN CONTENT */}
                             <div className="relative mt-2">
-                                <Zap className="absolute -top-6 -left-8 text-[#FFD700] w-10 h-10 fill-current animate-pulse" />
-                                <h2 className="text-6xl font-[900] text-black leading-[0.8] tracking-tighter transform -rotate-2">PRODUCTOS</h2>
-                                <h2 className="text-7xl font-[900] text-[#1a1a1a] leading-[0.8] tracking-tighter transform rotate-1 mt-1">NUEVOS</h2>
-                                <Zap className="absolute -bottom-6 -right-8 text-[#FFD700] w-10 h-10 fill-current animate-pulse delay-150" />
+                                <Zap className="absolute -top-6 -left-8 text-[#E2343E] w-10 h-10 fill-current animate-pulse" />
+                                <h2 className="text-4xl font-[900] text-black leading-[0.8] tracking-tighter transform -rotate-2">Y REPUESTOS</h2>
+                                <h2 className="text-4xl font-[900] text-black leading-[0.8] tracking-tighter transform -rotate-2 mt-1">GENÉRICOS /</h2>
+                                <h2 className="text-6xl font-[900] text-[#1a1a1a] leading-[0.8] tracking-tighter transform rotate-1 mt-1 uppercase">Homologados</h2>
+                                <Zap className="absolute -bottom-6 -right-8 text-[#E2343E] w-10 h-10 fill-current animate-pulse delay-150" />
                             </div>
 
                             {/* RECIEN LLEGADOS BAR */}
-                            <div className="mt-6 bg-[#FFD700] w-full py-2.5 px-6 transform -rotate-1 shadow-md border-b-4 border-black/10">
-                                <span className="text-xl font-black text-black uppercase tracking-[-0.05em]">RECIÉN LLEGADOS</span>
+                            <div className="mt-6 bg-[#E2343E] w-full py-2.5 px-4 transform -rotate-1 shadow-md border-b-4 border-black/10">
+                                <span className="text-[10px] font-black text-white uppercase tracking-tight leading-tight block">
+                                    Variedad de manijas, plumillas, pines y repuestos para todas las marcas
+                                </span>
                             </div>
 
                             {/* VER TODO BUTTON */}
@@ -132,7 +135,7 @@ export const NewProductsCarousel: React.FC = () => {
                             {/* Navigation Arrows Style Replicated */}
                             <button
                                 onClick={scrollLeft}
-                                className="absolute left-0 top-1/2 -translate-y-1/2 lg:-left-4 z-40 bg-[#f97316] text-white p-2 shadow-lg hover:bg-[#ea580c] transition-all flex items-center justify-center rounded-sm"
+                                className="absolute left-0 top-1/2 -translate-y-1/2 lg:-left-4 z-40 bg-[#E2343E] text-white p-2 shadow-lg hover:bg-[#c42831] transition-all flex items-center justify-center rounded-sm"
                             >
                                 <ChevronLeft className="h-5 w-5" strokeWidth={3} />
                             </button>
@@ -156,7 +159,7 @@ export const NewProductsCarousel: React.FC = () => {
 
                             <button
                                 onClick={scrollRight}
-                                className="absolute right-0 top-1/2 -translate-y-1/2 lg:-right-4 z-40 bg-[#f97316] text-white p-2 shadow-lg hover:bg-[#ea580c] transition-all flex items-center justify-center rounded-sm"
+                                className="absolute right-0 top-1/2 -translate-y-1/2 lg:-right-4 z-40 bg-[#E2343E] text-white p-2 shadow-lg hover:bg-[#c42831] transition-all flex items-center justify-center rounded-sm"
                             >
                                 <ChevronRight className="h-5 w-5" strokeWidth={3} />
                             </button>
@@ -169,7 +172,7 @@ export const NewProductsCarousel: React.FC = () => {
                                     key={i}
                                     onClick={() => jumpToSegment(i)}
                                     className={`h-1.5 transition-all duration-300 rounded-full ${activeIndex === i
-                                        ? "w-10 bg-[#f97316]"
+                                        ? "w-10 bg-[#E2343E]"
                                         : "w-4 bg-gray-200 hover:bg-gray-300"
                                         }`}
                                 />

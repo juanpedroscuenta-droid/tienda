@@ -9,7 +9,7 @@ export const SearchOptionsSection = () => {
   const toggleTab = (tab: 'vehicle' | 'part') => {
     const newTab = activeTab === tab ? null : tab;
     setActiveTab(newTab);
-    
+
     if (newTab) {
       setTimeout(() => {
         const element = document.getElementById('search-filter-anchor');
@@ -58,13 +58,13 @@ export const SearchOptionsSection = () => {
           </h2>
           <div className="w-20 h-1 gradient-orange mx-auto rounded-full"></div>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 lg:gap-24 mb-6">
           {options.map((option, index) => {
             const isWhatsApp = option.id === 'photo';
             const isActive = activeTab === option.id;
             const Component = isWhatsApp ? 'a' : 'button';
-            const extraProps = isWhatsApp ? { 
+            const extraProps = isWhatsApp ? {
               href: option.href,
               target: '_blank',
               rel: 'noopener noreferrer'
@@ -76,11 +76,10 @@ export const SearchOptionsSection = () => {
               <Component
                 key={index}
                 {...extraProps}
-                className={`group flex flex-col items-center p-6 rounded-2xl transition-all duration-500 border text-center ${
-                  isActive 
-                  ? 'bg-zinc-50 border-[#ffd814] shadow-lg' 
-                  : 'bg-white border-transparent hover:bg-zinc-50 hover:border-zinc-100 hover:shadow-md'
-                }`}
+                className={`group flex flex-col items-center p-6 rounded-2xl transition-all duration-500 border text-center ${isActive
+                    ? 'bg-zinc-50 border-[#ffd814] shadow-lg'
+                    : 'bg-white border-transparent hover:bg-zinc-50 hover:border-zinc-100 hover:shadow-md'
+                  }`}
               >
                 <div className="mb-6 transform group-hover:scale-110 transition-transform duration-500 ease-out">
                   {option.icon}
@@ -102,7 +101,7 @@ export const SearchOptionsSection = () => {
         </div>
 
         <div id="search-filter-anchor" className="h-1" />
-        
+
         <div className="mt-8 transition-all duration-500">
           {activeTab === 'vehicle' && (
             <div className="animate-in fade-in slide-in-from-top-6 duration-500 ease-out">

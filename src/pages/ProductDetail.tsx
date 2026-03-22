@@ -119,6 +119,33 @@ const ProductDetailPage = () => {
     return specs.filter(spec => spec.name !== '_filter_options');
   };
 
+  // Autoplay logic for Related Products
+  useEffect(() => {
+    const container = document.getElementById('similar-products-container');
+    if (!container) return;
+
+    (container as any).lastInteraction = Date.now();
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const lastInt = (container as any).lastInteraction || 0;
+
+      if (now - lastInt >= 5000) {
+        const maxScroll = container.scrollWidth - container.clientWidth;
+        if (maxScroll > 10) { // Only scroll if there's space
+          if (container.scrollLeft >= maxScroll - 20) {
+            container.scrollTo({ left: 0, behavior: 'smooth' });
+          } else {
+            container.scrollBy({ left: container.clientWidth / 2, behavior: 'smooth' });
+          }
+        }
+        (container as any).lastInteraction = now;
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [similarProducts.length]);
+
   // Redirigir si el slug no coincide
   useEffect(() => {
     if (!product || !urlSlug) return;
@@ -159,27 +186,17 @@ const ProductDetailPage = () => {
             setViewRecorded(true);
           }
 
-          // Fetch similar products
-          try {
-            const allProducts = await fetchProducts();
-
-            // Primero, productos de la misma categoría
+          // Fetch similar products in background - don't block main UI
+          fetchProducts().then(allProducts => {
             const sameCategory = allProducts.filter(
               p => p.category === productData.category && p.id !== productData.id && p.isPublished !== false
             );
-
-            // Segundo, el resto de productos
             const otherCategory = allProducts.filter(
               p => p.category !== productData.category && p.id !== productData.id && p.isPublished !== false
             );
-
-            // Unir y limitar a 8
             const similar = [...sameCategory, ...otherCategory].slice(0, 8);
-
             setSimilarProducts(similar);
-          } catch (err) {
-            console.error("Error loading similar products:", err);
-          }
+          }).catch(err => console.error("Error loading similar products:", err));
         } else {
           toast({ title: "Producto no encontrado", variant: "destructive" });
           navigate('/');
@@ -349,9 +366,9 @@ const ProductDetailPage = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <SocialShareBar 
-        productName={product.name} 
-        productUrl={window.location.href} 
+      <SocialShareBar
+        productName={product.name}
+        productUrl={window.location.href}
       />
       <AdvancedHeader
         selectedCategory={product?.category || ""}
@@ -401,12 +418,18 @@ const ProductDetailPage = () => {
           {/* Product Detail Content */}
           <div className="flex-1 min-w-0">
             <div className="mb-6">
-              <nav className="flex flex-wrap items-center text-xs font-bold uppercase tracking-widest text-[#f15a24]">
+              <nav className="flex flex-wrap items-center text-[10px] font-black uppercase tracking-[0.2em] text-[#ba181b]">
                 <button type="button" onClick={() => navigate('/')} className="hover:opacity-80 transition-opacity">Home</button>
                 <ChevronRight className="w-3 h-3 mx-2 text-neutral-300" />
-                <button type="button" onClick={() => navigate('/categoria/' + encodeURIComponent(product.category))} className="hover:opacity-80 transition-opacity truncate max-w-[150px]">{product.category}</button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/categoria/' + encodeURIComponent(product.category))}
+                  className="hover:opacity-80 transition-opacity truncate max-w-[200px]"
+                >
+                  {categoriesData.find(c => c.id === product.category)?.name || product.category}
+                </button>
                 <ChevronRight className="w-3 h-3 mx-2 text-neutral-300" />
-                <span className="text-neutral-900 truncate max-w-[200px]">{product.name}</span>
+                <span className="text-neutral-900 truncate max-w-[300px]">{product.name}</span>
               </nav>
             </div>
 
@@ -414,12 +437,14 @@ const ProductDetailPage = () => {
               {/* Image Section */}
               <div className="md:col-span-7 flex flex-col">
                 <div className="relative bg-white flex flex-col items-center group">
-                  <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
-                    <span className="bg-black text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-1 shadow-lg">
-                      <Zap className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                      Flash Sale
-                    </span>
-                  </div>
+                  {(product as any).isFlashSale && (
+                    <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
+                      <span className="bg-black text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-1 shadow-lg">
+                        <Zap className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                        Flash Sale
+                      </span>
+                    </div>
+                  )}
 
                   <div className="relative w-full flex justify-center min-h-[400px] md:min-h-[500px] items-center p-4 border rounded-2xl bg-white/50 backdrop-blur-sm overflow-hidden group-hover:shadow-xl transition-all duration-500 border-neutral-100">
                     {imageLoading && (
@@ -475,8 +500,12 @@ const ProductDetailPage = () => {
 
                   <div className="space-y-4 mb-8">
                     <div className="flex items-center gap-4 group">
-                      <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                        <Truck className="h-6 w-6 text-[#f15a24]" />
+                      <div className="w-14 h-14 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <img 
+                          src="/Picsart_26-03-20_15-16-27-915.webp" 
+                          alt="Envío Gratis" 
+                          className="w-full h-full object-contain"
+                        />
                       </div>
                       <div>
                         <p className="text-[15px] font-black text-gray-900 uppercase tracking-tight">Envío gratis</p>
@@ -485,8 +514,8 @@ const ProductDetailPage = () => {
                     </div>
 
                     <div className="flex items-center gap-4 group">
-                      <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                        <Star className="h-6 w-6 text-[#f15a24] fill-[#f15a24]" />
+                      <div className="w-14 h-14 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <Star className="h-6 w-6 text-[#ba181b]" />
                       </div>
                       <div>
                         <p className="text-[15px] font-black text-gray-900 uppercase tracking-tight">Condición: NUEVO</p>
@@ -534,7 +563,7 @@ const ProductDetailPage = () => {
 
                     <Button
                       onClick={() => navigate('/checkout')}
-                      className="w-full bg-[#f15a24] hover:bg-[#e0501d] text-white h-12 rounded-xl font-black uppercase tracking-[0.1em] text-[13px] transition-all shadow-md shadow-orange-100"
+                      className="w-full bg-[#ba181b] hover:bg-[#a01518] text-white h-12 rounded-xl font-black uppercase tracking-[0.1em] text-[13px] transition-all shadow-md shadow-red-100"
                     >
                       Comprar ahora
                     </Button>
@@ -544,46 +573,95 @@ const ProductDetailPage = () => {
             </div>
 
             {/* Related Products Section - Full Width Grid */}
+            {/* Related Products Section - Carousel of Max 6 */}
             <div className="mt-20 pt-12 border-t border-neutral-100">
-              <div className="flex items-center justify-between mb-10">
-                <h2 className="text-[22px] font-black text-gray-900 uppercase tracking-tighter">Productos Relacionados</h2>
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-xl font-bold text-[#ba181b]">Productos relacionados</h2>
                 <div className="flex gap-2">
-                  <button className="w-10 h-10 rounded-full border border-neutral-100 flex items-center justify-center hover:bg-black hover:text-white transition-all shadow-sm active:scale-95">
+                  <button
+                    onClick={() => {
+                      const container = document.getElementById('similar-products-container');
+                      if (container) {
+                        container.scrollBy({ left: -container.clientWidth / 2, behavior: 'smooth' });
+                        (container as any).lastInteraction = Date.now();
+                      }
+                    }}
+                    className="w-10 h-10 rounded-full border border-neutral-200 flex items-center justify-center hover:bg-[#ba181b] hover:text-white transition-all shadow-sm active:scale-95"
+                  >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
-                  <button className="w-10 h-10 rounded-full border border-neutral-100 flex items-center justify-center hover:bg-black hover:text-white transition-all shadow-sm active:scale-95">
+                  <button
+                    onClick={() => {
+                      const container = document.getElementById('similar-products-container');
+                      if (container) {
+                        container.scrollBy({ left: container.clientWidth / 2, behavior: 'smooth' });
+                        (container as any).lastInteraction = Date.now();
+                      }
+                    }}
+                    className="w-10 h-10 rounded-full border border-neutral-200 flex items-center justify-center hover:bg-[#ba181b] hover:text-white transition-all shadow-sm active:scale-95"
+                  >
                     <ChevronRight className="w-5 h-5" />
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 xl:gap-8">
-                {similarProducts.slice(0, 6).map((p) => (
-                  <div
-                    key={p.id}
-                    className="group cursor-pointer flex flex-col p-4 bg-white hover:shadow-xl hover:shadow-neutral-200/40 rounded-3xl border border-transparent hover:border-neutral-100 transition-all duration-500 animate-in fade-in zoom-in-95 duration-700"
-                    onClick={() => goToProduct(p)}
-                  >
-                    <div className="aspect-square w-full mb-5 overflow-hidden rounded-2xl relative bg-neutral-50 px-2">
-                      <img
-                        src={p.image}
-                        alt={p.name}
-                        className="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-700"
-                      />
-                    </div>
-                    <div className="space-y-2 flex flex-col items-center text-center">
-                      <span className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] line-clamp-1">{p.category}</span>
-                      <h3 className="text-[13px] font-black text-gray-900 line-clamp-2 min-h-[38px] leading-tight uppercase tracking-tight">{p.name}</h3>
-                      <div className="flex items-center justify-center pt-2">
-                        <span className="text-lg font-black text-[#0f1111]">$ {p.price.toLocaleString('es-AR')}</span>
+              <div
+                id="similar-products-container"
+                className="flex gap-6 overflow-x-auto pb-8 scrollbar-hide scroll-smooth"
+                onMouseEnter={() => {
+                  const container = document.getElementById('similar-products-container');
+                  if (container) (container as any).lastInteraction = Date.now() + 10000; // Delay autoplay on hover
+                }}
+                onScroll={(e) => {
+                  const target = e.target as HTMLDivElement;
+                  (target as any).lastInteraction = Date.now();
+                }}
+              >
+                {similarProducts.slice(0, 6).map((p) => {
+                  const currentPrice = p.price;
+                  const dbOriginalPrice = (p as any).oldPrice || (p as any).originalPrice;
+                  const hasDiscount = dbOriginalPrice && dbOriginalPrice > currentPrice;
+                  const originalPrice = hasDiscount ? dbOriginalPrice : null;
+
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex-[0_0_85%] sm:flex-[0_0_45%] lg:flex-[0_0_23.5%] min-w-0 group cursor-pointer flex flex-col bg-white border border-neutral-200 rounded-none overflow-hidden hover:shadow-md transition-shadow duration-300"
+                      onClick={() => goToProduct(p)}
+                    >
+                      <div className="relative aspect-square w-full p-4 flex items-center justify-center bg-white">
+                        {hasDiscount && (
+                          <div className="absolute top-3 left-3 z-10 w-10 h-10 bg-[#ba181b] rounded-full flex items-center justify-center text-white text-[10px] font-bold">
+                            -{Math.round(((originalPrice - currentPrice) / originalPrice) * 100)}%
+                          </div>
+                        )}
+                        <img
+                          src={p.image}
+                          alt={p.name}
+                          className="w-full h-full object-contain"
+                        />
                       </div>
-                      <button className="mt-5 w-full flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-neutral-500 group-hover:text-black transition-all border border-neutral-100 px-4 py-3 rounded-xl hover:border-black hover:bg-neutral-50 shadow-sm active:scale-[0.98]">
-                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1.5 transition-transform" />
-                        Leer más
-                      </button>
+                      <div className="p-4 flex flex-col flex-1 border-t border-neutral-100">
+                        <h3 className="text-sm font-bold text-neutral-800 line-clamp-3 min-h-[60px] leading-tight mb-2 uppercase">
+                          {p.name}
+                        </h3>
+                        <div className="flex items-center gap-2 mb-4">
+                          {originalPrice && (
+                            <span className="text-xs text-neutral-400 line-through">
+                              ${originalPrice.toLocaleString('es-AR')}
+                            </span>
+                          )}
+                          <span className="text-sm font-bold text-[#ba181b]">
+                            ${p.price.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                        <button className="mt-auto w-full bg-[#ba181b] hover:bg-[#a01518] text-white py-2 px-4 rounded-sm text-xs font-bold uppercase transition-colors">
+                          Añadir al carrito
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           </div>

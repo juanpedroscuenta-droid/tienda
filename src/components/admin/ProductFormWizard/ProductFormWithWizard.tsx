@@ -1044,10 +1044,47 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
                   <FileSpreadsheet className="h-3.5 w-3.5 mr-2 text-green-600" />
                   <span>{importing ? "Importando..." : "Importar Excel"}</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleExportExcel} className="text-xs font-bold uppercase tracking-wider py-2 cursor-pointer">
+                <DropdownMenuItem onClick={handleExportExcel} className="text-xs font-bold uppercase tracking-wider py-2 cursor-pointer border-b border-slate-100">
                   <Download className="h-3.5 w-3.5 mr-2 text-blue-600" />
                   <span>Exportar Excel</span>
                 </DropdownMenuItem>
+
+                {/* Acción de eliminar todo solo para administradores */}
+                {(user?.isAdmin || user?.email === "admin@gmail.com") && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem 
+                        onSelect={(e) => e.preventDefault()} 
+                        className="text-xs font-bold uppercase tracking-wider py-2 cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                        <span>Vaciar Inventario</span>
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="text-red-600 flex items-center gap-2 font-bold uppercase tracking-tight">
+                          <AlertTriangle className="h-5 w-5" />
+                          ¿VACIAR TODO EL INVENTARIO?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-slate-600 pt-2">
+                          Estás a punto de eliminar <strong>TODOS</strong> los productos ({products.length}) del catálogo.
+                          <br /><br />
+                          Esta acción es <strong>permanente</strong> y borrará toda la información, imágenes y especificaciones de cada producto en la base de datos.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="border-slate-200">Cancelar</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={handleDeleteAllProducts}
+                          className="bg-red-600 hover:bg-red-700 text-white font-bold"
+                        >
+                          SÍ, ELIMINAR TODO
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

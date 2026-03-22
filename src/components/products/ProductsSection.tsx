@@ -1,9 +1,11 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, ChevronLeft, ChevronRight, Truck, CircleDollarSign, ShieldCheck, ShoppingCart } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ChevronDown, Truck, CircleDollarSign, ShieldCheck, ShoppingCart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ProductCard } from './ProductCard';
 import { NewProductsCarousel } from './NewProductsCarousel';
 import { GenericProductCarousel } from './GenericProductCarousel';
+import { BestSellerCard } from './BestSellerCard';
+import { QuoteBanner } from './QuoteBanner';
 import { FilterSidebar } from './FilterSidebar';
 import { HomeCategoryGrid } from '@/components/home/HomeCategoryGrid';
 import { Button } from '@/components/ui/button';
@@ -65,7 +67,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   const [showAllForFilter, setShowAllForFilter] = useState<{ [filterId: string]: boolean }>({});
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     setSearchTerm(initialSearchTerm || '');
@@ -313,114 +315,81 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
     };
   }, [filters, filtersLoading, selectedFilterOptions, filterOptionCounts, priceFrom, priceTo]);
 
-  // ── Sticky sidebar via JS scroll tracking ──────────────────────────────────
-  const sectionRef = useRef<HTMLElement>(null);
-  const sidebarPlaceholderRef = useRef<HTMLDivElement>(null);
-  const sidebarContentRef = useRef<HTMLDivElement>(null);
-  const [sidebarStyle, setSidebarStyle] = useState<React.CSSProperties>({});
-
-  useEffect(() => {
-    const HEADER_H = 88; // approx header height in px
-    const update = () => {
-      const section = sectionRef.current;
-      const placeholder = sidebarPlaceholderRef.current;
-      const sidebarEl = sidebarContentRef.current;
-      if (!section || !placeholder || !sidebarEl) return;
-
-      const scrollY = window.scrollY;
-      const viewportH = window.innerHeight;
-      const secRect = section.getBoundingClientRect();
-      const phRect = placeholder.getBoundingClientRect();
-      const sidebarH = sidebarEl.offsetHeight;
-      const availableH = viewportH - HEADER_H; // usable height below header
-
-      // Absolute page position where sidebar starts being sticky
-      const stickyStart = secRect.top + scrollY - HEADER_H;
-
-      // ① Before section — normal flow
-      if (scrollY < stickyStart) {
-        setSidebarStyle({});
-        return;
-      }
-
-      // ③ End of section — anchor sidebar to bottom of placeholder
-      if (secRect.bottom <= HEADER_H + Math.min(sidebarH, availableH)) {
-        setSidebarStyle({
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          width: '100%',
-        });
-        return;
-      }
-
-      if (sidebarH <= availableH) {
-        // ② SHORT sidebar — pin to top of viewport
-        setSidebarStyle({
-          position: 'fixed',
-          top: HEADER_H,
-          left: phRect.left,
-          width: phRect.width,
-          maxHeight: availableH,
-          overflowY: 'auto',
-          zIndex: 20,
-        });
-      } else {
-        // ② TALL sidebar — scroll sidebar by shifting its top upward as user scrolls,
-        //    revealing more content, until the bottom of the sidebar is fully visible,
-        //    then it stays pinned.
-        const scrolledIntoSection = scrollY - stickyStart;
-        const maxShift = sidebarH - availableH; // how far sidebar needs to move up
-        const shift = Math.min(scrolledIntoSection, maxShift);
-
-        setSidebarStyle({
-          position: 'fixed',
-          top: HEADER_H - shift,   // moves up as user scrolls
-          left: phRect.left,
-          width: phRect.width,
-          zIndex: 20,
-        });
-      }
-    };
-
-    window.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update);
-    update();
-    return () => {
-      window.removeEventListener('scroll', update);
-      window.removeEventListener('resize', update);
-    };
-  }, []);
+  // Sidebar is now handled via pure CSS sticky for stability
 
   return (
-    <section ref={sectionRef} id="productos" className={`${(isFiltering || showCatalog) ? 'pt-2 pb-8' : 'py-8'} bg-white w-full max-w-[1400px] mx-auto px-4 md:px-8 min-h-screen`}>
+    <section id="productos" className={`${(isFiltering || showCatalog) ? 'pt-2 pb-8' : 'py-8'} bg-white w-full max-w-[1400px] mx-auto px-4 md:px-8 min-h-screen`}>
       <div className="flex flex-col md:flex-row gap-10">
         {/* Placeholder — reserves sidebar space; position:relative lets absolute child anchor here */}
         {(isFiltering || showCatalog) && (
-          <div
-            ref={sidebarPlaceholderRef}
-            className="w-full md:w-64 flex-shrink-0 hidden md:block"
-            style={{ position: 'relative' }}
-          >
-            {/* Actual sidebar — repositioned via JS */}
-            <div ref={sidebarContentRef} style={sidebarStyle} className="scrollbar-hide">
-              <FilterSidebar
-                filters={filters}
-                filtersLoading={filtersLoading}
-                selectedFilterOptions={selectedFilterOptions}
-                toggleFilterOption={toggleFilterOption}
-                filterOptionCounts={filterOptionCounts}
-                priceFrom={priceFrom}
-                setPriceFrom={setPriceFrom}
-                priceTo={priceTo}
-                setPriceTo={setPriceTo}
-                applyPrice={applyPrice}
-                className="w-full pt-2"
-                selectedCategory={selectedCategory}
-                setSelectedCategory={setSelectedCategory}
-              />
+          <aside className="w-full md:w-64 flex-shrink-0 hidden md:block">
+            <div className="sticky top-[75px] max-h-[calc(100vh-100px)] relative group/sidebar">
+              {/* Scroll Up Indicator */}
+              <button
+                id="sidebar-scroll-indicator-up"
+                onClick={() => {
+                  const container = document.getElementById('sidebar-scroll-container');
+                  if (container) container.scrollBy({ top: -200, behavior: 'smooth' });
+                }}
+                className="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-8 bg-white border border-neutral-100 rounded-full flex items-center justify-center shadow-lg text-[#ba181b] transition-all duration-300 z-30 hover:scale-110 active:scale-95 opacity-0 pointer-events-none"
+                title="Subir"
+              >
+                <ChevronDown className="w-4 h-4 rotate-180" strokeWidth={3} />
+              </button>
+
+              <div
+                id="sidebar-scroll-container"
+                className="overflow-y-auto scrollbar-hide pr-1 max-h-[calc(100vh-100px)] pt-8 pb-10"
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  const isBottom = Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop) < 10;
+                  const isTop = el.scrollTop < 10;
+
+                  const indicatorDown = document.getElementById('sidebar-scroll-indicator-down');
+                  const indicatorUp = document.getElementById('sidebar-scroll-indicator-up');
+
+                  if (indicatorDown) {
+                    indicatorDown.style.opacity = isBottom ? '0' : '1';
+                    indicatorDown.style.pointerEvents = isBottom ? 'none' : 'auto';
+                  }
+                  if (indicatorUp) {
+                    indicatorUp.style.opacity = isTop ? '0' : '1';
+                    indicatorUp.style.pointerEvents = isTop ? 'none' : 'auto';
+                  }
+                }}
+              >
+                <FilterSidebar
+                  filters={filters}
+                  filtersLoading={filtersLoading}
+                  selectedFilterOptions={selectedFilterOptions}
+                  toggleFilterOption={toggleFilterOption}
+                  filterOptionCounts={filterOptionCounts}
+                  priceFrom={priceFrom}
+                  setPriceFrom={setPriceFrom}
+                  priceTo={priceTo}
+                  setPriceTo={setPriceTo}
+                  applyPrice={applyPrice}
+                  className="w-full"
+                  selectedCategory={selectedCategory}
+                  setSelectedCategory={setSelectedCategory}
+                />
+              </div>
+
+              {/* Scroll Down Indicator */}
+              <button
+                id="sidebar-scroll-indicator-down"
+                onClick={() => {
+                  const container = document.getElementById('sidebar-scroll-container');
+                  if (container) container.scrollBy({ top: 200, behavior: 'smooth' });
+                }}
+                className="absolute bottom-2 left-1/2 -translate-x-1/2 w-8 h-8 bg-white border border-neutral-100 rounded-full flex items-center justify-center shadow-lg text-[#ba181b] animate-bounce transition-all duration-300 z-30 hover:scale-110 active:scale-95"
+                style={{ opacity: filtersLoading ? 0 : 1 }}
+                title="Bajar"
+              >
+                <ChevronDown className="w-4 h-4" strokeWidth={3} />
+              </button>
             </div>
-          </div>
+          </aside>
         )}
 
         <div className="flex-1">
@@ -434,11 +403,11 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
           {/* Breadcrumbs */}
           {(isFiltering || showCatalog) && (
             <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider mb-8 text-gray-400">
-              <span className="text-orange-500 cursor-pointer hover:underline" onClick={() => setSelectedCategory("Todos")}>Home</span>
+              <span className="text-red-500 cursor-pointer hover:underline" onClick={() => setSelectedCategory("Todos")}>Home</span>
               {getBreadcrumbPath(selectedCategory).slice(1).map((part, i) => (
                 <React.Fragment key={i}>
                   <ChevronRight className="w-3 h-3" />
-                  <span className={i === getBreadcrumbPath(selectedCategory).slice(1).length - 1 ? 'text-black' : 'text-orange-500 cursor-pointer hover:underline'} onClick={() => setSelectedCategory(part)}>
+                  <span className={i === getBreadcrumbPath(selectedCategory).slice(1).length - 1 ? 'text-black' : 'text-red-500 cursor-pointer hover:underline'} onClick={() => setSelectedCategory(part)}>
                     {part}
                   </span>
                 </React.Fragment>
@@ -475,7 +444,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-none border-gray-200">
-                    <SelectItem value="12">12</SelectItem>
+                    <SelectItem value="10">10</SelectItem>
                     <SelectItem value="24">24</SelectItem>
                     <SelectItem value="48">48</SelectItem>
                   </SelectContent>
@@ -496,12 +465,12 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-              {Array.from({ length: 10 }).map((_, i) => <div key={i} className="h-80 bg-gray-50 animate-pulse rounded-[2rem]" />)}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-80 bg-gray-50 animate-pulse rounded-[2rem]" />)}
             </div>
           ) : paginatedProducts.length > 0 ? (
             <div className="space-y-16">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-12">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-12">
                 {paginatedProducts.map(p => <ProductCard key={p.id} product={p} />)}
               </div>
 
@@ -509,7 +478,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
               {!isFiltering && !showCatalog && (
                 <div className="mb-14 grid grid-cols-1 md:grid-cols-3 bg-gray-50/50 rounded-xl overflow-hidden border border-gray-100">
                   <div className="flex items-center gap-4 p-6 border-b md:border-b-0 md:border-r border-gray-100">
-                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-orange-500">
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-red-500">
                       <Truck className="w-6 h-6" />
                     </div>
                     <div>
@@ -518,7 +487,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                     </div>
                   </div>
                   <div className="flex items-center gap-4 p-6 border-b md:border-b-0 md:border-r border-gray-100">
-                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-orange-500">
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-red-500">
                       <CircleDollarSign className="w-6 h-6" />
                     </div>
                     <div>
@@ -527,7 +496,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                     </div>
                   </div>
                   <div className="flex items-center gap-4 p-6">
-                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-orange-500">
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-red-500">
                       <ShieldCheck className="w-6 h-6" />
                     </div>
                     <div>
@@ -575,7 +544,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                         <span className="text-[24px] font-black text-gray-900 leading-none">Envíos a toda</span>
                         <div className="flex items-center gap-2">
                           <span className="text-[28px] font-black text-gray-900 leading-none uppercase tracking-tighter">Colombia</span>
-                          <div className="w-8 h-8 flex items-center justify-center text-orange-500">
+                          <div className="w-8 h-8 flex items-center justify-center text-red-500">
                             <Truck className="w-6 h-6" />
                           </div>
                         </div>
@@ -597,7 +566,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
                           className={`h-9 w-9 flex items-center justify-center border text-[12px] font-bold transition-all ${currentPage === pageNum
-                            ? 'border-orange-500 text-orange-500 bg-white'
+                            ? 'border-red-500 text-red-500 bg-white'
                             : 'border-gray-100 text-gray-400 hover:border-gray-300 hover:text-black'
                             }`}
                         >
@@ -620,7 +589,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
               {!isFiltering && !showCatalog && (
                 <>
                   <div className="pt-4 pb-12">
-                    <div className="w-full bg-orange-600 bg-gradient-to-r from-orange-600 to-orange-500 rounded-none overflow-hidden relative min-h-[140px] flex items-center px-4 md:px-10 py-8 group">
+                    <div className="w-full bg-red-600 bg-gradient-to-r from-red-600 to-red-500 rounded-none overflow-hidden relative min-h-[140px] flex items-center px-4 md:px-10 py-8 group">
                       {/* Background Car Image Overlay */}
                       <div
                         className="absolute inset-0 z-0 opacity-20 pointer-events-none transition-transform duration-700 group-hover:scale-110"
@@ -631,7 +600,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                           mixBlendMode: 'luminosity'
                         }}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-r from-orange-600/60 to-transparent z-[1]" />
+                      <div className="absolute inset-0 bg-gradient-to-r from-red-600/60 to-transparent z-[1]" />
                       <div className="flex flex-col md:flex-row items-center justify-between w-full gap-8 z-10">
                         <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
                           <div className="bg-white/10 backdrop-blur-sm px-6 py-3 rounded-none border border-white/20">
@@ -656,18 +625,23 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                     </div>
                   </div>
 
-                  <div className="pt-8">
-                    <div className="professional-header">
-                      <h2>Los mas vendidos</h2>
-                      <p>De todas las marcas</p>
-                    </div>
+                  <div className="pt-20 pb-20 border-t border-gray-50 bg-white w-full overflow-hidden">
+                    <div className="container mx-auto px-4 md:px-8">
+                      <div className="mb-14">
+                        <h2 className="text-[12px] font-black text-[#C62828] uppercase tracking-[0.4em] mb-2 leading-none">Selección Premium</h2>
+                        <h3 className="text-[32px] md:text-[52px] font-black text-gray-900 uppercase tracking-tighter leading-none mt-2">Los mas vendidos</h3>
+                      </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-12">
-                      {carouselGroups.productos1.slice(0, 10).map(p => (
-                        <ProductCard key={`best-${p.id}`} product={p} />
-                      ))}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-12 lg:gap-x-24 gap-y-20">
+                        {carouselGroups.productos1.slice(0, 4).map(p => (
+                          <BestSellerCard key={`best-${p.id}`} product={p} />
+                        ))}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Solicitud de Cotización Bar as requested */}
+                  <QuoteBanner />
                 </>
               )}
             </div>
