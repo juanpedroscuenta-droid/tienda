@@ -17,6 +17,7 @@ import { useFilters } from '@/hooks/use-filters';
 import { fetchProducts as fetchProductsApi } from '@/lib/api';
 import { parseFormattedPrice } from '@/lib/utils';
 import { HomeBanners } from '@/components/home/HomeBanners';
+import { ProductCardSkeleton } from './ProductCardSkeleton';
 
 interface ProductsSectionProps {
   selectedCategory: string;
@@ -54,9 +55,10 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [sortBy, setSortBy] = useState('relevance');
   const [products, setProducts] = useState<Product[]>([]);
-  const { getCategoryByName, getBreadcrumbPath } = useCategories();
+  const { getCategoryByName, getBreadcrumbPath, categoriesData } = useCategories();
   const { filters, loading: filtersLoading } = useFilters();
   const [loading, setLoading] = useState(true);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
 
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [priceFrom, setPriceFrom] = useState<string>('');
@@ -75,15 +77,26 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
     setCurrentPage(1);
   }, [initialSearchTerm, selectedCategory]);
 
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [offerProducts, setOfferProducts] = useState<Product[]>([]);
+
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const allProducts = await fetchProductsApi();
-      const filtered = allProducts.filter((p) => p.isPublished !== false);
+      const offset = (currentPage - 1) * itemsPerPage;
 
-      // Shuffle the main list for a 'varied' feel as requested by the user
-      const shuffled = [...filtered].sort(() => Math.random() - 0.5);
-      setProducts(shuffled);
+      const { products: fetchedProducts, total } = await fetchProductsApi({
+        limit: itemsPerPage,
+        offset: offset,
+        category_name: selectedCategory === 'Todos' ? undefined : selectedCategory,
+        search: searchTerm,
+        sort: sortBy === 'price-asc' ? 'price' : (sortBy === 'price-desc' ? 'price' : 'updated_at'),
+        order: sortBy === 'price-asc' ? 'asc' : 'desc'
+      });
+
+      setProducts(fetchedProducts);
+      setTotalProducts(total);
     } catch (e) {
       console.error("Error cargando productos:", e);
     } finally {
@@ -92,36 +105,37 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   };
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // 500ms debounce
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
     fetchProducts();
+  }, [currentPage, itemsPerPage, selectedCategory, debouncedSearchTerm, sortBy]);
+
+  useEffect(() => {
+    // Solo cargar los destacados/ofertas una vez (o por refresh forzado)
+    const loadSecondaryData = async () => {
+      try {
+        const [featured, offers] = await Promise.all([
+          import('@/lib/api').then(api => api.fetchFeatured(20)),
+          import('@/lib/api').then(api => api.fetchOffers(12))
+        ]);
+        setFeaturedProducts(featured);
+        setOfferProducts(offers);
+      } catch (e) {
+        console.warn("Secondary data load failed", e);
+      }
+    };
+    loadSecondaryData();
   }, []);
 
   const baseFiltered = useMemo(() => {
-    const selCat = selectedCategory?.trim() || '';
-    const sel = selCat.toLowerCase();
-    const byName = getCategoryByName(selCat);
-    const catIdToMatch = byName?.id;
-
-    const matchCategory = (p: Product) => {
-      const catName = String((p as any).category_name || (p as any).categoryName || '').trim().toLowerCase();
-      const subName = String((p as any).subcategory_name || (p as any).subcategoryName || '').trim().toLowerCase();
-      const tercName = String((p as any).tercera_categoria_name || (p as any).terceraCategoriaName || '').trim().toLowerCase();
-      const catId = (p as any).category_id || (p as any).category;
-      const subId = (p as any).subcategory;
-      const tercId = (p as any).tercera_categoria || (p as any).terceraCategoria;
-
-      return catName === sel || subName === sel || tercName === sel ||
-        (catIdToMatch && (String(catId) === String(catIdToMatch) || String(subId) === String(catIdToMatch) || String(tercId) === String(catIdToMatch)));
-    };
-
-    return products.filter((p) => {
-      const matchSearch = !searchTerm ||
-        p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.description?.toLowerCase().includes(searchTerm.toLowerCase());
-      if (!matchSearch) return false;
-      if (selectedCategory === 'Todos') return true;
-      return matchCategory(p);
-    });
-  }, [products, searchTerm, selectedCategory, getCategoryByName]);
+    // Los productos ya vienen filtrados por categoría y búsqueda desde el servidor.
+    return products;
+  }, [products]);
 
   const brandCounts = useMemo(() => {
     const map: Record<string, number> = {};
@@ -202,45 +216,19 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   }, [baseFiltered, selectedBrands, priceApplied, selectedFilterOptions, sortBy]);
 
   const carouselGroups = useMemo(() => {
-    const published = products.filter(p => p.isPublished !== false && (p as any).is_published !== false);
-    // Skip the first 10 products as they are displayed in NewProductsCarousel
-    const pool = published.slice(10);
-
     return {
-      productos1: pool.slice(0, 20),
-      productos2: pool.slice(20, 40),
-      ofertas: published.filter(p => {
-        const isOffer = p.isOffer === true ||
-          (p as any).is_offer === true ||
-          (p as any).is_offer === 'true' ||
-          (p as any).oferta === true ||
-          (p as any).oferta === 'true';
-
-        const discValue = Number(p.discount || (p as any).descuento || 0);
-        const hasDiscount = discValue > 0;
-
-        const origPrice = Number(p.originalPrice || (p as any).original_price || 0);
-        const currPrice = Number(p.price || 0);
-        const priceDiff = origPrice > currPrice && currPrice > 0;
-
-        return isOffer || hasDiscount || priceDiff;
-      })
-        .sort((a, b) => {
-          const dateA = new Date((a as any).updated_at || (a as any).created_at || 0).getTime();
-          const dateB = new Date((b as any).updated_at || (b as any).created_at || 0).getTime();
-          if (dateB !== dateA) return dateB - dateA;
-          return b.id.localeCompare(a.id);
-        })
-        .slice(0, 4)
+      productos1: featuredProducts.slice(0, 20),
+      productos2: featuredProducts.slice(20, 40),
+      ofertas: offerProducts.slice(0, 4)
     };
-  }, [products]);
+  }, [featuredProducts, offerProducts]);
 
   const paginatedProducts = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredAndSortedProducts.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredAndSortedProducts, currentPage, itemsPerPage]);
+    // Los productos ya vienen paginados desde el servidor.
+    return filteredAndSortedProducts;
+  }, [filteredAndSortedProducts]);
 
-  const totalPages = Math.ceil(filteredAndSortedProducts.length / itemsPerPage);
+  const totalPages = Math.ceil(totalProducts / itemsPerPage);
 
   useEffect(() => {
     if (showCatalog || currentPage > 1) {
@@ -392,7 +380,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
           </aside>
         )}
 
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           {/* Vista inicial Limpia - Solo Carrusel de novedades y luego el Grid */}
           {!isFiltering && !showCatalog && (
             <div className="mb-12">
@@ -464,12 +452,16 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
             </div>
           </div>
 
-          {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-80 bg-gray-50 animate-pulse rounded-[2rem]" />)}
+          {loading && products.length === 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-12">
+              {Array.from({ length: itemsPerPage || 10 }).map((_, i) => (
+                <div key={i} className="animate-in fade-in duration-500">
+                  <ProductCardSkeleton />
+                </div>
+              ))}
             </div>
           ) : paginatedProducts.length > 0 ? (
-            <div className="space-y-16">
+            <div className={`space-y-16 ${loading ? 'opacity-60 pointer-events-none' : 'opacity-100'} transition-opacity duration-300`}>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-12">
                 {paginatedProducts.map(p => <ProductCard key={p.id} product={p} />)}
               </div>
@@ -511,24 +503,61 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
               {!isFiltering && !showCatalog && (
                 <div className="mb-16">
                   <div className="professional-header">
-                    <h2>Nuestros aliados</h2>
-                    <p>el respaldo de las mejores marcas</p>
+                    <h2>Marcas</h2>
                   </div>
 
-                  <div className="relative flex items-center gap-4 px-10">
-                    <button className="absolute left-0 p-2 text-gray-300 hover:text-black transition-colors">
-                      <ChevronLeft className="w-6 h-6" />
+                  <div className="relative group/marcas pb-10 w-full overflow-hidden">
+                    {/* Navigation Buttons */}
+                    <button
+                      onClick={() => {
+                        const container = document.getElementById('brands-scroll-container');
+                        if (container) container.scrollBy({ left: -200, behavior: 'smooth' });
+                      }}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white border border-gray-100 rounded-full flex items-center justify-center shadow-lg text-red-500 opacity-0 group-hover/marcas:opacity-100 transition-opacity hidden md:flex"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
                     </button>
-                    <div className="flex-1 grid grid-cols-2 md:grid-cols-6 items-center gap-8 py-4 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-700">
-                      <div className="font-black text-xl text-center tracking-tighter italic">TOTUS</div>
-                      <div className="font-black text-xl text-center tracking-tighter text-red-600">Florio</div>
-                      <div className="font-black text-xl text-center tracking-tighter">KTC</div>
-                      <div className="font-black text-xl text-center tracking-tighter text-blue-800">GPM</div>
-                      <div className="font-black text-xl text-center tracking-tighter text-yellow-500">GPC</div>
-                      <div className="font-black text-xl text-center tracking-tighter text-indigo-900 font-serif italic text-2xl">Ci</div>
+
+                    <div
+                      id="brands-scroll-container"
+                      className="grid grid-cols-2 place-items-center gap-y-10 gap-x-6 py-8 px-4 md:py-4 md:flex md:items-center md:justify-start md:gap-x-12 md:overflow-x-auto scrollbar-hide scroll-smooth w-full"
+                    >
+                      {[
+                        { name: 'Chevrolet', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Chevrolet-logo.png/1200px-Chevrolet-logo.png', scale: 1 },
+                        { name: 'Renault', logo: 'https://cdn.worldvectorlogo.com/logos/renault-6.svg', scale: 2.5 },
+                        { name: 'Toyota', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Toyota_carlogo.svg/1200px-Toyota_carlogo.svg.png', scale: 1 },
+                        { name: 'Mazda', logo: 'https://cdn.worldvectorlogo.com/logos/mazda-3.svg', scale: 1.8 },
+                        { name: 'Kia', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Kia-logo.png/1200px-Kia-logo.png', scale: 1 },
+                        { name: 'Hyundai', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Hyundai_Motor_Company_logo.svg/1200px-Hyundai_Motor_Company_logo.svg.png', scale: 1 },
+                        { name: 'Nissan', logo: 'https://cdn.worldvectorlogo.com/logos/nissan-6.svg', scale: 1.8 },
+                        { name: 'Ford', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Ford_Motor_Company_Logo.svg/1200px-Ford_Motor_Company_Logo.svg.png', scale: 1 },
+                        { name: 'Volkswagen', logo: 'https://cdn.worldvectorlogo.com/logos/volkswagen-8.svg', scale: 1.8 },
+                        { name: 'Suzuki', logo: 'https://cdn.worldvectorlogo.com/logos/suzuki.svg', scale: 1.2 },
+                        { name: 'Chana', logo: 'https://logotyp.us/files/changan.svg', scale: 2.2 }
+                      ].map((brand, i) => (
+                        <div
+                          key={i}
+                          className="min-w-[100px] md:min-w-[140px] h-12 md:h-20 flex items-center justify-center transition-all duration-500 transform hover:scale-110 cursor-pointer p-2"
+                          title={brand.name}
+                        >
+                          <img
+                            src={brand.logo}
+                            alt={brand.name}
+                            className="max-w-full max-h-full object-contain"
+                            style={{ transform: `scale(${brand.scale})` }}
+                          />
+                        </div>
+                      ))}
                     </div>
-                    <button className="absolute right-0 p-2 text-gray-300 hover:text-black transition-colors">
-                      <ChevronRight className="w-6 h-6" />
+
+                    <button
+                      onClick={() => {
+                        const container = document.getElementById('brands-scroll-container');
+                        if (container) container.scrollBy({ left: 200, behavior: 'smooth' });
+                      }}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white border border-gray-100 rounded-full flex items-center justify-center shadow-lg text-red-500 opacity-0 group-hover/marcas:opacity-100 transition-opacity hidden md:flex"
+                    >
+                      <ChevronRight className="w-5 h-5" />
                     </button>
                   </div>
                 </div>

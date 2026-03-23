@@ -4,6 +4,7 @@ import { fetchProducts as fetchProductsApi } from "@/lib/api";
 import { Product } from "@/contexts/CartContext";
 import { ProductCard } from "./ProductCard";
 import { useNavigate } from "react-router-dom";
+import { ProductCardSkeleton } from "./ProductCardSkeleton";
 
 export const NewProductsCarousel: React.FC = () => {
     const navigate = useNavigate();
@@ -17,8 +18,8 @@ export const NewProductsCarousel: React.FC = () => {
     useEffect(() => {
         const loadProducts = async () => {
             try {
-                const allProducts = await fetchProductsApi();
-                const published = allProducts.filter(p => p.isPublished !== false);
+                const response = await fetchProductsApi();
+                const published = response.products.filter(p => (p as any).is_published !== false);
 
                 // Shuffle to show a varied selection
                 const shuffled = [...published].sort(() => Math.random() - 0.5);
@@ -56,6 +57,41 @@ export const NewProductsCarousel: React.FC = () => {
         }
     }, [products]);
 
+    // Autoplay logic replicated from Similar Products
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container || products.length === 0) return;
+
+        (container as any).lastInteraction = Date.now();
+        const handleInteraction = () => {
+            (container as any).lastInteraction = Date.now();
+        };
+
+        container.addEventListener('touchstart', handleInteraction);
+        container.addEventListener('mousedown', handleInteraction);
+
+        const interval = setInterval(() => {
+            const now = Date.now();
+            const lastInt = (container as any).lastInteraction || 0;
+            if (now - lastInt >= 5000) {
+                const maxScroll = container.scrollWidth - container.clientWidth;
+                if (maxScroll > 10) {
+                    if (container.scrollLeft >= maxScroll - 20) {
+                        container.scrollTo({ left: 0, behavior: 'smooth' });
+                    } else {
+                        container.scrollBy({ left: container.clientWidth / 1.5, behavior: 'smooth' });
+                    }
+                }
+            }
+        }, 5000);
+
+        return () => {
+            clearInterval(interval);
+            container.removeEventListener('touchstart', handleInteraction);
+            container.removeEventListener('mousedown', handleInteraction);
+        };
+    }, [products.length]);
+
     const scrollLeft = () => {
         if (scrollContainerRef.current) {
             const width = scrollContainerRef.current.clientWidth;
@@ -79,7 +115,26 @@ export const NewProductsCarousel: React.FC = () => {
         }
     };
 
-    if (loading || products.length === 0) {
+    if (loading || (products.length === 0 && loading)) {
+        return (
+            <div className="bg-white w-full mb-16 pt-8 animate-pulse">
+                <div className="max-w-[1400px] mx-auto px-4 sm:px-8">
+                    <div className="flex flex-col lg:flex-row gap-8 items-stretch">
+                        <div className="w-full lg:w-[280px] bg-gray-50 rounded-xl h-[400px]" />
+                        <div className="flex-1 flex gap-4 overflow-hidden">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="flex-[0_0_46%] sm:flex-[0_0_45%] lg:flex-[0_0_31%]">
+                                    <ProductCardSkeleton />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (products.length === 0 && !loading) {
         return null;
     }
 

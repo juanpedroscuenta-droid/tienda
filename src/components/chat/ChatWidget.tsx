@@ -66,7 +66,7 @@ export const ChatWidget: React.FC = () => {
         };
 
         loadConfig();
-        fetchProducts().then(setAllProducts).catch(console.error);
+        fetchProducts({ limit: 100 }).then(result => setAllProducts(result.products)).catch(console.error);
     }, []);
 
     useEffect(() => {

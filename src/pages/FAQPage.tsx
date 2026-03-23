@@ -93,14 +93,21 @@ const FAQPage = () => {
               </div>
 
               {/* Pasos Section in Column 1 */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-12 mb-16">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-16 mb-16">
                  {[1,2,3,4,5,6].map(num => (
-                    <div key={num} className="flex flex-col gap-2">
-                       <div className="flex items-center gap-3">
-                          <div className="w-2.5 h-2.5 rounded-full bg-[#ba181b]" />
-                          <h4 className="text-[18px] font-bold text-gray-900">Paso {num}</h4>
+                    <div key={num} className="flex flex-col gap-2 group cursor-default">
+                       <div className="flex items-center gap-3 relative h-8">
+                          {/* Dot / Number Circle transition */}
+                          <div className="w-2.5 h-2.5 rounded-full bg-[#ba181b] transition-all duration-300 group-hover:w-10 group-hover:h-10 group-hover:flex group-hover:items-center group-hover:justify-center group-hover:absolute group-hover:-left-4 group-hover:z-10">
+                            <span className="hidden group-hover:block text-white text-[20px] font-black leading-none">
+                              {num}
+                            </span>
+                          </div>
+                          <h4 className="text-[18px] font-bold text-gray-900 transition-all duration-300 group-hover:pl-8">
+                            Paso {num}
+                          </h4>
                        </div>
-                       <p className="text-[11px] font-medium text-gray-500 leading-tight pl-5.5">
+                       <p className="text-[11px] font-medium text-gray-500 leading-tight pl-5.5 transition-all duration-300 group-hover:pl-8 group-hover:text-gray-900">
                           {num === 1 && "Empieza tu búsqueda"}
                           {num === 2 && "Encuentra el repuesto o realiza una cotización"}
                           {num === 3 && "En caso de dudas solicita nuestra asesoría."}
@@ -140,16 +147,13 @@ const FAQPage = () => {
             {/* Column 2: Sidebar (Total Vertical Stack) */}
             <div className="w-full md:w-[320px] lg:w-[380px] flex flex-col gap-10">
               <div className="flex flex-col items-center">
-                 <div className="w-full aspect-square border-4 border-gray-100 rounded-3xl bg-white shadow-xl flex flex-col items-center justify-end overflow-hidden pb-4">
-                    <img 
-                      src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&hair=shortCombover&backgroundColor=ba181b&mouth=smile&shirt=suit" 
-                      alt="Agente"
-                      className="w-[200px] h-[200px] mb-[-20px]"
-                    />
-                    <div className="py-2 px-6 bg-[#ba181b] text-white text-[10px] font-black uppercase rounded-lg">
-                       Repuesto.co
-                    </div>
-                 </div>
+                <div className="w-full relative flex flex-col items-center">
+                  <img 
+                    src="/Picsart_26-03-22_22-06-07-274.webp" 
+                    alt="Agente Repuesto.co"
+                    className="w-full h-auto max-w-[340px] rounded-2xl"
+                  />
+                </div>
               </div>
 
               <div className="w-full h-[1px] bg-gray-100" />

@@ -101,7 +101,9 @@ export const CartPage: React.FC = () => {
   useEffect(() => {
     const getRecommendations = async () => {
       try {
-        const allProducts = await fetchProducts();
+        const fetchResult = await fetchProducts();
+        const allProducts = Array.isArray(fetchResult) ? fetchResult : fetchResult?.products || [];
+        
         if (allProducts && allProducts.length > 0) {
           const inCartIds = items.map(item => item.id);
           const candidates = allProducts.filter(p => !inCartIds.includes(p.id));
@@ -260,7 +262,7 @@ export const CartPage: React.FC = () => {
                   </div>
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">Tu carrito está vacío</h3>
                   <p className="text-gray-500 mb-8 max-w-sm mx-auto">Cuando agregues productos a tu carrito aparecerán aquí. ¡Explora nuestras ofertas!</p>
-                  <Button onClick={() => navigate('/')} className="bg-[#ffd814] hover:bg-[#f7ca00] text-[#0f1111] font-bold rounded-lg px-10 h-12 transition-all shadow-sm">
+                  <Button onClick={() => navigate('/')} className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg px-10 h-12 transition-all shadow-sm border-none">
                     Volver a la tienda
                   </Button>
                 </div>
@@ -372,7 +374,7 @@ export const CartPage: React.FC = () => {
                 <Button
                   onClick={handleOnlinePayment}
                   disabled={isPayingOnline || items.length === 0}
-                  className="w-full h-12 bg-[#ffd814] hover:bg-[#f7ca00] text-[#0f1111] font-bold rounded-xl shadow-sm border border-[#fcd200] text-base"
+                  className="w-full h-12 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-sm border-none text-base"
                 >
                   {isPayingOnline ? 'Cargando Bold...' : 'Pagar sesión Segura'}
                 </Button>

@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Filter } from '@/hooks/use-filters';
-import { ChevronRight, ChevronDown, Search } from 'lucide-react';
-import { useCategories } from '@/hooks/use-categories';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ChevronRight, ChevronDown, Check, Plus, Minus } from 'lucide-react';
+import { useCategories, Category } from '@/hooks/use-categories';
 
 interface FilterSidebarProps {
     filters: Filter[];
@@ -38,21 +39,19 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     selectedCategory = "Todos",
     setSelectedCategory = () => { },
 }) => {
-    const { mainCategories, subcategoriesByParent } = useCategories();
-    const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
-        [selectedCategory]: true
-    });
+    const { mainCategories } = useCategories();
+    const [showAllCats, setShowAllCats] = useState(false);
+    const [showAllForFilter, setShowAllForFilter] = useState<Record<string, boolean>>({});
 
-    const toggleExpand = (catName: string) => {
-        setExpandedCategories(prev => ({
-            ...prev,
-            [catName]: !prev[catName]
-        }));
+    const toggleShowAllFilter = (fId: string) => {
+        setShowAllForFilter(prev => ({ ...prev, [fId]: !prev[fId] }));
     };
+
+    const INITIAL_VISIBLE = 6;
 
     return (
         <aside className={`${className} font-sans`}>
-            {/* Promo Banner */}
+            {/* Promo Banner - Restored original version */}
             <div className="mb-10 text-center">
                 <div className="relative inline-block">
                     <h2 className="text-[32px] font-black leading-none tracking-tighter text-gray-900 mb-0">
@@ -68,39 +67,91 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                 </div>
             </div>
 
-            <div className="mb-10">
-                <h3 className="text-[18px] font-black text-gray-900 mb-6 font-sans">
-                    ¿Qué repuesto necesitas?
+            <div className="mb-6">
+                <h3 className="text-[16px] font-black text-gray-900 mb-5 font-sans flex items-center gap-2">
+                    <span className="w-1.5 h-6 bg-red-600"></span>
+                    FILTRAR POR
                 </h3>
 
-                <div className="space-y-8">
+                <div className="space-y-6">
+                    {/* CATEGORY LIST */}
+                    <div className="pb-4 border-b border-gray-50">
+                        <h4 className="text-[12px] font-black uppercase tracking-widest text-gray-400 mb-4">Categorías</h4>
+                        <div className="space-y-2.5">
+                            {["Todos", ...mainCategories.map(c => c.name)].slice(0, showAllCats ? undefined : INITIAL_VISIBLE).map(catName => {
+                                const isSelected = selectedCategory === catName;
+                                return (
+                                    <div key={catName} className="flex items-center space-x-3 group cursor-pointer" onClick={() => setSelectedCategory(catName)}>
+                                        <Checkbox 
+                                            checked={isSelected} 
+                                            className="h-4 w-4 rounded-none border-gray-300 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600 transition-colors"
+                                        />
+                                        <label className={`text-[12px] font-bold cursor-pointer transition-colors ${isSelected ? 'text-red-700' : 'text-gray-500 group-hover:text-black hover:translate-x-0.5 duration-200'}`}>
+                                            {catName}
+                                        </label>
+                                    </div>
+                                );
+                            })}
+                            
+                            {mainCategories.length > INITIAL_VISIBLE && (
+                                <button 
+                                    onClick={() => setShowAllCats(!showAllCats)}
+                                    className="text-[11px] font-black uppercase tracking-widest text-red-600 pt-2 flex items-center gap-1 hover:gap-2 transition-all"
+                                >
+                                    {showAllCats ? 'Ver menos' : `Ver más (${mainCategories.length - INITIAL_VISIBLE + 1})`}
+                                    {showAllCats ? <Minus className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* SPECS FILTERS */}
                     {filtersLoading ? (
-                        Array.from({ length: 3 }).map((_, i) => (
-                            <div key={i} className="animate-pulse space-y-3">
-                                <div className="h-4 w-24 bg-gray-100 rounded"></div>
-                                <div className="h-3 w-32 bg-gray-50 rounded"></div>
-                                <div className="h-3 w-28 bg-gray-50 rounded"></div>
+                        Array.from({ length: 2 }).map((_, i) => (
+                            <div key={i} className="animate-pulse space-y-2 pb-4">
+                                <div className="h-3 w-16 bg-gray-100 rounded"></div>
+                                <div className="h-4 w-32 bg-gray-50 rounded"></div>
+                                <div className="h-4 w-28 bg-gray-50 rounded"></div>
                             </div>
                         ))
                     ) : (
                         filters.map(f => (
-                            <div key={f.id} className="pb-4">
-                                <h4 className="text-[14px] font-black uppercase tracking-tight text-gray-900 mb-4">{f.name}</h4>
-                                <div className="space-y-3">
-                                    {f.options.slice(0, 10).map(o => (
-                                        <button
-                                            key={o.id}
-                                            onClick={() => toggleFilterOption(f.id, o.id)}
-                                            className={`flex items-center justify-between w-full text-left group`}
+                            <div key={f.id} className="pb-4 border-b border-gray-50">
+                                <h4 className="text-[12px] font-black uppercase tracking-widest text-gray-400 mb-4">{f.name}</h4>
+                                <div className="space-y-2.5">
+                                    {f.options.slice(0, showAllForFilter[f.id] ? undefined : INITIAL_VISIBLE).map(o => {
+                                        const isSelected = (selectedFilterOptions[f.id] || []).includes(o.id);
+                                        return (
+                                            <div 
+                                                key={o.id} 
+                                                className="flex items-center justify-between group cursor-pointer"
+                                                onClick={() => toggleFilterOption(f.id, o.id)}
+                                            >
+                                                <div className="flex items-center space-x-3">
+                                                    <Checkbox 
+                                                        checked={isSelected} 
+                                                        className="h-4 w-4 rounded-none border-gray-300 data-[state=checked]:bg-black data-[state=checked]:border-black transition-colors"
+                                                    />
+                                                    <span className={`text-[12px] font-bold transition-colors ${isSelected ? 'text-black' : 'text-gray-500 group-hover:text-gray-900 hover:translate-x-0.5 duration-200'}`}>
+                                                        {o.name}
+                                                    </span>
+                                                </div>
+                                                <span className="text-[10px] font-black text-gray-200 group-hover:text-gray-400 transition-colors">
+                                                    {filterOptionCounts[f.id]?.[o.id] || 0}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {f.options.length > INITIAL_VISIBLE && (
+                                        <button 
+                                            onClick={() => toggleShowAllFilter(f.id)}
+                                            className="text-[11px] font-black uppercase tracking-widest text-gray-900 pt-2 flex items-center gap-1 hover:gap-2 transition-all"
                                         >
-                                            <span className={`text-[13px] font-bold transition-colors ${(selectedFilterOptions[f.id] || []).includes(o.id) ? 'text-black' : 'text-gray-400 hover:text-gray-900'}`}>
-                                                {o.name}
-                                            </span>
-                                            <span className="text-[10px] font-bold text-gray-200">
-                                                ({filterOptionCounts[f.id]?.[o.id] || 0})
-                                            </span>
+                                            {showAllForFilter[f.id] ? 'Ver menos' : `Ver más (${f.options.length - INITIAL_VISIBLE})`}
+                                            {showAllForFilter[f.id] ? <Minus className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
                                         </button>
-                                    ))}
+                                    )}
                                 </div>
                             </div>
                         ))
@@ -108,31 +159,30 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                 </div>
             </div>
 
-            {/* Price Filter - Restyled to be subtle */}
-            <div className="mt-12 pt-8">
-                <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 mb-6">Rango de Precio</h4>
-                <div className="flex items-center gap-2">
+            {/* Price Filter */}
+            <div className="mt-8 pt-6 border-t border-gray-100">
+                <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4">Precio</h4>
+                <div className="grid grid-cols-2 gap-2 mb-3">
                     <Input
                         placeholder="Mín"
                         value={priceFrom}
                         onChange={e => setPriceFrom(e.target.value)}
-                        className="h-9 bg-gray-50 border-none rounded-none text-xs focus-visible:ring-1 focus-visible:ring-gray-200"
+                        className="h-9 bg-gray-50 border-gray-100 rounded-none text-[11px] font-bold focus-visible:ring-1 focus-visible:ring-gray-200"
                     />
-                    <span className="text-gray-300">—</span>
                     <Input
                         placeholder="Máx"
                         value={priceTo}
                         onChange={e => setPriceTo(e.target.value)}
-                        className="h-9 bg-gray-50 border-none rounded-none text-xs focus-visible:ring-1 focus-visible:ring-gray-200"
+                        className="h-9 bg-gray-50 border-gray-100 rounded-none text-[11px] font-bold focus-visible:ring-1 focus-visible:ring-gray-200"
                     />
-                    <Button
-                        size="sm"
-                        onClick={applyPrice}
-                        className="h-9 bg-black hover:bg-gray-800 text-white rounded-none px-3 text-[10px] font-black uppercase"
-                    >
-                        Filtrar
-                    </Button>
                 </div>
+                <Button
+                    size="sm"
+                    onClick={applyPrice}
+                    className="w-full h-10 bg-red-600 hover:bg-black text-white rounded-none text-[10px] font-black uppercase tracking-widest transition-all"
+                >
+                    Aplicar Filtro
+                </Button>
             </div>
 
         </aside>

@@ -60,6 +60,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
   const [activeThird, setActiveThird] = useState<Category | null>(null);
   const accountMenuTimer = useRef<NodeJS.Timeout | null>(null);
   const favoritesMenuTimer = useRef<NodeJS.Timeout | null>(null);
+  const helpMenuTimer = useRef<NodeJS.Timeout | null>(null);
   const categoryDropdownTimer = useRef<NodeJS.Timeout | null>(null);
 
   // State to sync filters with ProductsSection
@@ -158,8 +159,8 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
   return (
     <div className="w-full font-sans selection:bg-blue-800 selection:text-white" >
       {/* Red Super-Header on top as requested */}
-      <div className="bg-[#ba181b] text-white w-full border-b border-black/5 py-1.5 hidden md:block">
-        <div className="container mx-auto px-4 md:px-8 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider">
+      <div className="bg-[#ba181b] text-white w-full border-b border-black/5 py-3.5 hidden md:block">
+        <div className="container mx-auto px-4 md:px-8 flex items-center justify-between text-[13px] font-bold uppercase tracking-wider">
           <div className="flex items-center gap-6">
             <span className="flex items-center gap-2">
               <span className="text-white">📍</span> Bogotá, Colombia
@@ -263,12 +264,19 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
               </Dialog>
             </div>
 
-            {/* Help */}
-            <div className="relative group/help hidden sm:block">
+            <div 
+              className="relative group/help hidden sm:block"
+              onMouseEnter={() => {
+                if (helpMenuTimer.current) clearTimeout(helpMenuTimer.current);
+                setShowHelpMenu(true);
+              }}
+              onMouseLeave={() => {
+                if (helpMenuTimer.current) clearTimeout(helpMenuTimer.current);
+                helpMenuTimer.current = setTimeout(() => setShowHelpMenu(false), 200);
+              }}
+            >
               <button
                 className="flex flex-col items-center gap-1 group transition-opacity hover:opacity-80 p-1"
-                onMouseEnter={() => setShowHelpMenu(true)}
-                onMouseLeave={() => setShowHelpMenu(false)}
                 aria-label="Menú de Ayuda y Contacto"
               >
                 <HelpCircle className="w-6 h-6 stroke-[1.5px]" />
@@ -277,32 +285,40 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
               {showHelpMenu && (
                 <div
-                  className="absolute top-full right-0 mt-4 w-56 bg-white text-gray-900 shadow-[0_10px_40px_rgba(0,0,0,0.2)] border border-gray-100 z-[70] overflow-hidden rounded-lg"
-                  onMouseEnter={() => setShowHelpMenu(true)}
-                  onMouseLeave={() => setShowHelpMenu(false)}
+                  className="absolute top-full right-0 pt-4 w-56 z-[70]"
+                  onMouseEnter={() => {
+                    if (helpMenuTimer.current) clearTimeout(helpMenuTimer.current);
+                    setShowHelpMenu(true);
+                  }}
+                  onMouseLeave={() => {
+                    if (helpMenuTimer.current) clearTimeout(helpMenuTimer.current);
+                    helpMenuTimer.current = setTimeout(() => setShowHelpMenu(false), 200);
+                  }}
                 >
-                  <a
-                    href="https://wa.me/573239447597"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
-                  >
-                    <span className="text-green-500 text-xl">📱</span>
-                    <div className="text-left">
-                      <div className="text-sm font-bold text-gray-900">WhatsApp</div>
-                      <div className="text-[11px] text-gray-700 font-medium">+57 323 9447597</div>
-                    </div>
-                  </a>
-                  <a
-                    href="mailto:tienda247@gmail.com"
-                    className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors"
-                  >
-                    <span className="text-xl">📧</span>
-                    <div className="text-left">
-                      <div className="text-sm font-bold text-gray-900">Email</div>
-                      <div className="text-[11px] text-gray-700 font-medium">tienda247@gmail.com</div>
-                    </div>
-                  </a>
+                  <div className="bg-white text-gray-900 shadow-[0_10px_40px_rgba(0,0,0,0.2)] border border-gray-100 overflow-hidden rounded-lg">
+                    <a
+                      href="https://wa.me/573239447597"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
+                    >
+                      <span className="text-green-500 text-xl">📱</span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-gray-900">WhatsApp</div>
+                        <div className="text-[11px] text-gray-700 font-medium">+57 323 9447597</div>
+                      </div>
+                    </a>
+                    <a
+                      href="mailto:tienda247@gmail.com"
+                      className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <span className="text-xl">📧</span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-gray-900">Email</div>
+                        <div className="text-[11px] text-gray-700 font-medium">tienda247@gmail.com</div>
+                      </div>
+                    </a>
+                  </div>
                 </div>
               )}
             </div>
@@ -400,7 +416,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
       {/* MOBILE HEADER (Screenshot Red Style) */}
       <header className="md:hidden flex flex-col w-full z-[60] sticky top-0 bg-white">
         {/* Row 1: Search Bar (Red BG) */}
-        <div className="bg-[#E2343E] px-4 py-3">
+        <div className="bg-[#E2343E] px-4 py-5">
           <form className="flex w-full h-11" onSubmit={handleSearchSubmit}>
             <input
               type="text"

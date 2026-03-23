@@ -79,65 +79,76 @@ export const clearStoreCache = () => {
 };
 
 /**
- * Fetch de productos con manejo de errores mejorado, timeout y cache persistente.
+ * Fetch de productos con manejo de errores mejorado, timeout, cache persistente y soporte para paginación.
  */
-export const fetchProducts = async (forceRefresh = false): Promise<Product[]> => {
-    try {
-        // 1. In-memory cache
-        if (!forceRefresh && storeProductsCache && storeProductsTimestamp) {
-            const isValid = (Date.now() - storeProductsTimestamp) < STORE_CACHE_DURATION;
-            if (isValid) return storeProductsCache;
-        }
+export const fetchProducts = async (options: { 
+    forceRefresh?: boolean, 
+    limit?: number, 
+    offset?: number, 
+    category_id?: string,
+    category_name?: string,
+    search?: string,
+    sort?: string,
+    order?: 'asc' | 'desc'
+} = {}): Promise<{ products: Product[], total: number }> => {
+    const { 
+        forceRefresh = false, 
+        limit = 24, 
+        offset = 0, 
+        category_id, 
+        category_name, 
+        search, 
+        sort = 'updated_at', 
+        order = 'desc' 
+    } = options;
 
-        // 2. Persistent storage cache (Sync)
-        if (!forceRefresh && !storeProductsCache) {
-            const saved = localStorage.getItem(PERSISTENT_CACHE_KEY);
-            if (saved) {
-                try {
-                    const { data, timestamp } = JSON.parse(saved);
-                    if ((Date.now() - timestamp) < (STORE_CACHE_DURATION * 6)) { // 1 hora de persistencia
-                        storeProductsCache = data;
-                        storeProductsTimestamp = timestamp;
-                        // No retornamos aquí para permitir la validación en segundo plano si es necesario, 
-                        // pero los componentes ya habrán recibido los datos de este cache si llamaron antes.
-                    }
-                } catch (e) {}
-            }
-        }
+    try {
+        const queryParams = new URLSearchParams();
+        queryParams.append('limit', limit.toString());
+        queryParams.append('offset', offset.toString());
+        if (category_id) queryParams.append('category_id', category_id);
+        if (category_name) queryParams.append('category_name', category_name);
+        if (search) queryParams.append('search', search);
+        queryParams.append('sort', sort);
+        queryParams.append('order', order);
+
+        const url = `${API_BASE_URL}/products?${queryParams.toString()}`;
 
         if (checkBackendStatus()) {
             try {
-                const response = await fetchWithTimeout(`${API_BASE_URL}/products`, { timeout: DEFAULT_PROBE_TIMEOUT });
+                const response = await fetchWithTimeout(url, { timeout: DEFAULT_TIMEOUT });
                 if (response.ok) {
-                    const data = await response.json();
+                    const result = await response.json();
                     isBackendOffline = false;
-                    const mappedProducts = data.map((p: any) => ({
+                    const mappedProducts = result.products.map((p: any) => ({
                         ...p,
                         price: parseFormattedPrice(p.price),
-                        originalPrice: p.original_price ? parseFormattedPrice(p.original_price) : (p.originalPrice ? parseFormattedPrice(p.originalPrice) : undefined),
+                        originalPrice: p.originalPrice ? parseFormattedPrice(p.originalPrice) : (p.original_price ? parseFormattedPrice(p.original_price) : undefined),
                         additionalImages: p.additional_images || p.additionalImages || []
                     }));
-                    storeProductsCache = mappedProducts;
-                    storeProductsTimestamp = Date.now();
                     
-                    // Update persistent cache
-                    localStorage.setItem(PERSISTENT_CACHE_KEY, JSON.stringify({ 
-                        data: mappedProducts, 
-                        timestamp: storeProductsTimestamp 
-                    }));
-                    
-                    return mappedProducts;
+                    return { products: mappedProducts, total: result.total };
                 }
             } catch (err) {
                 isBackendOffline = true;
                 lastCheckTime = Date.now();
-                console.warn('[API] Backend unreachable, falling back to Supabase');
             }
         }
 
         // Fallback Supabase
-        const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
-        if (error || !data) return storeProductsCache || [];
+        let query = supabase
+            .from('products')
+            .select('*', { count: 'exact' })
+            .eq('is_published', true);
+
+        if (category_id) query = query.eq('category_id', category_id);
+        if (search) query = query.ilike('name', `%${search}%`);
+
+        const start = offset;
+        const end = offset + limit - 1;
+        const { data, count, error } = await query.order(sort, { ascending: order === 'asc' }).range(start, end);
+
+        if (error || !data) return { products: [], total: 0 };
 
         const mapped = data.map((p: any) => ({
             ...p,
@@ -146,19 +157,10 @@ export const fetchProducts = async (forceRefresh = false): Promise<Product[]> =>
             additionalImages: p.additional_images || []
         }));
 
-        storeProductsCache = mapped;
-        storeProductsTimestamp = Date.now();
-        
-        // Update persistent cache
-        localStorage.setItem(PERSISTENT_CACHE_KEY, JSON.stringify({ 
-            data: mapped, 
-            timestamp: storeProductsTimestamp 
-        }));
-
-        return mapped;
+        return { products: mapped, total: count || 0 };
     } catch (error: any) {
         console.error('Error in fetchProducts:', error.message);
-        return storeProductsCache || [];
+        return { products: [], total: 0 };
     }
 };
 
@@ -190,10 +192,10 @@ export const fetchProductBySlug = async (slug: string): Promise<Product | null> 
             return { ...data, additionalImages: data.additional_images || [] };
         }
 
-        // Si falla por slug exacto, intentamos con el catálogo completo
-        const all = await fetchProducts();
+        // Si falla por slug exacto, intentamos con el catálogo (limitado para no saturar)
+        const all = await fetchProducts({ limit: 100 });
         const simpleSlugify = (text: string) => text.toString().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-');
-        const found = all.find(p => simpleSlugify(p.name) === slug);
+        const found = all.products.find(p => simpleSlugify(p.name) === slug);
         return found || null;
     } catch (error: any) {
         console.error('Error in fetchProductBySlug:', error.message);
@@ -308,18 +310,47 @@ export const createOrder = async (orderData: any) => {
 
 // --- ADMIN PANEL METHODS ---
 
-export const fetchAdminProducts = async (): Promise<Product[]> => {
+export const fetchFeatured = async (limit = 20): Promise<Product[]> => {
     try {
-        const response = await fetchWithTimeout(`${API_BASE_URL}/products/admin/all`, { timeout: 30000 });
-        if (!response.ok) throw new Error('Server unreachable');
+        const response = await fetchWithTimeout(`${API_BASE_URL}/products/featured?limit=${limit}`);
+        if (!response.ok) return [];
         const data = await response.json();
         return data.map((p: any) => ({
             ...p,
+            price: parseFormattedPrice(p.price),
+            originalPrice: p.original_price ? parseFormattedPrice(p.original_price) : undefined,
+            additionalImages: p.additional_images || []
+        }));
+    } catch { return []; }
+}
+
+export const fetchOffers = async (limit = 12): Promise<Product[]> => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/products/offers?limit=${limit}`);
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.map((p: any) => ({
+            ...p,
+            price: parseFormattedPrice(p.price),
+            originalPrice: p.original_price ? parseFormattedPrice(p.original_price) : undefined,
+            additionalImages: p.additional_images || []
+        }));
+    } catch { return []; }
+}
+
+export const fetchAdminProducts = async (limit = 100, offset = 0): Promise<{ products: Product[], total: number }> => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/products/admin/all?limit=${limit}&offset=${offset}`, { timeout: 30000 });
+        if (!response.ok) throw new Error('Server unreachable');
+        const result = await response.json();
+        const mapped = result.products.map((p: any) => ({
+            ...p,
             additionalImages: p.additional_images || p.additionalImages || []
         }));
+        return { products: mapped, total: result.total || 0 };
     } catch (error: any) {
         console.error('fetchAdminProducts error:', error.message);
-        return [];
+        return { products: [], total: 0 };
     }
 }
 

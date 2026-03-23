@@ -106,6 +106,16 @@ const PersistentAdminPanel = () => {
   );
 };
 
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+};
+
 const App = () => {
   useEffect(() => {
     // Prevenir traducción automática - soluciona problemas de pantalla blanca
@@ -155,6 +165,8 @@ const App = () => {
                 <Sonner />
                 <SimulationNotice />
                 <BrowserRouter>
+                  {/* Global Scroll to top for every route change */}
+                  <ScrollToTop />
                   {/* ⚡ Persistent Admin Panel — stays mounted across navigations */}
                   <PersistentAdminPanel />
 

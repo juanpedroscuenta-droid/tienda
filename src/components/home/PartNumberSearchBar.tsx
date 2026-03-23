@@ -50,7 +50,7 @@ export const PartNumberSearchBar = () => {
 
           <Button 
             type="submit"
-            className="w-full md:w-auto min-w-[140px] h-12 bg-[#ffd814] hover:bg-[#f7ca00] text-[#0f1111] font-bold uppercase tracking-widest rounded-md transition-all shadow-lg active:scale-95 m-1 border border-[#fcd200]"
+            className="w-full md:w-auto min-w-[140px] h-12 bg-[#ba181b] hover:bg-[#a01518] text-white font-black uppercase tracking-widest rounded-md transition-all shadow-lg active:scale-95 m-1 border border-red-700"
           >
             BUSCAR REF
           </Button>

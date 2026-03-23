@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const https = require('https');
+const sharp = require('sharp');
 const { callAI } = require('../utils/ai');
 
 // Configuración de Supabase
@@ -11,9 +12,8 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 /**
  * Función para subir un Buffer directamente a Supabase Storage
  */
-function uploadToSupabase(buffer, remotePath) {
+function uploadToSupabase(buffer, remotePath, contentType = 'image/webp') {
     return new Promise((resolve, reject) => {
-        // Asegurar que la URL sea correcta (bucket '24')
         const url = new URL(`${SUPABASE_URL}/storage/v1/object/24/${remotePath}`);
         
         const options = {
@@ -21,7 +21,7 @@ function uploadToSupabase(buffer, remotePath) {
             headers: {
                 'apikey': ANON_KEY,
                 'Authorization': `Bearer ${ANON_KEY}`,
-                'Content-Type': 'image/png'
+                'Content-Type': contentType
             }
         };
 
@@ -30,7 +30,6 @@ function uploadToSupabase(buffer, remotePath) {
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
                 if (res.statusCode >= 200 && res.statusCode < 300) {
-                    // Retornar URL pública
                     const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/24/${remotePath}`;
                     resolve(publicUrl);
                 } else {
@@ -119,8 +118,6 @@ router.post('/generate-image', async (req, res) => {
     }
 
     try {
-        console.log(`[AI ENRICH] Iniciando generación para: ${productName}`);
-
         // Crear nombre de archivo limpio
         const cleanName = productName.toLowerCase()
             .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Quitar tildes
@@ -129,18 +126,21 @@ router.post('/generate-image', async (req, res) => {
         
         const timestamp = Date.now();
         const folder = category?.toLowerCase().replace(/\s+/g, '_') || 'varios';
-        const remotePath = `products/${folder}/${cleanName}_${timestamp}.png`;
+        const remotePath = `products/${folder}/${cleanName}_${timestamp}.webp`; // Cambio a .webp
 
         // Prompt optimizado con marca de agua
         const imagePrompt = `Professional product studio photography of ${productName}, solid white background, high resolution 4k, cinematic lighting, sharp focus on mechanical details, industrial spare part aesthetic, with a small subtle semi-transparent watermark text 'r.repuestos 24/7' in the bottom right corner.`;
 
         // 1. Generar imagen
-        const imageBuffer = await generateGeminiImage(imagePrompt);
+        const imageBufferPng = await generateGeminiImage(imagePrompt);
 
-        // 2. Subir a Supabase
-        const imageUrl = await uploadToSupabase(imageBuffer, remotePath);
+        // 2. CONVERTIR A WEBP (optimización)
+        const imageBufferWebp = await sharp(imageBufferPng)
+            .webp({ quality: 80 })
+            .toBuffer();
 
-        console.log(`[AI ENRICH] Éxito: ${imageUrl}`);
+        // 3. Subir a Supabase
+        const imageUrl = await uploadToSupabase(imageBufferWebp, remotePath, 'image/webp');
 
         res.json({
             success: true,

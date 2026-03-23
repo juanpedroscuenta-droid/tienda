@@ -2,15 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const multer = require('multer');
+const sharp = require('sharp'); // Importar sharp
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Use memory storage for multer
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Upload a generic file to bucket '24'
 router.post('/upload', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
@@ -20,24 +19,40 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         const file = req.file;
         const bucket = '24';
         const folder = req.body.folder || 'general';
-        const fileName = `${folder}/${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`;
+        
+        // 1. PROCESAR CON SHARP SI ES IMAGEN
+        let finalBuffer = file.buffer;
+        let finalFileName = file.originalname.replace(/\..+$/, '').replace(/\s+/g, '_');
+        let contentType = file.mimetype;
+
+        if (file.mimetype.startsWith('image/')) {
+            finalBuffer = await sharp(file.buffer)
+                .webp({ quality: 80 })
+                .toBuffer();
+            finalFileName += '.webp';
+            contentType = 'image/webp';
+        } else {
+            finalFileName = file.originalname.replace(/\s+/g, '_');
+        }
+
+        const remotePath = `${folder}/${Date.now()}-${finalFileName}`;
 
         const { data, error } = await supabase.storage
             .from(bucket)
-            .upload(fileName, file.buffer, {
-                contentType: file.mimetype,
+            .upload(remotePath, finalBuffer, {
+                contentType: contentType,
                 upsert: true
             });
 
         if (error) throw error;
 
-        // Get public URL
         const { data: { publicUrl } } = supabase.storage
             .from(bucket)
-            .getPublicUrl(fileName);
+            .getPublicUrl(remotePath);
 
-        res.json({ url: publicUrl, path: fileName });
+        res.json({ url: publicUrl, path: remotePath });
     } catch (error) {
+        console.error('[STORAGE ERROR]:', error.message);
         res.status(500).json({ error: error.message });
     }
 });

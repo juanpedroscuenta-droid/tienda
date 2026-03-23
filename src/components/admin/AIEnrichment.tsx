@@ -24,7 +24,9 @@ export const AIEnrichment: React.FC = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [cats, prods] = await Promise.all([fetchCategories(), fetchAdminProducts()]);
+            // Cargar los primeros 200 para edición masiva (escalable)
+            const [cats, result] = await Promise.all([fetchCategories(), fetchAdminProducts(200, 0)]);
+            const { products: prods } = result;
             console.log(`[AI ENRICH] Loaded ${prods.length} products and ${cats.length} categories`);
             setCategories(cats);
             setProducts(prods);
