@@ -48,7 +48,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
   const total = getTotal();
   const { favorites, toggleFavorite } = useFavorites();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [menuView, setMenuView] = useState<'main' | 'sub'>('main');
+  const [menuView, setMenuView] = useState<'main' | 'sub' | 'categories'>('main');
   const [activeMainCat, setActiveMainCat] = useState<string | null>(null);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showFavoritesMenu, setShowFavoritesMenu] = useState(false);
@@ -157,7 +157,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
   };
 
   return (
-    <div className="w-full font-sans selection:bg-blue-800 selection:text-white" >
+    <div className="w-full max-w-full overflow-x-hidden font-sans selection:bg-blue-800 selection:text-white" >
       {/* Red Super-Header on top as requested */}
       <div className="bg-[#ba181b] text-white w-full border-b border-black/5 py-3.5 hidden md:block">
         <div className="container mx-auto px-4 md:px-8 flex items-center justify-between text-[13px] font-bold uppercase tracking-wider">
@@ -264,7 +264,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
               </Dialog>
             </div>
 
-            <div 
+            <div
               className="relative group/help hidden sm:block"
               onMouseEnter={() => {
                 if (helpMenuTimer.current) clearTimeout(helpMenuTimer.current);
@@ -438,7 +438,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
         {/* Row 2: Icons & Logo (Red BG) */}
         <div className="bg-[#E2343E] px-4 py-3 flex items-center justify-between border-t border-white/10 relative">
           <div className="flex-1 flex justify-start">
-            <button 
+            <button
               onClick={() => setIsMenuOpen(true)}
               className="text-white p-2 -ml-2"
               aria-label="Abrir menú"
@@ -446,8 +446,8 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
               <Menu className="w-7 h-7" />
             </button>
           </div>
-          
-          <div 
+
+          <div
             className="flex items-center cursor-pointer absolute left-1/2 -translate-x-1/2 z-[70] h-full"
             onClick={() => {
               navigate('/');
@@ -462,25 +462,25 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
           </div>
 
           <div className="flex-1 flex items-center justify-end gap-3">
-             <button 
-               onClick={() => navigate('/cart')}
-               className="text-white relative p-1"
-               aria-label="Ver carrito"
-             >
-               <ShoppingCart className="w-6 h-6" />
-               {itemCount > 0 && (
-                 <span className="absolute -top-1 -right-1 bg-white text-red-600 text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center">
-                   {itemCount}
-                 </span>
-               )}
-             </button>
-             <button 
-               onClick={() => setShowAccountMenu(!showAccountMenu)}
-               className="text-white p-1"
-               aria-label="Ver cuenta"
-             >
-               <User className="w-6 h-6" />
-             </button>
+            <button
+              onClick={() => navigate('/cart')}
+              className="text-white relative p-1"
+              aria-label="Ver carrito"
+            >
+              <ShoppingCart className="w-6 h-6" />
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-white text-red-600 text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center">
+                  {itemCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setShowAccountMenu(!showAccountMenu)}
+              className="text-white p-1"
+              aria-label="Ver cuenta"
+            >
+              <User className="w-6 h-6" />
+            </button>
           </div>
         </div>
       </header>
@@ -500,109 +500,123 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
       <div
         className={`fixed inset-y-0 left-0 w-[85%] max-w-[320px] bg-white z-[110] md:hidden transform transition-transform duration-300 ease-out shadow-2xl flex flex-col ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        {/* Drawer Header - Black Theme for continuity */}
-        <div className="flex items-center justify-between p-6 bg-black text-white border-b border-zinc-800 shrink-0">
+        {/* Drawer Header */}
+        <div className="flex items-center justify-between p-6 bg-white border-b border-gray-100 shrink-0">
           <img
             src="/logo.webp"
             alt="24/7"
-            className="h-8 w-auto object-contain cursor-pointer"
+            className="h-10 w-auto object-contain cursor-pointer"
             onClick={() => { navigate('/'); setIsMenuOpen(false); }}
           />
           <button
             onClick={() => setIsMenuOpen(false)}
-            className="p-2 -mr-2 text-white/70 hover:text-white transition-colors"
+            className="p-2 -mr-2 text-gray-400 hover:text-black transition-colors"
           >
-            <X className="w-6 h-6" />
+            <X className="w-7 h-7" />
           </button>
         </div>
 
-        {/* Categories Section Label */}
-        <div className="px-6 pt-6 -mb-2">
-          <h3 className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Navegación</h3>
-        </div>
-
-        {/* Main Nav Links in Drawer */}
-        <div className="px-6 py-4 grid grid-cols-3 gap-2 border-b border-neutral-100">
-          <button
-            onClick={() => { navigate('/?tienda=true'); setIsMenuOpen(false); }}
-            className="flex flex-col items-center gap-2 p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
-          >
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-neutral-100 shadow-sm">
-              <Search className="w-5 h-5 text-blue-500" />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-tight text-neutral-800">Tienda</span>
-          </button>
-
-          <button
-            onClick={() => { navigate('/cotizacion'); setIsMenuOpen(false); }}
-            className="flex flex-col items-center gap-2 p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
-          >
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-neutral-100 shadow-sm">
-              <HelpCircle className="w-5 h-5 text-[#ba181b]" />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-tight text-neutral-800">Cotizar</span>
-          </button>
-
-          <button
-            onClick={() => { navigate('/promociones'); setIsMenuOpen(false); }}
-            className="flex flex-col items-center gap-2 p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
-          >
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-neutral-100 shadow-sm">
-              <SlidersHorizontal className="w-5 h-5 text-red-500" />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-tight text-neutral-800">Ofertas</span>
-          </button>
-        </div>
-
-        <div className="px-6 pt-6 -mb-2">
-          <h3 className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Categorías</h3>
-        </div>
-
-        {/* Drawer Scrollable Content */}
+        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto pb-10">
-          {menuView === 'main' ? (
+          {menuView === 'main' && (
             <>
-              <div className="px-6 space-y-1 pt-4">
-                {mainCategoriesForNav.map((name) => {
-                  const catObj = mainCategories.find(c => c.name === name);
-                  const subs = getSubsForMain(name);
-                  const hasSubs = subs.length > 0;
+              <div className="px-6 pt-6 pb-2">
+                <h3 className="text-sm font-black text-[#E2343E] uppercase tracking-wider">Menú Principal</h3>
+              </div>
 
-                  return (
-                    <button
-                      key={name}
-                      onClick={() => {
-                        if (hasSubs) {
-                          setActiveMainCat(name);
-                          setMenuView('sub');
-                        } else {
-                          goToCategory(name);
-                        }
-                      }}
-                      className="w-full flex items-center justify-between py-4 group hover:bg-gray-50 -mx-2 px-2 rounded-xl transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden flex-shrink-0 border border-gray-100">
-                          {catObj?.image ? (
-                            <img
-                              src={catObj.image}
-                              alt={name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-300 uppercase font-black text-[10px]">
-                              {name.slice(0, 2)}
-                            </div>
-                          )}
+              <div className="px-6 flex flex-col border-b border-[#E2343E]/10 pb-4">
+                {[
+                  { name: 'Cotización', path: '/cotizacion' },
+                  { name: 'Promociones', path: '/promociones' },
+                  { name: 'Tienda', path: '/?tienda=true' },
+                  { name: 'Categorías', action: () => setMenuView('categories') },
+                  { name: 'Ayuda / FAQ', path: '/faq' }
+                ].map((item: any) => (
+                  <button
+                    key={item.name}
+                    onClick={() => {
+                      if (item.action) item.action();
+                      else {
+                        navigate(item.path);
+                        setIsMenuOpen(false);
+                      }
+                    }}
+                    className="w-full text-left py-4 text-[16px] font-bold text-neutral-800 border-b border-neutral-50 last:border-0 hover:text-red-700 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      {item.name}
+                      {item.name === 'Categorías' && <ChevronRight className="w-5 h-5 text-gray-400" />}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {menuView === 'categories' && (
+            <>
+              {/* Back Button */}
+              <div className="px-4 pt-4 mb-2">
+                <button
+                  onClick={() => setMenuView('main')}
+                  className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-[#E2343E] hover:text-red-700 transition-colors py-2"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Regresar al Menú
+                </button>
+              </div>
+
+              <div className="px-6 pt-2 pb-2">
+                <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">Todas las Categorías</h3>
+              </div>
+              
+              <div className="px-6 space-y-1 pt-2">
+                {mainCategoriesForNav.length > 0 ? (
+                  mainCategoriesForNav.map((name) => {
+                    const catObj = mainCategories.find(c => c.name === name);
+                    const subs = getSubsForMain(name);
+                    const hasSubs = subs.length > 0;
+
+                    return (
+                      <button
+                        key={name}
+                        onClick={() => {
+                          if (hasSubs) {
+                            setActiveMainCat(name);
+                            setMenuView('sub');
+                          } else {
+                            goToCategory(name);
+                          }
+                        }}
+                        className="w-full flex items-center justify-between py-4 group hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-neutral-100 overflow-hidden flex-shrink-0 border border-neutral-100">
+                            {catObj?.image ? (
+                              <img
+                                src={catObj.image}
+                                alt={name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-300 uppercase font-black text-[10px]">
+                                {name.slice(0, 2)}
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-sm font-bold text-gray-800 uppercase tracking-tight">
+                            {name}
+                          </span>
                         </div>
-                        <span className="text-sm font-black text-gray-900 uppercase tracking-tight">
-                          {name}
-                        </span>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-black transition-colors" />
-                    </button>
-                  );
-                })}
+                        <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-black transition-colors" />
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="py-10 text-center">
+                    <p className="text-xs text-gray-400 font-medium">Cargando categorías...</p>
+                  </div>
+                )}
               </div>
 
               <div className="mt-8 px-6 border-t border-gray-100 pt-8">
@@ -645,12 +659,13 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 </button>
               </div>
             </>
-          ) : (
+          )}       
+          {menuView === 'sub' && (
             <div className="pt-2">
               {/* Submenu Header */}
               <div className="px-4 mb-6">
                 <button
-                  onClick={() => setMenuView('main')}
+                   onClick={() => setMenuView('categories')}
                   className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-gray-900 hover:text-blue-600 transition-colors py-2"
                 >
                   <ChevronLeft className="w-4 h-4 text-black" />
@@ -742,15 +757,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
             </DialogContent>
           </Dialog>
 
-          <a
-            href="https://wa.me/573212619434"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 text-green-600 font-bold text-sm"
-          >
-            <span className="text-xl">📱</span>
-            WhatsApp +57 321 2619434
-          </a>
+
         </div>
       </div>
 

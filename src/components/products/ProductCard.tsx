@@ -54,7 +54,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product }) => {
       </div>
 
       {/* Imagen del Producto */}
-      <div className="h-64 w-full relative flex items-center justify-center p-6 bg-white overflow-hidden">
+      <div className="h-44 md:h-64 w-full relative flex items-center justify-center p-3 md:p-6 bg-white overflow-hidden">
         {product.image ? (
           <img
             src={product.image}
@@ -63,34 +63,34 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product }) => {
             loading="lazy"
           />
         ) : (
-          <Package className="h-20 w-20 text-slate-100" />
+          <Package className="h-12 md:h-20 w-12 md:w-20 text-slate-100" />
         )}
       </div>
 
-      {/* Línea Separadora (Como en la captura del usuario) */}
-      <div className="w-[85%] border-t border-gray-100 mb-4"></div>
+      {/* Línea Separadora */}
+      <div className="w-[85%] border-t border-gray-100 mb-2 md:mb-4"></div>
 
       {/* Información del Producto */}
-      <div className="text-left w-full px-6 pb-6 flex flex-col flex-1">
+      <div className="text-left w-full px-4 md:px-6 pb-4 md:pb-6 flex flex-col flex-1">
         {/* Nombre - Fuente más Grande y Bold */}
-        <h3 className="text-[17px] font-bold text-gray-900 mb-2 line-clamp-3 leading-[1.3] min-h-[66px]">
+        <h3 className="text-[15px] md:text-[17px] font-bold text-gray-900 mb-2 line-clamp-3 leading-[1.3] min-h-[60px] md:min-h-[66px]">
           {product.name}
         </h3>
 
         {/* Estrellas de Calificación */}
-        <div className="flex gap-0.5 mb-4">
+        <div className="flex gap-0.5 mb-3 md:mb-4">
           {[1, 2, 3, 4, 5].map((s) => (
-            <Star key={s} className="w-4 h-4 fill-gray-100 text-gray-100" />
+            <Star key={s} className="w-3.5 h-3.5 fill-gray-100 text-gray-100" />
           ))}
         </div>
 
         {/* Precio - Grande y Rojo Marca */}
-        <div className="mb-5 flex items-center gap-3">
-           <span className="text-[22px] font-bold text-[#E2343E]">
+        <div className="mb-4 md:mb-5 flex items-center gap-2 md:gap-3">
+           <span className="text-[18px] md:text-[22px] font-bold text-[#E2343E]">
              $ {product.price.toLocaleString('es-CO')}
            </span>
            {(product.originalPrice || (product as any).original_price) && (Number(product.originalPrice || (product as any).original_price) > product.price) && (
-             <span className="text-xs text-gray-400 line-through font-medium">
+             <span className="text-[10px] md:text-xs text-gray-400 line-through font-medium">
                $ {Number(product.originalPrice || (product as any).original_price).toLocaleString('es-CO')}
              </span>
            )}
@@ -98,7 +98,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product }) => {
 
         {/* Botón de Acción - Estilo Screenshot */}
         <button
-          className="w-full bg-[#E2343E] hover:bg-[#c42831] text-white rounded-sm text-[14px] font-bold py-3.5 transition-all duration-200 uppercase tracking-wide flex items-center justify-center"
+          className="w-full bg-[#E2343E] hover:bg-[#c42831] text-white rounded-sm text-[11px] md:text-[14px] font-bold py-2.5 md:py-3.5 transition-all duration-200 uppercase tracking-wide flex items-center justify-center"
           onClick={handleAddToCart}
         >
           AÑADIR AL CARRITO

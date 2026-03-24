@@ -71,7 +71,18 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'Outfit', sans-serif;
+    overflow-x: hidden;
+    max-width: 100%;
+    position: relative;
+    width: 100%;
     /* Clean, modern sans-serif */
+  }
+
+  html {
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+    max-width: 100%;
+    width: 100%;
   }
 
   h1,

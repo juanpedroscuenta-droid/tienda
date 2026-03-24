@@ -96,7 +96,7 @@ export const GenericProductCarousel: React.FC<GenericProductCarouselProps> = ({ 
                         {products.map(product => (
                             <div
                                 key={product.id}
-                                className="flex-[0_0_50%] sm:flex-[0_0_44%] lg:flex-[0_0_31%] min-w-0 shrink-0"
+                                className="flex-[0_0_80%] sm:flex-[0_0_45%] lg:flex-[0_0_31%] min-w-0 shrink-0"
                             >
                                 <div className="px-1 sm:px-0 h-full">
                                     <ProductCard product={product} />
@@ -116,11 +116,11 @@ export const GenericProductCarousel: React.FC<GenericProductCarouselProps> = ({ 
                         </button>
                     </div>
 
-                    {/* MOBILE Right Button (Overlay) */}
+                    {/* MOBILE Right Button (Overlay) - Improved positioning */}
                     <button
                         onClick={scrollRight}
                         aria-label="Siguiente"
-                        className="sm:hidden absolute right-0 top-1/2 -translate-y-1/2 z-40 bg-[#E2343E]/90 text-white rounded-full p-2 shadow-xl translate-x-1/2 flex items-center justify-center"
+                        className="sm:hidden absolute right-2 top-1/2 -translate-y-1/2 z-40 bg-[#E2343E] text-white rounded-full p-2 shadow-xl flex items-center justify-center border border-white/20"
                     >
                         <ChevronRight className="h-5 w-5" strokeWidth={2.5} />
                     </button>

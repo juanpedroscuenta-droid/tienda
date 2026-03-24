@@ -18,7 +18,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ isCatalog, setShowCatalo
   return (
     <section className="w-full bg-white overflow-hidden mb-4 border-b border-gray-100 pb-1">
       <div className="container mx-auto px-4 md:px-8">
-        <div className="relative w-full h-[250px] sm:h-[400px] md:h-[500px] lg:h-[550px] overflow-hidden flex justify-center bg-white shadow-sm rounded-lg mb-8">
+        <div className="relative w-full h-[280px] sm:h-[400px] md:h-[500px] lg:h-[550px] overflow-hidden flex justify-center bg-white shadow-sm rounded-lg mb-8">
           {isCatalog ? (
             <img
               src="/7-CARGO_.webp"
@@ -54,7 +54,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ isCatalog, setShowCatalo
                   }`}
                 >
                   {/* Product Image */}
-                  <div className={`absolute right-[2%] md:right-[5%] top-[55%] sm:top-1/2 -translate-y-1/2 z-30 w-[45%] sm:w-[50%] md:w-[45%] lg:w-[40%] xl:w-[35%] pointer-events-auto drop-shadow-2xl group cursor-pointer transition-all duration-[1000ms] delay-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                  <div className={`absolute right-[2%] md:right-[5%] top-[48%] sm:top-1/2 -translate-y-1/2 z-30 w-[45%] sm:w-[50%] md:w-[45%] lg:w-[40%] xl:w-[35%] pointer-events-auto drop-shadow-2xl group cursor-pointer transition-all duration-[1000ms] delay-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                     currentSlide === 0 ? 'translate-x-0 opacity-100' : 'translate-x-32 opacity-0'
                   }`}>
                     <img
@@ -94,8 +94,8 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ isCatalog, setShowCatalo
                     </div>
 
                     <div className="w-full relative z-30 flex-1 flex items-end">
-                      <div className="w-full sm:w-1/2 text-left hidden sm:block pb-2">
-                        <p className="text-base sm:text-xl md:text-2xl lg:text-[28px] font-bold text-black leading-tight tracking-tight drop-shadow-sm">
+                      <div className="w-[55%] sm:w-1/2 text-left pb-2">
+                        <p className="text-xs sm:text-xl md:text-2xl lg:text-[28px] font-bold text-black leading-tight tracking-tight drop-shadow-sm">
                           Encuentra Auto Partes<br />
                           Originales y Homologadas<br />
                           para tu vehículo...
@@ -105,7 +105,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ isCatalog, setShowCatalo
                   </div>
 
                   {/* Button */}
-                  <div className={`absolute bottom-10 sm:bottom-14 right-[15%] sm:right-[25%] md:right-[30%] lg:right-[35%] pointer-events-auto z-40 shadow-xl transition-all duration-[800ms] delay-400 ${
+                  <div className={`absolute bottom-4 sm:bottom-14 right-[12%] sm:right-[25%] md:right-[30%] lg:right-[35%] pointer-events-auto z-40 shadow-xl transition-all duration-[800ms] delay-400 ${
                     currentSlide === 0 ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'
                   }`}>
                     <button

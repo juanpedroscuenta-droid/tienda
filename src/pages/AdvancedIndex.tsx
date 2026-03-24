@@ -62,7 +62,7 @@ const AdvancedIndex = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white text-neutral-900 font-sans">
+    <div className="min-h-screen bg-white text-neutral-900 font-sans overflow-x-hidden w-full relative">
       <StoreStructuredData
         name="24/7"
         description="Tu tienda de confianza 24/7. Fragancias, regalería y más con envíos a todo el país."

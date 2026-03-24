@@ -203,7 +203,7 @@ export const NewProductsCarousel: React.FC = () => {
                                 {products.map(product => (
                                     <div
                                         key={product.id}
-                                        className="flex-[0_0_46%] sm:flex-[0_0_45%] lg:flex-[0_0_31%] min-w-0 shrink-0"
+                                        className="flex-[0_0_80%] sm:flex-[0_0_45%] lg:flex-[0_0_31%] min-w-0 shrink-0"
                                     >
                                         <div className="h-full rounded-2xl transition-all bg-white hover:shadow-xl hover:shadow-orange-500/5 group/pcard">
                                             <ProductCard product={product} />
