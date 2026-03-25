@@ -26,11 +26,20 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         let contentType = file.mimetype;
 
         if (file.mimetype.startsWith('image/')) {
-            finalBuffer = await sharp(file.buffer)
-                .webp({ quality: 80 })
-                .toBuffer();
-            finalFileName += '.webp';
-            contentType = 'image/webp';
+            // Optimizar manteniendo el formato original (JPG o PNG)
+            const isPng = file.mimetype === 'image/png';
+            const isJpeg = file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg';
+
+            if (isPng) {
+                finalBuffer = await sharp(file.buffer).png({ quality: 80 }).toBuffer();
+            } else if (isJpeg) {
+                finalBuffer = await sharp(file.buffer).jpeg({ quality: 80 }).toBuffer();
+            } else {
+                finalBuffer = file.buffer;
+            }
+            
+            finalFileName = file.originalname.replace(/\s+/g, '_');
+            contentType = file.mimetype;
         } else {
             finalFileName = file.originalname.replace(/\s+/g, '_');
         }

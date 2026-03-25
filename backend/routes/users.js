@@ -6,10 +6,18 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Get user by ID
-router.get('/:id', async (req, res) => {
+const { authenticateToken, isAdmin } = require('../middleware/auth');
+
+// Get user by ID - PROTEGIDO (Solo el mismo usuario o admin)
+router.get('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
+        const requestingUser = req.user;
+
+        // Solo permitir si es el mismo usuario o es admin
+        if (requestingUser.id !== id && requestingUser.email !== 'admin@gmail.com') {
+            return res.status(403).json({ error: 'No tienes permiso para ver este usuario' });
+        }
         const tokenHeader = req.headers.authorization;
 
         const { data, error } = await supabase
@@ -39,7 +47,7 @@ router.get('/:id', async (req, res) => {
 
                 const { data: created, error: createError } = await authSupabase
                     .from('users')
-                    .insert([newUser])
+                    .upsert([newUser], { onConflict: 'id' })
                     .select('*')
                     .maybeSingle();
 
@@ -60,10 +68,16 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// Update user
-router.patch('/:id', async (req, res) => {
+// Update user - PROTEGIDO (Solo el mismo usuario o admin)
+router.patch('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
+        const requestingUser = req.user;
+
+        // Solo permitir si es el mismo usuario o es admin
+        if (requestingUser.id !== id && requestingUser.email !== 'admin@gmail.com') {
+            return res.status(403).json({ error: 'No tienes permiso para actualizar este usuario' });
+        }
         const body = req.body;
         console.log(`Updating user ${id} with:`, body);
 
@@ -130,8 +144,8 @@ router.patch('/:id', async (req, res) => {
     }
 });
 
-// Create user (for sync or initial creation)
-router.post('/', async (req, res) => {
+// Create user - PROTEGIDO (Requiere autenticación para sincronizar)
+router.post('/', authenticateToken, async (req, res) => {
     try {
         const userData = req.body;
         const { data, error } = await supabase

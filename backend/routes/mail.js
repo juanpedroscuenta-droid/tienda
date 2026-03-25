@@ -10,8 +10,10 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Enviar correos masivos
-router.post('/send-bulk', async (req, res) => {
+const { authenticateToken, isAdmin } = require('../middleware/auth');
+
+// Enviar correos masivos - PROTEGIDO (Admin)
+router.post('/send-bulk', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { emails, subject, body, smtpConfig: clientConfig } = req.body;
 
@@ -98,8 +100,8 @@ router.post('/send-bulk', async (req, res) => {
     }
 });
 
-// Probar conexión SMTP
-router.post('/test-smtp', async (req, res) => {
+// Probar conexión SMTP - PROTEGIDO (Admin)
+router.post('/test-smtp', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { smtpConfig: clientConfig } = req.body;
 
@@ -126,8 +128,9 @@ router.post('/test-smtp', async (req, res) => {
     }
 });
 
-// Enviar correo de confirmación de pedido al cliente
-router.post('/send-order-confirmation', async (req, res) => {
+// Enviar correo de confirmación de pedido al cliente - PROTEGIDO (Sólo sistema o Admin para reenvío)
+// NOTA: Esto lo usa la lógica del carrito, así que solo pedimos authenticateToken
+router.post('/send-order-confirmation', authenticateToken, async (req, res) => {
     try {
         const { order, smtpConfig: clientConfig } = req.body;
 
@@ -306,8 +309,8 @@ router.post('/send-order-confirmation', async (req, res) => {
 
 // --- 📧 NUEVAS FUNCIONES PARA RECIBIR Y AUTOMATIZAR ---
 
-// Listar correos recibidos desde la DB
-router.get('/inbound', async (req, res) => {
+// Listar correos recibidos desde la DB - PROTEGIDO (Admin)
+router.get('/inbound', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('emails_inbound')
@@ -321,8 +324,8 @@ router.get('/inbound', async (req, res) => {
     }
 });
 
-// Forzar sincronización con el servidor de correo (IMAP)
-router.post('/sync', async (req, res) => {
+// Forzar sincronización con el servidor de correo (IMAP) - PROTEGIDO (Admin)
+router.post('/sync', authenticateToken, isAdmin, async (req, res) => {
     console.log('[IMAP] Iniciando petición de sincronización...');
     try {
         const { smtpConfig: clientConfig } = req.body;
@@ -504,8 +507,8 @@ router.post('/sync', async (req, res) => {
     }
 });
 
-// Generar borrador de respuesta con IA
-router.post('/generate-reply/:id', async (req, res) => {
+// Generar borrador de respuesta con IA - PROTEGIDO (Admin)
+router.post('/generate-reply/:id', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { id } = req.params;
 

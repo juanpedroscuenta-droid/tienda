@@ -3,8 +3,9 @@ const router = express.Router();
 const https = require('https');
 const sharp = require('sharp');
 const { callAI } = require('../utils/ai');
+const { createClient } = require('@supabase/supabase-js');
+const { authenticateToken, isAdmin } = require('../middleware/auth');
 
-// Configuración de Supabase
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -107,10 +108,8 @@ async function generateGeminiImage(prompt) {
     });
 }
 
-/**
- * Endpoint principal para generar y asociar imagen
- */
-router.post('/generate-image', async (req, res) => {
+// Endpoint principal para generar y asociar imagen - PROTEGIDO (Admin)
+router.post('/generate-image', authenticateToken, isAdmin, async (req, res) => {
     const { productId, productName, category } = req.body;
     
     if (!productName) {

@@ -6,6 +6,9 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+const { authenticateToken, isAdmin } = require('../middleware/auth');
+
+
 // Get chatbot settings
 router.get('/', async (req, res) => {
     try {
@@ -21,8 +24,8 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Upsert chatbot settings
-router.post('/', async (req, res) => {
+// Upsert chatbot settings - PROTEGIDO (Admin)
+router.post('/', authenticateToken, isAdmin, async (req, res) => {
     try {
         const settingsData = req.body;
 

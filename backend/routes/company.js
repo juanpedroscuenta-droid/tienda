@@ -6,6 +6,8 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+const { authenticateToken, isAdmin } = require('../middleware/auth');
+
 // Get company profile
 router.get('/', async (req, res) => {
     try {
@@ -21,8 +23,8 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Upsert company profile
-router.post('/', async (req, res) => {
+// Upsert company profile - PROTEGIDO (Solo Admin)
+router.post('/', authenticateToken, isAdmin, async (req, res) => {
     try {
         const profileData = req.body;
         console.log('[BACKEND] Recibido payload para company_profile:', JSON.stringify(profileData, null, 2));

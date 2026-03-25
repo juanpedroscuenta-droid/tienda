@@ -6,23 +6,29 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// GET orders
-router.get('/', async (req, res) => {
+const { authenticateToken, isAdmin } = require('../middleware/auth');
+
+// GET orders - Protegido: Usuarios ven lo suyo, admin ve todo
+router.get('/', authenticateToken, async (req, res) => {
     try {
         const userId = req.query.userId;
+        const requestingUser = req.user;
 
+        // Determinar si el que pide es admin (email hardcoded o flag en la tabla profiles)
+        const isRequestingAdmin = requestingUser.email === 'admin@gmail.com'; 
+        
         let query = supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(200);
 
-        if (userId) {
+        // Si NO es admin, forzamos a que solo vea sus órdenes
+        if (!isRequestingAdmin) {
+            query = query.eq('user_id', requestingUser.id);
+        } else if (userId) {
+            // Si es admin y pidió un específico, filtramos
             query = query.eq('user_id', userId);
         }
 
         const { data, error } = await query;
-
-        if (error) {
-            console.error('[ORDERS] ❌ Error fetching orders:', error);
-            throw error;
-        }
+        if (error) throw error;
         res.json(data);
     } catch (error) {
         res.status(500).json({ error: error.message });

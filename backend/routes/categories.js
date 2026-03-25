@@ -6,6 +6,8 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+const { authenticateToken, isAdmin } = require('../middleware/auth');
+
 // Get all categories data (combines categories, subcategories, third levels)
 router.get('/', async (req, res) => {
     try {
@@ -51,7 +53,7 @@ router.get('/third-level', async (req, res) => {
 });
 
 // --- CATEGORIES ---
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { data, error } = await supabase.from('categories').insert([req.body]).select('*').single();
         if (error) throw error;
@@ -61,7 +63,7 @@ router.post('/', async (req, res) => {
     }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { data, error } = await supabase.from('categories').update(req.body).eq('id', req.params.id).select('*').single();
         if (error) throw error;
@@ -71,7 +73,7 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { error } = await supabase.from('categories').delete().eq('id', req.params.id);
         if (error) throw error;
@@ -82,7 +84,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // --- SUBCATEGORIES ---
-router.post('/subcategories', async (req, res) => {
+router.post('/subcategories', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { data, error } = await supabase.from('subcategories').insert([req.body]).select('*').single();
         if (error) throw error;
@@ -92,7 +94,7 @@ router.post('/subcategories', async (req, res) => {
     }
 });
 
-router.put('/subcategories/:id', async (req, res) => {
+router.put('/subcategories/:id', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { data, error } = await supabase.from('subcategories').update(req.body).eq('id', req.params.id).select('*').single();
         if (error) throw error;
@@ -102,7 +104,7 @@ router.put('/subcategories/:id', async (req, res) => {
     }
 });
 
-router.delete('/subcategories/:id', async (req, res) => {
+router.delete('/subcategories/:id', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { error } = await supabase.from('subcategories').delete().eq('id', req.params.id);
         if (error) throw error;
@@ -113,7 +115,7 @@ router.delete('/subcategories/:id', async (req, res) => {
 });
 
 // --- THIRD LEVEL ---
-router.post('/third-level', async (req, res) => {
+router.post('/third-level', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { data, error } = await supabase.from('tercera_categoria').insert([req.body]).select('*').single();
         if (error) throw error;
@@ -123,7 +125,7 @@ router.post('/third-level', async (req, res) => {
     }
 });
 
-router.put('/third-level/:id', async (req, res) => {
+router.put('/third-level/:id', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { data, error } = await supabase.from('tercera_categoria').update(req.body).eq('id', req.params.id).select('*').single();
         if (error) throw error;
@@ -133,7 +135,7 @@ router.put('/third-level/:id', async (req, res) => {
     }
 });
 
-router.delete('/third-level/:id', async (req, res) => {
+router.delete('/third-level/:id', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { error } = await supabase.from('tercera_categoria').delete().eq('id', req.params.id);
         if (error) throw error;

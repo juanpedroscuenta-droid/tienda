@@ -6,6 +6,8 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+const { authenticateToken, isAdmin } = require('../middleware/auth');
+
 // Simple in-memory cache for category nodes to speed up recursive lookups
 let cachedCatNodes = null;
 let lastCatCacheTime = 0;
@@ -37,7 +39,7 @@ router.get('/', async (req, res) => {
 
         let query = supabase
             .from('products')
-            .select('*', { count: 'exact' })
+            .select('*, suppliers(name)', { count: 'exact' })
             .eq('is_published', true);
 
         // Apply Search
@@ -228,13 +230,13 @@ router.get('/offers', async (req, res) => {
     }
 });
 
-// Get all products (admin view - includes unpublished)
-router.get('/admin/all', async (req, res) => {
+// Get all products (admin view - includes unpublished) - PROTEGIDO
+router.get('/admin/all', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { limit = 100, offset = 0 } = req.query;
         const { data, count, error } = await supabase
             .from('products')
-            .select('*', { count: 'exact' })
+            .select('*, suppliers(name)', { count: 'exact' })
             .order('updated_at', { ascending: false })
             .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
 
@@ -245,8 +247,8 @@ router.get('/admin/all', async (req, res) => {
     }
 });
 
-// Get a single product by ID (admin view)
-router.get('/admin/:id', async (req, res) => {
+// Get a single product by ID (admin view) - PROTEGIDO
+router.get('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const { data: product, error } = await supabase
@@ -276,8 +278,8 @@ router.get('/admin/:id', async (req, res) => {
     }
 });
 
-// Create product
-router.post('/', async (req, res) => {
+// Create product - PROTEGIDO
+router.post('/', authenticateToken, isAdmin, async (req, res) => {
     try {
         const productData = req.body;
 
@@ -287,7 +289,7 @@ router.post('/', async (req, res) => {
             'image', 'additional_images', 'category', 'category_id', 'category_name',
             'subcategory', 'subcategory_name', 'tercera_categoria', 'tercera_categoria_name',
             'stock', 'is_published', 'is_offer', 'specifications', 'benefits',
-            'warranties', 'payment_methods', 'colors', 'brand', 'featured', 'slug'
+            'warranties', 'payment_methods', 'colors', 'brand', 'featured', 'slug', 'supplier_id'
         ];
 
         const cleanData = {};
@@ -325,8 +327,8 @@ router.post('/', async (req, res) => {
     }
 });
 
-// Update product
-router.put('/:id', async (req, res) => {
+// Update product - PROTEGIDO
+router.put('/:id', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const productData = req.body;
@@ -336,7 +338,7 @@ router.put('/:id', async (req, res) => {
             'image', 'additional_images', 'category', 'category_id', 'category_name',
             'subcategory', 'subcategory_name', 'tercera_categoria', 'tercera_categoria_name',
             'stock', 'is_published', 'is_offer', 'specifications', 'benefits',
-            'warranties', 'payment_methods', 'colors', 'brand', 'featured', 'slug'
+            'warranties', 'payment_methods', 'colors', 'brand', 'featured', 'slug', 'supplier_id'
         ];
 
         const cleanData = {};
@@ -374,8 +376,8 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-// Delete product
-router.delete('/:id', async (req, res) => {
+// Delete product - PROTEGIDO
+router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const { data, error } = await supabase
