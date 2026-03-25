@@ -96,7 +96,7 @@ export const GenericProductCarousel: React.FC<GenericProductCarouselProps> = ({ 
                         {products.map(product => (
                             <div
                                 key={product.id}
-                                className="flex-[0_0_80%] sm:flex-[0_0_45%] lg:flex-[0_0_31%] min-w-0 shrink-0"
+                                className="flex-[0_0_55%] sm:flex-[0_0_45%] lg:flex-[0_0_31%] min-w-0 shrink-0"
                             >
                                 <div className="px-1 sm:px-0 h-full">
                                     <ProductCard product={product} />

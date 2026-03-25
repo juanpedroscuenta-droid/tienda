@@ -27,24 +27,27 @@ export const useProductSave = () => {
     onSuccess
   }: SaveProductParams): Promise<void> => {
     // Validación
-    if (!formData.name || !formData.price || !formData.stock || !formData.category) {
+    // Validación: Solo nombre y categoría son estrictamente obligatorios ahora
+    if (!formData.name || !formData.category) {
       toast({
         variant: "destructive",
         title: "Error al guardar producto",
-        description: "Por favor completa los campos obligatorios."
+        description: "Por favor completa el nombre y la categoría."
       });
-      throw new Error("Campos obligatorios incompletos");
+      throw new Error("Nombre y categoría son obligatorios");
     }
 
-    const numericPrice = parseFormattedPrice(formData.price);
-    const numericStock = parseInt(formData.stock, 10);
-    const numericCost = formData.cost ? parseFormattedPrice(formData.cost) : null;
+    const MAX_VAL = 999999999999; // Cap de seguridad (1 billón - 1)
+    
+    const numericPrice = formData.price ? Math.min(parseFormattedPrice(formData.price), MAX_VAL) : 0;
+    const numericStock = formData.stock ? Math.min(parseInt(formData.stock, 10), MAX_VAL) : 0;
+    const numericCost = formData.cost ? Math.min(parseFormattedPrice(formData.cost), MAX_VAL) : null;
 
-    if (isNaN(numericPrice) || isNaN(numericStock) || (formData.cost && isNaN(numericCost as number))) {
+    if ((formData.price && isNaN(numericPrice)) || (formData.stock && isNaN(numericStock)) || (formData.cost && isNaN(numericCost as number))) {
       toast({
         variant: "destructive",
         title: "Error al guardar producto",
-        description: "El precio, costo y stock deben ser valores numéricos."
+        description: "El precio, costo y stock deben ser valores numéricos si se proporcionan."
       });
       throw new Error("Valores numéricos inválidos");
     }
@@ -86,6 +89,7 @@ export const useProductSave = () => {
         // Guardar opciones de filtros dentro de specifications
         specifications: formData.specifications ?? [],
         brand: formData.brand || null,
+        supplier_id: formData.supplier_id || null,
         last_modified_by: user?.email || "unknown",
       };
 

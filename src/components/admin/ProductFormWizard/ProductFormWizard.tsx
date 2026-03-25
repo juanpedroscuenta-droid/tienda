@@ -172,6 +172,7 @@ export const ProductFormWizard: React.FC<ProductFormWizardProps> = ({
               filterGroups: (data.filter_groups ?? data.filterGroups) || [],
               filterOptions: extractedFilterOptions,
               brand: data.brand || '',
+              supplier_id: data.supplier_id || '',
               isPublished: data.is_published ?? data.isPublished ?? true,
             });
 
@@ -288,14 +289,16 @@ export const ProductFormWizard: React.FC<ProductFormWizardProps> = ({
   const progress = ((currentStep + 1) / totalSteps) * 100;
   const currentStepData = steps[currentStep];
 
+  const handleValidationChange = React.useCallback((isValid: boolean) => {
+    setStepValidation(currentStep, isValid);
+  }, [currentStep, setStepValidation]);
+
   const renderStepContent = () => {
     const stepProps = {
       formData,
       setFormData,
       categories,
-      onValidationChange: (isValid: boolean) => {
-        setStepValidation(currentStep, isValid);
-      }
+      onValidationChange: handleValidationChange
     };
 
     switch (currentStepData.id) {
@@ -423,60 +426,53 @@ export const ProductFormWizard: React.FC<ProductFormWizardProps> = ({
         </CardContent>
       </Card>
 
-      {/* Steps Navigation */}
-      <Card className="border-slate-200 max-w-full">
-        <CardContent className="pt-4 pb-3">
-          <div className="grid grid-cols-7 gap-2 max-w-full">
-            {steps.map((step, index) => {
-              const isCompleted = completedSteps.has(index);
-              const isCurrent = index === currentStep;
-              const isAccessible = canProceedToStep(index);
+      {/* Steps Navigation - Estilo Pestañas (Tabs) */}
+      <div className="flex items-end overflow-x-auto no-scrollbar border-b border-slate-200 mb-0">
+        {steps.map((step, index) => {
+          const isCompleted = completedSteps.has(index);
+          const isCurrent = index === currentStep;
+          const isAccessible = canProceedToStep(index);
 
-              return (
-                <button
-                  key={step.id}
-                  onClick={() => goToStep(index)}
-                  disabled={!isAccessible}
-                  className={cn(
-                    "flex flex-col items-center gap-1 p-2 rounded-lg transition-all",
-                    isCurrent && "bg-blue-50 border-2 border-blue-500",
-                    isCompleted && !isCurrent && "bg-green-50 border border-green-200",
-                    !isAccessible && "opacity-50 cursor-not-allowed",
-                    isAccessible && !isCurrent && "hover:bg-slate-50 border border-slate-200"
+          return (
+            <button
+              key={step.id}
+              onClick={() => goToStep(index)}
+              disabled={!isAccessible}
+              className={cn(
+                "group relative flex items-center justify-center px-6 py-3 transition-all duration-200 border-x border-t -mb-[1px]",
+                isCurrent 
+                  ? "bg-white border-slate-200 border-b-white z-10 rounded-t-lg" 
+                  : "bg-slate-50 border-transparent border-b-slate-200 hover:bg-slate-100",
+                !isAccessible && "opacity-40 cursor-not-allowed"
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "p-1 rounded",
+                  isCurrent ? "text-slate-900" : isCompleted ? "text-green-600" : "text-slate-400"
+                )}>
+                  {isCompleted && !isCurrent ? (
+                    <Check className="w-3.5 h-3.5" />
+                  ) : (
+                    React.cloneElement(step.icon as React.ReactElement, { className: "w-3.5 h-3.5" })
                   )}
-                >
-                  <div className={cn(
-                    "flex items-center justify-center w-7 h-7 rounded-full transition-colors flex-shrink-0",
-                    isCurrent && "bg-blue-500 text-white",
-                    isCompleted && !isCurrent && "bg-green-500 text-white",
-                    !isCompleted && !isCurrent && "bg-slate-200 text-slate-600"
-                  )}>
-                    {isCompleted && !isCurrent ? (
-                      <Check className="w-3.5 h-3.5" />
-                    ) : (
-                      React.cloneElement(step.icon as React.ReactElement, { className: "w-3.5 h-3.5" })
-                    )}
-                  </div>
-                  <div className="text-center w-full">
-                    <div className={cn(
-                      "text-[10px] font-semibold leading-tight",
-                      isCurrent && "text-blue-700",
-                      isCompleted && !isCurrent && "text-green-700",
-                      !isCompleted && !isCurrent && "text-slate-600"
-                    )}>
-                      {step.title}
-                    </div>
-                    <div className="text-[9px] text-slate-500 mt-0.5 leading-tight">{step.description}</div>
-                  </div>
-                  {step.required && (
-                    <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 mt-0.5">Req.</Badge>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                </div>
+                <span className={cn(
+                  "text-xs font-bold whitespace-nowrap tracking-tight",
+                  isCurrent ? "text-slate-900" : "text-slate-500"
+                )}>
+                  {step.title}
+                </span>
+              </div>
+              
+              {/* Indicador de Requerido sutil */}
+              {step.required && !isCompleted && !isCurrent && (
+                <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-400 rounded-full" />
+              )}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Current Step Content */}
       <Card className="border-slate-200 max-w-full">

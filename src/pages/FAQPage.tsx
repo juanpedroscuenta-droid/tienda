@@ -50,7 +50,7 @@ const FAQPage = () => {
         <div className="max-w-[1400px] mx-auto px-4 md:px-8">
           {/* Breadcrumbs */}
           <nav className="flex items-center gap-1.5 text-[12px] font-bold mb-8">
-            <a href="/" className="text-gray-400 hover:text-[#ba181b] transition-colors">Repuesto.co</a>
+            <a href="/" className="text-gray-400 hover:text-[#ba181b] transition-colors">Home</a>
             <span className="text-gray-300 mx-1">&gt;</span>
             <span className="text-[#ba181b]">FAQ</span>
           </nav>
@@ -113,7 +113,7 @@ const FAQPage = () => {
                           {num === 3 && "En caso de dudas solicita nuestra asesoría."}
                           {num === 4 && "Realiza tu pago"}
                           {num === 5 && "Recibe notificaciones sobre el estado de tu pedido"}
-                          {num === 6 && "Recibe tu repuesto y recomienda Repuesto.co"}
+                          {num === 6 && "Recibe tu repuesto y recomienda nuestro servicio"}
                        </p>
                     </div>
                  ))}
@@ -127,8 +127,8 @@ const FAQPage = () => {
                    loading="lazy"
                 ></iframe>
                 <div className="absolute top-8 left-8 bg-white p-6 shadow-2xl border border-gray-50 flex flex-col max-w-[280px]">
-                   <span className="text-[14px] font-bold text-gray-900 uppercase mb-1">Repuesto Punto Co</span>
-                   <span className="text-[10px] font-bold text-[#ba181b] mb-4">(Repuesto.co)</span>
+                   <span className="text-[14px] font-bold text-gray-900 uppercase mb-1">Repuestos 24/7</span>
+                   <span className="text-[10px] font-bold text-[#ba181b] mb-4">(Bogotá, Colombia)</span>
                    <p className="text-[10px] text-gray-400 font-bold uppercase leading-tight mb-2">
                       SEDE PRINCIPAL - BOGOTÁ.<br/>
                       Bogotá, Colombia

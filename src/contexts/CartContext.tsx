@@ -37,6 +37,8 @@ export interface Product {
   filter_options?: any;
   filterOptions?: any;
   brand?: string;
+  supplier_id?: string;
+  supplierName?: string;
 }
 
 export interface CartItem extends Product {
@@ -102,35 +104,31 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addToCart = (product: Product, quantity: number = 1, selectedColor?: { name: string; hexCode: string; image: string }) => {
     setItems(prevItems => {
-      if (selectedColor) {
-        const existingItemWithColor = prevItems.find(
-          item => item.id === product.id &&
-            item.selectedColor?.name === selectedColor.name
-        );
+      const existingItem = prevItems.find(item => 
+        item.id === product.id && 
+        (selectedColor ? item.selectedColor?.name === selectedColor.name : !item.selectedColor)
+      );
 
-        if (existingItemWithColor) {
-          return prevItems.map(item =>
-            item.id === product.id && item.selectedColor?.name === selectedColor.name
-              ? { ...item, quantity: item.quantity + quantity }
-              : item
-          );
-        } else {
-          return [...prevItems, { ...product, quantity, selectedColor }];
+      const currentQuantity = existingItem ? existingItem.quantity : 0;
+      const newQuantity = currentQuantity + quantity;
+      
+      // Enforce stock limit
+      const availableStock = (product.stock !== undefined && product.stock !== null) ? Number(product.stock) : 999;
+      const finalQuantity = Math.min(newQuantity, availableStock);
+
+      if (existingItem) {
+        if (existingItem.quantity >= availableStock && quantity > 0) {
+           // Already at max stock
+           return prevItems;
         }
+        return prevItems.map(item =>
+          item === existingItem
+            ? { ...item, quantity: finalQuantity }
+            : item
+        );
       } else {
-        const existingItem = prevItems.find(
-          item => item.id === product.id && !item.selectedColor
-        );
-
-        if (existingItem) {
-          return prevItems.map(item =>
-            item.id === product.id && !item.selectedColor
-              ? { ...item, quantity: item.quantity + quantity }
-              : item
-          );
-        } else {
-          return [...prevItems, { ...product, quantity }];
-        }
+        const initialQuantity = Math.min(quantity, availableStock);
+        return [...prevItems, { ...product, quantity: initialQuantity, selectedColor }];
       }
     });
   };
@@ -146,9 +144,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setItems(prevItems =>
-      prevItems.map(item =>
-        item.id === productId ? { ...item, quantity } : item
-      )
+      prevItems.map(item => {
+        if (item.id === productId) {
+          const availableStock = (item.stock !== undefined && item.stock !== null) ? Number(item.stock) : 999;
+          return { ...item, quantity: Math.min(quantity, availableStock) };
+        }
+        return item;
+      })
     );
   };
 

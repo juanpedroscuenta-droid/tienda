@@ -22,9 +22,17 @@ async function fetchWithTimeout(url: string, options: RequestInit & { timeout?: 
     const controller = new AbortController();
     const timerId = setTimeout(() => controller.abort(), timeout);
 
+    // Inyectar token de autenticación automáticamente si existe
+    const token = await getAuthToken();
+    const headers = {
+        ...options.headers,
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
     try {
         const response = await fetch(url, {
             ...options,
+            headers,
             signal: controller.signal
         });
         clearTimeout(timerId);
@@ -858,4 +866,31 @@ export const generateEmailReplyDraft = async (emailId: string) => {
     }
     return await response.json();
 }
+
+// --- SUPPLIERS ---
+
+export const fetchSuppliers = async (): Promise<Array<{ id: string; name: string; contact_name?: string; phone?: string; email?: string }>> => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/suppliers`, { timeout: 10000 });
+        if (response.ok) return await response.json();
+        // Fallback directo a Supabase
+        const { data, error } = await supabase.from('suppliers').select('*').order('name', { ascending: true });
+        if (error) throw error;
+        return data || [];
+    } catch (err: any) {
+        console.error('fetchSuppliers failed:', err.message);
+        return [];
+    }
+};
+
+export const createSupplier = async (supplierData: { name: string; contact_name?: string; phone?: string; email?: string; address?: string; notes?: string }) => {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/suppliers`, {
+        method: 'POST',
+        timeout: 15000,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(supplierData),
+    });
+    if (!response.ok) throw new Error('Error al crear proveedor');
+    return await response.json();
+};
 

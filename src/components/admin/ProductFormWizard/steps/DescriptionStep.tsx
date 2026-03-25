@@ -8,10 +8,14 @@ export const DescriptionStep: React.FC<StepComponentProps> = ({
     setFormData,
     onValidationChange
 }) => {
-    // Validación en tiempo real
+    // Validación en tiempo real estable
+    const lastValidRef = React.useRef<boolean | null>(null);
     React.useEffect(() => {
         const isValid = !!formData.description && formData.description.length > 10;
-        onValidationChange?.(isValid);
+        if (isValid !== lastValidRef.current) {
+            lastValidRef.current = isValid;
+            onValidationChange?.(isValid);
+        }
     }, [formData.description, onValidationChange]);
 
     return (

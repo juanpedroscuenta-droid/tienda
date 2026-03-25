@@ -71,6 +71,7 @@ const defaultFormData: ProductFormData = {
   filterGroups: [],
   filterOptions: {},
   brand: '',
+  supplier_id: '',
   isPublished: true,
 };
 
@@ -165,11 +166,8 @@ export const useProductWizard = (initialData?: Partial<ProductFormData>, isEditi
       case 'basic':
         return !!(formData.name && formData.category);
       case 'description':
-        return !!formData.description && formData.description.length >= 10;
       case 'pricing':
-        return !!(formData.price && formData.stock);
       case 'images':
-        return !!formData.image;
       case 'specifications':
       case 'offers':
       case 'benefits':

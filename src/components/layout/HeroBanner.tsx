@@ -35,14 +35,16 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ isCatalog, setShowCatalo
             <>
               {/* Background Video that runs underneath everything continuously */}
               <video
-                src="/lv_0_20260323110545.mp4"
+                preload="auto"
                 className="absolute inset-0 w-full h-full object-cover object-center scale-[1.05] z-0"
                 autoPlay
                 loop
                 muted
                 playsInline
                 draggable={false}
-              />
+              >
+                <source src="/lv_0_20260323110545.mp4" type="video/mp4" />
+              </video>
 
               {/* -------------- SLIDE CONTENT ENVELOPE -------------- */}
               <div className="absolute inset-0 z-10 pointer-events-none perspective-1000 overflow-hidden">

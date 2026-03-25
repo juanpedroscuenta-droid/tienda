@@ -32,7 +32,9 @@ import {
   BadgeCheck,
   Zap,
   ShoppingCart,
-  ArrowRight
+  ArrowRight,
+  AlertCircle,
+  Check
 } from 'lucide-react';
 import { FilterSidebar } from '@/components/products/FilterSidebar';
 import { SocialShareBar } from '@/components/products/SocialShareBar';
@@ -250,6 +252,17 @@ const ProductDetailPage = () => {
                         </div>
                       </>
                     )}
+                    {Number(product?.stock) > 0 ? (
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[13px] font-bold text-emerald-700">En stock {Number(product?.stock) <= 12 && `(Solo quedan ${product?.stock})`}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 mb-4">
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                        <span className="text-[13px] font-bold text-red-600">Agotado</span>
+                      </div>
+                    )}
                     {loading ? <div className="h-20 w-full bg-neutral-50 animate-pulse rounded mb-8" /> : <p className="text-[14px] text-gray-500 mb-8 leading-relaxed line-clamp-3">{product?.description}</p>}
                     
                     <div className="space-y-4 mb-8">
@@ -271,13 +284,23 @@ const ProductDetailPage = () => {
                             <div className="flex items-center bg-white border-2 border-neutral-100 rounded-xl overflow-hidden">
                               <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="h-12 w-12 flex items-center justify-center"><Minus className="h-4 w-4" /></button>
                               <div className="h-12 min-w-[3rem] flex items-center justify-center font-black">{quantity}</div>
-                              <button onClick={() => setQuantity(quantity + 1)} className="h-12 w-12 flex items-center justify-center"><Plus className="h-4 w-4" /></button>
+                              <button onClick={() => setQuantity(Math.min(product?.stock ?? 999, quantity + 1))} className="h-12 w-12 flex items-center justify-center"><Plus className="h-4 w-4" /></button>
                             </div>
-                            <Button onClick={handleAddToCart} className="flex-1 bg-[#1a1a1a] hover:bg-black text-white h-12 rounded-xl font-black uppercase text-[13px] flex items-center justify-center gap-3">
+                            <Button 
+                              onClick={handleAddToCart} 
+                              disabled={Number(product?.stock) <= 0}
+                              className="flex-1 bg-[#1a1a1a] hover:bg-black text-white h-12 rounded-xl font-black uppercase text-[13px] flex items-center justify-center gap-3 disabled:opacity-50"
+                            >
                               <ShoppingCart className="w-5 h-5" /> Añadir al carrito
                             </Button>
                           </div>
-                          <Button onClick={() => navigate('/checkout')} className="w-full bg-[#ba181b] hover:bg-[#a01518] text-white h-12 rounded-xl font-black uppercase text-[13px]">Comprar ahora</Button>
+                          <Button 
+                            onClick={() => { handleAddToCart(); navigate('/carrito'); }} 
+                            disabled={Number(product?.stock) <= 0}
+                            className="w-full bg-[#ba181b] hover:bg-[#a01518] text-white h-12 rounded-xl font-black uppercase text-[13px] disabled:opacity-50"
+                          >
+                            Comprar ahora
+                          </Button>
                         </>
                       )}
                     </div>
@@ -289,9 +312,9 @@ const ProductDetailPage = () => {
             <div className="mt-20 pt-12 border-t border-neutral-100">
               <h2 className="text-xl font-bold text-[#ba181b] mb-8">Productos relacionados</h2>
               <div id="similar-products-container" className="flex gap-6 overflow-x-auto pb-8 scrollbar-hide scroll-smooth">
-                {loading || similarProducts.length === 0 ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="flex-[0_0_85%] sm:flex-[0_0_23.5%] h-80 bg-neutral-50 animate-pulse rounded-xl" />) :
+                {loading || similarProducts.length === 0 ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="flex-[0_0_55%] sm:flex-[0_0_23.5%] h-80 bg-neutral-50 animate-pulse rounded-xl" />) :
                   similarProducts.map((p) => (
-                    <div key={p.id} className="flex-[0_0_85%] sm:flex-[0_0_23.5%] min-w-0 group cursor-pointer flex flex-col bg-white border border-neutral-200 rounded-none overflow-hidden hover:shadow-md transition-shadow" onClick={() => goToProduct(p)}>
+                    <div key={p.id} className="flex-[0_0_55%] sm:flex-[0_0_23.5%] min-w-0 group cursor-pointer flex flex-col bg-white border border-neutral-200 rounded-none overflow-hidden hover:shadow-md transition-shadow" onClick={() => goToProduct(p)}>
                       <div className="relative aspect-square w-full p-4 flex items-center justify-center bg-white">
                         <img src={p.image} alt={p.name} className="w-full h-full object-contain" />
                       </div>

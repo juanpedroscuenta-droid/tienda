@@ -346,7 +346,7 @@ export const CRMWhatsAppPanel = () => {
                   <Button 
                     variant={currentChatDetail.needsIntervention ? "default" : "outline"}
                     onClick={currentChatDetail.needsIntervention ? handleReleaseToAgent : handleStopAgent}
-                    className={`h-9 px-3 font-bold text-[11px] gap-2 shadow-sm uppercase tracking-tighter transition-all ${
+                    className={`h-9 px-4 font-bold text-[11px] gap-2 shadow-sm uppercase tracking-tighter transition-all ${
                       currentChatDetail.needsIntervention 
                       ? "bg-blue-600 hover:bg-blue-700 text-white" 
                       : "border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
@@ -354,17 +354,6 @@ export const CRMWhatsAppPanel = () => {
                   >
                     <MessageCircle className="h-3.5 w-3.5" />
                     {currentChatDetail.needsIntervention ? "ACTIVAR AGENTE IA" : "DETENER AGENTE IA"}
-                  </Button>
-                  <div className="h-6 w-px bg-slate-200 mx-1"></div>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                    <Phone className="h-[18px] w-[18px]" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                    <Mail className="h-[18px] w-[18px]" />
-                  </Button>
-                  <div className="h-6 w-px bg-slate-200 mx-1"></div>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600 hover:bg-slate-100">
-                    <MoreVertical className="h-[18px] w-[18px]" />
                   </Button>
                 </div>
               </div>

@@ -120,7 +120,7 @@ const CotizacionPage = () => {
             <main className="flex-1 max-w-[800px] mx-auto w-full px-6 py-12">
                 {/* Breadcrumbs */}
                 <div className="flex items-center gap-2 text-[13px] text-neutral-400 mb-12">
-                    <span className="hover:text-black cursor-pointer" onClick={() => navigate('/')}>Repuesto.co</span>
+                    <span className="hover:text-black cursor-pointer" onClick={() => navigate('/')}>Home</span>
                     <ChevronRight className="w-3 h-3" />
                     <span className="text-black font-medium">Cotizacion</span>
                 </div>
@@ -292,9 +292,6 @@ const CotizacionPage = () => {
                             </div>
                         )}
 
-                        <p className="text-[11px] text-neutral-400">
-                            Un sistema de gestión de repuestos desarrollado para <span className="underline font-bold text-red-600">Repuesto.co</span>
-                        </p>
                     </div>
                 </div>
             </main>

@@ -151,7 +151,7 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
       if (isSupabase) {
         const { data, error } = await (db as any)
           .from("products")
-          .select("*")
+          .select("*, suppliers(name)")
           .order("updated_at", { ascending: false });
         if (error) throw error;
 
@@ -168,6 +168,7 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
           isPublished: product.is_published ?? product.isPublished ?? true,
           categoryName: categories.find(c => c.id === (product.category_id ?? product.category))?.name || product.category,
           subcategoryName: categories.find(c => c.id === product.subcategory)?.name || product.subcategory,
+          supplierName: product.suppliers?.name || null
         }));
         setProducts(normalized);
       }
@@ -1302,6 +1303,11 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded-[2px] bg-slate-100 text-slate-600 text-[9px] uppercase font-bold tracking-tight">
                           {product.categoryName || product.category || 'Sin Cat'}
                         </span>
+                        {product.supplierName && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-[2px] bg-indigo-50 text-indigo-600 text-[9px] uppercase font-bold tracking-tight border border-indigo-100">
+                            {product.supplierName}
+                          </span>
+                        )}
                         {!product.isPublished && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded-[2px] bg-red-50 text-red-600 text-[9px] uppercase font-bold tracking-tight">
                             Borrador
@@ -1369,6 +1375,7 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
                 <tr>
                   <th className="px-4 py-2 font-semibold">Producto</th>
                   <th className="px-4 py-2 font-semibold">Categoría</th>
+                  <th className="px-4 py-2 font-semibold">Proveedor</th>
                   <th className="px-4 py-2 font-semibold text-right">Precio</th>
                   <th className="px-4 py-2 font-semibold text-right">Stock</th>
                   <th className="px-4 py-2 font-semibold text-center">Estado</th>
@@ -1385,6 +1392,15 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{product.categoryName || 'General'}</td>
+                    <td className="px-4 py-3">
+                      {product.supplierName ? (
+                        <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-100 uppercase font-bold">
+                          {product.supplierName}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-slate-400">Interno</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right font-medium">${(product.price || 0).toLocaleString('es-CO')}</td>
                     <td className="px-4 py-3 text-right">
                       <span className={cn(

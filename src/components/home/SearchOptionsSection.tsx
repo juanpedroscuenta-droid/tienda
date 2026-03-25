@@ -53,7 +53,7 @@ export const SearchOptionsSection = () => {
     <section className="w-full bg-white py-14 border-b border-gray-100 transition-all duration-500">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
-          <h2 
+          <h2
             className="text-4xl md:text-5xl lg:text-[64px] font-black text-black tracking-tight uppercase mb-8"
             style={{ wordSpacing: '0.25em' }}
           >
@@ -79,12 +79,12 @@ export const SearchOptionsSection = () => {
                 key={index}
                 {...extraProps}
                 className={`group flex flex-col items-center p-6 rounded-2xl transition-all duration-500 border text-center ${isActive
-                    ? 'bg-zinc-50 border-[#ba181b] shadow-lg'
-                    : 'bg-white border-transparent hover:bg-zinc-50 hover:border-zinc-100 hover:shadow-md'
+                  ? 'bg-zinc-50 border-[#ba181b] shadow-lg'
+                  : 'bg-white border-transparent hover:bg-zinc-50 hover:border-zinc-100 hover:shadow-md'
                   }`}
               >
                 <div className="mb-6 transform group-hover:scale-110 transition-transform duration-500 ease-out group-hover:text-[#ba181b]">
-                  {React.cloneElement(option.icon as React.ReactElement, { 
+                  {React.cloneElement(option.icon as React.ReactElement, {
                     className: (option.icon as React.ReactElement).props.className + " transition-colors duration-500 " + (isActive ? "text-[#ba181b]" : "group-hover:text-[#ba181b]")
                   })}
                 </div>

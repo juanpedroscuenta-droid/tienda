@@ -483,7 +483,7 @@ export const AdminPanel: React.FC = () => {
     const fetchAdminProductsData = async () => {
       try {
         const data = await fetchAdminProducts();
-        setProducts(data || []);
+        setProducts(data?.products || []);
       } catch (error) {
         console.error("Error fetching admin products:", error);
       }

@@ -39,6 +39,9 @@ export interface ProductFormData {
   // Marca
   brand: string;
 
+  // Proveedor
+  supplier_id: string;
+
   // Estado
   isPublished: boolean;
 }

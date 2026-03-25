@@ -1,5 +1,4 @@
-import React, { memo } from 'react';
-import { Button } from '@/components/ui/button';
+import React, { memo, useRef, useState, useEffect } from 'react';
 import { Product, useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -10,6 +9,56 @@ import { useFavorites } from '@/contexts/FavoritesContext';
 interface ProductCardProps {
   product: Product;
 }
+
+/**
+ * LazyImage: solo descarga la imagen real cuando el componente entra en el viewport.
+ * Antes de eso, muestra un skeleton animado. Al cargar, hace un fadeIn suave.
+ */
+const LazyImage: React.FC<{ src: string; alt: string; className?: string }> = ({ src, alt, className }) => {
+  const [visible, setVisible] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      // rootMargin: empieza a cargar cuando el card está a 200px de entrar en pantalla
+      { rootMargin: '200px 0px', threshold: 0 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} className="w-full h-full flex items-center justify-center">
+      {/* Skeleton mientras no es visible ni cargó */}
+      {!loaded && (
+        <div className="absolute inset-0 bg-gray-100 animate-pulse rounded-sm" />
+      )}
+
+      {/* Solo crea el <img> cuando entra al viewport */}
+      {visible && (
+        <img
+          src={src}
+          alt={alt}
+          className={`${className} transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setLoaded(true)}
+          loading="lazy"
+          decoding="async"
+        />
+      )}
+    </div>
+  );
+};
 
 const ProductCardComponent: React.FC<ProductCardProps> = ({ product }) => {
   const { addToCart } = useCart();
@@ -53,14 +102,13 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product }) => {
         </button>
       </div>
 
-      {/* Imagen del Producto */}
+      {/* Imagen del Producto — usa LazyImage para NO descargar hasta que sea visible */}
       <div className="h-44 md:h-64 w-full relative flex items-center justify-center p-3 md:p-6 bg-white overflow-hidden">
         {product.image ? (
-          <img
+          <LazyImage
             src={product.image}
             alt={product.name}
             className="max-h-full max-w-full object-contain transform group-hover:scale-105 transition-transform duration-500"
-            loading="lazy"
           />
         ) : (
           <Package className="h-12 md:h-20 w-12 md:w-20 text-slate-100" />
@@ -72,7 +120,6 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product }) => {
 
       {/* Información del Producto */}
       <div className="text-left w-full px-4 md:px-6 pb-4 md:pb-6 flex flex-col flex-1">
-        {/* Nombre - Fuente más Grande y Bold */}
         <h3 className="text-[15px] md:text-[17px] font-bold text-gray-900 mb-2 line-clamp-3 leading-[1.3] min-h-[60px] md:min-h-[66px]">
           {product.name}
         </h3>
@@ -84,7 +131,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product }) => {
           ))}
         </div>
 
-        {/* Precio - Grande y Rojo Marca */}
+        {/* Precio */}
         <div className="mb-4 md:mb-5 flex items-center gap-2 md:gap-3">
            <span className="text-[18px] md:text-[22px] font-bold text-[#E2343E]">
              $ {product.price.toLocaleString('es-CO')}
@@ -96,7 +143,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product }) => {
            )}
         </div>
 
-        {/* Botón de Acción - Estilo Screenshot */}
+        {/* Botón de Acción */}
         <button
           className="w-full bg-[#E2343E] hover:bg-[#c42831] text-white rounded-sm text-[11px] md:text-[14px] font-bold py-2.5 md:py-3.5 transition-all duration-200 uppercase tracking-wide flex items-center justify-center"
           onClick={handleAddToCart}

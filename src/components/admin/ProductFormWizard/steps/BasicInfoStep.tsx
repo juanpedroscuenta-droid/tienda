@@ -1,9 +1,20 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { StepComponentProps } from '../types';
 import { FilterGroupsSelector } from './FilterGroupsSelector';
+import { fetchSuppliers, createSupplier } from '@/lib/api';
+import { Plus, Loader2, Building2 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+
+interface Supplier {
+  id: string;
+  name: string;
+  contact_name?: string;
+  phone?: string;
+  email?: string;
+}
 
 export const BasicInfoStep: React.FC<StepComponentProps> = ({
   formData,
@@ -15,11 +26,47 @@ export const BasicInfoStep: React.FC<StepComponentProps> = ({
   const subCategories = categories.filter(cat => cat.parentId === formData.category);
   const thirdCategories = categories.filter(cat => cat.parentId === formData.subcategory);
 
-  // Validación en tiempo real
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(false);
+  const [showNewSupplier, setShowNewSupplier] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState('');
+  const [creatingSupplier, setCreatingSupplier] = useState(false);
+
+  // Cargar proveedores
+  useEffect(() => {
+    setLoadingSuppliers(true);
+    fetchSuppliers()
+      .then(data => setSuppliers(data))
+      .catch(() => setSuppliers([]))
+      .finally(() => setLoadingSuppliers(false));
+  }, []);
+
+  // Validación en tiempo real estable
+  const lastValidRef = React.useRef<boolean | null>(null);
   React.useEffect(() => {
     const isValid = !!(formData.name && formData.category);
-    onValidationChange?.(isValid);
+    if (isValid !== lastValidRef.current) {
+      lastValidRef.current = isValid;
+      onValidationChange?.(isValid);
+    }
   }, [formData.name, formData.category, onValidationChange]);
+
+  const handleCreateSupplier = async () => {
+    if (!newSupplierName.trim()) return;
+    setCreatingSupplier(true);
+    try {
+      const created = await createSupplier({ name: newSupplierName.trim() });
+      setSuppliers(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+      setFormData({ ...formData, supplier_id: created.id });
+      setNewSupplierName('');
+      setShowNewSupplier(false);
+      toast({ title: '✅ Proveedor creado', description: `"${created.name}" fue agregado.`, duration: 3000 });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err.message });
+    } finally {
+      setCreatingSupplier(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -142,6 +189,86 @@ export const BasicInfoStep: React.FC<StepComponentProps> = ({
             </Select>
           </div>
         )}
+      </div>
+
+      {/* ── PROVEEDOR ── */}
+      <div className="space-y-2 max-w-md">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="supplier" className="text-sm font-semibold flex items-center gap-1.5">
+            <Building2 className="w-4 h-4 text-gray-500" />
+            Proveedor <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
+          </Label>
+          <button
+            type="button"
+            onClick={() => setShowNewSupplier(prev => !prev)}
+            className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {showNewSupplier ? 'Cancelar' : 'Nuevo proveedor'}
+          </button>
+        </div>
+
+        {/* Selector de proveedor existente */}
+        {!showNewSupplier && (
+          <Select
+            value={formData.supplier_id || 'none'}
+            onValueChange={(value) => setFormData({ ...formData, supplier_id: value === 'none' ? '' : value })}
+            disabled={loadingSuppliers}
+          >
+            <SelectTrigger className="h-11 bg-white border-2 border-slate-100 focus:border-blue-400 focus:ring-4 focus:ring-blue-50/50 transition-all">
+              {loadingSuppliers
+                ? <span className="flex items-center gap-2 text-gray-400"><Loader2 className="w-4 h-4 animate-spin" />Cargando proveedores...</span>
+                : <SelectValue placeholder="Sin proveedor asignado" />
+              }
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sin proveedor</SelectItem>
+              {suppliers.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-slate-700">{s.name}</span>
+                    {s.contact_name && <span className="text-[10px] text-slate-400">Contacto: {s.contact_name}</span>}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Formulario quick-create */}
+        {showNewSupplier && (
+          <div className="flex gap-2 items-center p-3 border border-blue-100 bg-blue-50/50 rounded-lg">
+            <Input
+              autoFocus
+              placeholder="Nombre del nuevo proveedor"
+              value={newSupplierName}
+              onChange={(e) => setNewSupplierName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateSupplier(); } }}
+              className="h-9 flex-1 bg-white"
+            />
+            <button
+              type="button"
+              onClick={handleCreateSupplier}
+              disabled={!newSupplierName.trim() || creatingSupplier}
+              className="h-9 px-4 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700 disabled:opacity-40 flex items-center gap-1.5 transition-colors"
+            >
+              {creatingSupplier ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+              Crear
+            </button>
+          </div>
+        )}
+
+        {/* Info del proveedor seleccionado */}
+        {formData.supplier_id && formData.supplier_id !== 'none' && (() => {
+          const s = suppliers.find(x => x.id === formData.supplier_id);
+          if (!s) return null;
+          return (
+            <div className="text-xs text-gray-500 flex flex-wrap gap-x-4 gap-y-0.5 mt-1 pl-1">
+              {s.phone && <span>📞 {s.phone}</span>}
+              {s.email && <span>✉️ {s.email}</span>}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Grupos / Etiquetas del Producto */}

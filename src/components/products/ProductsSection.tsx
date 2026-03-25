@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Search, ChevronLeft, ChevronRight, ChevronDown, Truck, CircleDollarSign, ShieldCheck, ShoppingCart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ProductCard } from './ProductCard';
 import { NewProductsCarousel } from './NewProductsCarousel';
 import { GenericProductCarousel } from './GenericProductCarousel';
@@ -58,6 +59,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   const { getCategoryByName, getBreadcrumbPath, categoriesData } = useCategories();
   const { filters, loading: filtersLoading } = useFilters();
   const [loading, setLoading] = useState(true);
+  const [isPending, startTransition] = React.useTransition();
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
 
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
@@ -69,7 +71,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   const [showAllForFilter, setShowAllForFilter] = useState<{ [filterId: string]: boolean }>({});
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(24); // Aumentamos para mejor UX inicial
 
   useEffect(() => {
     setSearchTerm(initialSearchTerm || '');
@@ -83,6 +85,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
 
   const fetchProducts = async () => {
     setLoading(true);
+
     try {
       const offset = (currentPage - 1) * itemsPerPage;
 
@@ -95,8 +98,10 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
         order: sortBy === 'price-asc' ? 'asc' : 'desc'
       });
 
-      setProducts(fetchedProducts);
-      setTotalProducts(total);
+      startTransition(() => {
+        setProducts(fetchedProducts);
+        setTotalProducts(total);
+      });
     } catch (e) {
       console.error("Error cargando productos:", e);
     } finally {
@@ -110,6 +115,10 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
     }, 500); // 500ms debounce
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm, sortBy, itemsPerPage]);
 
   useEffect(() => {
     fetchProducts();
@@ -462,9 +471,29 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
             </div>
           ) : paginatedProducts.length > 0 ? (
             <div className={`space-y-16 ${loading ? 'opacity-60 pointer-events-none' : 'opacity-100'} transition-opacity duration-300`}>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-12">
-                {paginatedProducts.map(p => <ProductCard key={p.id} product={p} />)}
-              </div>
+              <motion.div
+                layout
+                className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-12"
+              >
+                <AnimatePresence mode="popLayout">
+                  {/* Si es vista de inicio (sin filtros ni catálogo), mostramos solo 8 para una vista más limpia */}
+                  {((!isFiltering && !showCatalog) ? paginatedProducts.slice(0, 8) : paginatedProducts).map((p, idx) => (
+                    <motion.div
+                      key={p.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{
+                        duration: 0.4,
+                        delay: Math.min(idx % 24 * 0.05, 0.5),
+                        ease: "easeOut"
+                      }}
+                    >
+                      <ProductCard product={p} />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
 
               {/* Trust Bar Section */}
               {!isFiltering && !showCatalog && (
@@ -587,7 +616,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                     {Array.from({ length: totalPages }).map((_, i) => {
                       const pageNum = i + 1;
                       if (totalPages > 5 && Math.abs(pageNum - currentPage) > 1 && pageNum !== 1 && pageNum !== totalPages) {
-                        if (pageNum === 2 || pageNum === totalPages - 1) return <span key={pageNum} className="px-1 text-gray-200">...</span>;
+                        if (pageNum === 2 || pageNum === totalPages - 1) return <span key={pageNum} className="px-1 text-gray-400">...</span>;
                         return null;
                       }
                       return (

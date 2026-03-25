@@ -21,6 +21,8 @@ import {
   Info,
   Ticket,
   CreditCard,
+  Check,
+  AlertCircle
 } from 'lucide-react';
 import { db } from '@/firebase';
 import { createOrder, validateCouponByCode, fetchProducts, markCouponAsUsed } from '@/lib/api';
@@ -50,6 +52,7 @@ export const CartPage: React.FC = () => {
     removeFromCart,
     getTotal,
     getDiscountedTotal,
+    getItemCount,
     clearCart,
     appliedCoupon,
     setAppliedCoupon,
@@ -288,7 +291,18 @@ export const CartPage: React.FC = () => {
                           <h4 className="text-base sm:text-lg font-medium text-[#007185] hover:text-[#c45500] hover:underline cursor-pointer leading-tight break-words">
                             {item.name}
                           </h4>
-                          <p className="text-xs text-green-700 font-bold mt-1">✓ En stock</p>
+                          {Number(item.stock) > 0 ? (
+                            <p className="text-xs text-green-700 font-bold mt-1 flex items-center gap-1">
+                              <Check className="w-3 h-3" /> En stock
+                              {Number(item.stock) <= 12 && (
+                                <span className="ml-1 text-[#b12704] text-[11px]">
+                                  (Solo quedan {item.stock})
+                                </span>
+                              )}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-red-600 font-bold mt-1">✗ Agotado</p>
+                          )}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-4 mt-6">
@@ -304,8 +318,9 @@ export const CartPage: React.FC = () => {
                               {item.quantity}
                             </span>
                             <button
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                              className="px-3 hover:bg-gray-200 transition-colors border-l border-gray-300"
+                              onClick={() => updateQuantity(item.id, Math.min(Number(item.stock ?? 999), item.quantity + 1))}
+                              className="px-3 hover:bg-gray-200 transition-colors border-l border-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                              disabled={item.quantity >= Number(item.stock ?? 999)}
                             >
                               <Plus className="w-3 h-3" />
                             </button>
@@ -331,7 +346,7 @@ export const CartPage: React.FC = () => {
                   ))}
                   <div className="pt-6 text-right">
                     <p className="text-xl md:text-2xl text-[#0f1111]">
-                      Subtotal ({items.length} productos): <span className="font-bold">COP {subtotal.toLocaleString('es-CO')}</span>
+                      Subtotal ({getItemCount()} {getItemCount() === 1 ? 'producto' : 'productos'}): <span className="font-bold">COP {subtotal.toLocaleString('es-CO')}</span>
                     </p>
                   </div>
                 </div>
@@ -366,7 +381,7 @@ export const CartPage: React.FC = () => {
 
               <div className="py-2">
                 <div className="text-xl md:text-2xl font-medium text-[#0f1111]">
-                  Subtotal: <span className="font-bold">COP {subtotal.toLocaleString('es-CO')}</span>
+                  Subtotal ({getItemCount()} {getItemCount() === 1 ? 'producto' : 'productos'}): <span className="font-bold">COP {subtotal.toLocaleString('es-CO')}</span>
                 </div>
               </div>
 

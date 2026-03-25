@@ -93,8 +93,8 @@ const PromocionesPage = () => {
         const loadPromos = async () => {
             setLoading(true);
             try {
-                // Forzamos actualización para evitar ver ofertas cacheadas que ya se borraron
-                const allProducts = await fetchProducts(true);
+                // Forzamos la descarga de los productos para encontrar ofertas
+                const { products: allProducts } = await fetchProducts({ limit: 1000 });
                 
                 // Filtramos estrictamente por isOffer true
                 const promos = allProducts.filter(p => 
@@ -130,9 +130,9 @@ const PromocionesPage = () => {
             <div className="pt-28 pb-4">
                 <div className="max-w-[1400px] mx-auto px-6">
                     <nav className="flex items-center gap-2 text-xs text-gray-500 mb-6">
-                        <Link to="/" className="hover:text-red-600 transition-colors">Repuesto.co</Link>
+                        <Link to="/" className="hover:text-red-600 transition-colors">Home</Link>
                         <ChevronRight className="w-3 h-3 pt-0.5" />
-                        <span className="text-gray-900 font-medium">Promociones – Repuesto.co</span>
+                        <span className="text-gray-900 font-medium">Promociones</span>
                     </nav>
                 </div>
             </div>

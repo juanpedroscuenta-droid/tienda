@@ -10,12 +10,15 @@ export const PricingStep: React.FC<StepComponentProps> = ({
   setFormData,
   onValidationChange
 }) => {
-  // Validación en tiempo real
+  // Validación en tiempo real estable
+  const lastValidRef = React.useRef<boolean | null>(null);
   React.useEffect(() => {
     const isValid = !!(formData.price && formData.stock);
-    onValidationChange?.(isValid);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.price, formData.stock]);
+    if (isValid !== lastValidRef.current) {
+      lastValidRef.current = isValid;
+      onValidationChange?.(isValid);
+    }
+  }, [formData.price, formData.stock, onValidationChange]);
 
   const margin = formData.price && formData.cost && parseFormattedPrice(formData.price) > 0 && parseFormattedPrice(formData.cost) > 0
     ? Math.round(((parseFormattedPrice(formData.price) - parseFormattedPrice(formData.cost)) / parseFormattedPrice(formData.price)) * 100)
