@@ -37,3 +37,5 @@ informe_proyecto_24_7.tex
 backend-wpp/node_modules
 backend-wpp/session
 backend-wpp/.env
+
+backend-wpp/deploy.zip
