@@ -1,0 +1,73 @@
+services:
+  # Frontend - Vite React App
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+        - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+        - VITE_BOLD_API_KEY=${VITE_BOLD_API_KEY}
+    ports:
+      - "80:80"
+    restart: always
+    networks:
+      - app-network
+
+  # Main Product Backend
+  api-products:
+    build:
+      context: ./backend
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_PASSWORD=${SUPABASE_PASSWORD}
+      - BOLD_API_KEY=${BOLD_API_KEY}
+      - BOLD_SIGNING_SECRET=${BOLD_SIGNING_SECRET}
+      - BOLD_TEST=${BOLD_TEST}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    restart: always
+    networks:
+      - app-network
+
+  # CRM / WhatsApp Backend
+  api-crm-wpp:
+    build:
+      context: ./backend-wpp
+    ports:
+      - "3005:3005"
+    environment:
+      - PORT=3005
+    volumes:
+      - ./backend-wpp/chats.json:/app/chats.json
+    restart: always
+    networks:
+      - app-network
+
+  # AI Agent Backend
+  api-ai-agent:
+    build:
+      context: ./agents
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - VERIFY_TOKEN=${VERIFY_TOKEN}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
+      - ACCESS_TOKEN=${ACCESS_TOKEN}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - ./agents/processed_ids.json:/app/processed_ids.json
+    restart: always
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

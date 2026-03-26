@@ -321,7 +321,7 @@ app.post('/api/crm/chats/stop/:id', async (req, res) => {
     chat.interventionReason = "Control manual (Asesor)";
     
     try {
-        await fetch(`http://localhost:3000/api/agent/session/stop/${chat.phone}`, { method: 'POST' });
+        await fetch(`http://api-ai-agent:3000/api/agent/session/stop/${chat.phone}`, { method: 'POST' });
         console.log(`👨‍💻 Chat ${chat.phone} tomado bajo control humano.`);
     } catch (e) {
         console.error("Error notificando parada al agente:", e.message);
@@ -339,9 +339,9 @@ app.post('/api/crm/chats/release/:id', async (req, res) => {
     chat.needsIntervention = false;
     chat.interventionReason = null;
     
-    // Notificar al Agente AI para que retome el control (Puerto 3000)
+    // Notificar al Agente AI para que retome el control (api-ai-agent:3000)
     try {
-        await fetch(`http://localhost:3000/api/agent/session/reset/${chat.phone}`, { method: 'POST' });
+        await fetch(`http://api-ai-agent:3000/api/agent/session/reset/${chat.phone}`, { method: 'POST' });
         console.log(`🤖 Chat ${chat.phone} devuelto a la IA.`);
     } catch (e) {
         console.error("Error notificando al agente:", e.message);

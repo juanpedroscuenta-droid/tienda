@@ -39,3 +39,8 @@ backend-wpp/session
 backend-wpp/.env
 
 backend-wpp/deploy.zip
+
+# Agents session data and dependencies
+agents/node_modules
+agents/.env
+agents/processed_ids.json
