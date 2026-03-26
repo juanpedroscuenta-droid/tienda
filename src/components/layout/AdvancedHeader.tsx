@@ -87,13 +87,20 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
     }
   }, [isMenuOpen]);
 
-  // No longer auto-select first sub on open
+  // Auto-select first sub on open categories
   React.useEffect(() => {
+    if (openCategoryDropdown === "Categories" && !activeSub && mainCategories.length > 0) {
+      const firstValid = mainCategories.find(c => c.id !== "todos");
+      if (firstValid) {
+        setActiveSub(firstValid);
+        setActiveThird(null);
+      }
+    }
     if (!openCategoryDropdown) {
       setActiveSub(null);
       setActiveThird(null);
     }
-  }, [openCategoryDropdown]);
+  }, [openCategoryDropdown, mainCategories, activeSub]);
 
   const getFourthLevel = (parentId: string) => {
     if (!allCategoriesData) return [];
@@ -125,6 +132,21 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
     subcategoriesByParent[mainName] ?? [];
   const getThirdsForSub = (subId: string) =>
     thirdLevelBySubcategory[subId] ?? [];
+
+  // Handle Body Scroll Lock
+  React.useEffect(() => {
+    if (openCategoryDropdown === "Categories") {
+      document.body.style.overflow = 'hidden';
+      document.body.style.paddingRight = 'var(--scrollbar-width, 0px)';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+    };
+  }, [openCategoryDropdown]);
 
   const handleSearchChange = (val: string) => {
     setLocalSearchTerm(val);
@@ -569,7 +591,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
               <div className="px-6 pt-2 pb-2">
                 <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">Todas las Categorías</h3>
               </div>
-              
+
               <div className="px-6 space-y-1 pt-2">
                 {mainCategoriesForNav.length > 0 ? (
                   mainCategoriesForNav.map((name) => {
@@ -659,13 +681,13 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 </button>
               </div>
             </>
-          )}       
+          )}
           {menuView === 'sub' && (
             <div className="pt-2">
               {/* Submenu Header */}
               <div className="px-4 mb-6">
                 <button
-                   onClick={() => setMenuView('categories')}
+                  onClick={() => setMenuView('categories')}
                   className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-gray-900 hover:text-blue-600 transition-colors py-2"
                 >
                   <ChevronLeft className="w-4 h-4 text-black" />
@@ -764,7 +786,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
       <nav
         className="relative hidden md:block bg-white border-t border-gray-100 border-b-2 border-neutral-300 z-[100] sticky top-0 shadow-lg"
         onMouseLeave={() => {
-          categoryDropdownTimer.current = setTimeout(() => setOpenCategoryDropdown(null), 100);
+          categoryDropdownTimer.current = setTimeout(() => setOpenCategoryDropdown(null), 350);
         }}
       >
         <div className="container mx-auto px-4 md:px-8">
@@ -822,149 +844,169 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
         </div>
 
-        {/* Dropdown Categorías (Mega-Menu) - Blue Minimal Style */}
+        {/* Dropdown Categorías (Mega-Menu) */}
         {openCategoryDropdown && (() => {
           const isAllCategories = openCategoryDropdown === "Categories";
           const subs = isAllCategories ? (mainCategories || []).filter(c => c.id !== "todos") : getSubsForMain(openCategoryDropdown);
 
-          if (subs.length === 0) return null;
-
           return (
             <div
-              className="absolute left-1/2 -translate-x-1/2 top-full w-full max-w-[1400px] bg-white shadow-[0_40px_80px_-15px_rgba(0,0,0,0.15)] z-50 border border-gray-100 rounded-b-[2rem] animate-in fade-in slide-in-from-top-2 duration-300 mx-auto"
-              onMouseEnter={() => {
-                if (categoryDropdownTimer.current) clearTimeout(categoryDropdownTimer.current);
-                setOpenCategoryDropdown(openCategoryDropdown);
-              }}
+              className={`fixed left-0 right-0 top-[112px] md:top-[155px] z-[500] pointer-events-none transition-all duration-300 ${openCategoryDropdown ? 'opacity-100' : 'opacity-0'}`}
+              style={{ top: openCategoryDropdown ? undefined : '-100%' }}
             >
-              <div className="flex" style={{ maxHeight: '70vh' }}>
-                {/* Col 1: Level 1 Subcategories & Promo */}
-                <div className="w-[350px] bg-[#f8f9fa] p-5 flex flex-col overflow-y-scroll" style={{ maxHeight: '70vh', scrollbarWidth: 'auto' }}>
-                  <div className="flex flex-col gap-1 mb-10">
-                    {subs.map((s) => (
-                      <button
-                        key={s.id}
-                        onMouseEnter={() => {
-                          setActiveSub(s);
-                          setActiveThird(null);
-                        }}
-                        onClick={() => goToCategory(s.name)}
-                        className={`flex items-center justify-between px-6 py-4 rounded-xl transition-all text-left group ${activeSub?.id === s.id ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)] text-black' : 'text-gray-500 hover:text-black hover:bg-white/50'}`}
-                      >
-                        <span className="text-[14px] font-bold tracking-tight">{s.name}</span>
-                        {(thirdLevelBySubcategory[s.id || ''] || []).length > 0 && (
-                          <ChevronRight className={`w-4 h-4 transition-all ${activeSub?.id === s.id ? 'translate-x-1 opacity-100' : 'opacity-100 text-gray-300'}`} />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Promo Box */}
-                  <div className="mt-auto bg-[#eaebed] p-5 rounded-[1.5rem] border border-gray-200/30">
-                    <p className="text-[14px] font-bold text-gray-700 mb-4 leading-tight">
-                      Encuentra el repuesto ideal <span className="font-medium text-gray-400 lowercase">{openCategoryDropdown}</span>
-                    </p>
-                    <button className="w-full bg-[#2a2a2a] text-white py-2.5 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] flex items-center justify-center gap-2 hover:bg-black transition-all shadow-md active:scale-[0.98] group">
-                      <Car className="w-4 h-4 text-white/80 group-hover:scale-110 transition-transform" />
-                      <span>Búsqueda Por Modelo</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Col 2: Level 2 Subcategories */}
-                <div className="w-[350px] border-l border-gray-100 p-5 flex flex-col bg-white overflow-y-scroll" style={{ maxHeight: '70vh', scrollbarWidth: 'auto' }}>
-                  {activeSub && (() => {
-                    const nextLevelItems = isAllCategories
-                      ? (subcategoriesByParent[activeSub.name] || [])
-                      : (thirdLevelBySubcategory[activeSub.id || ''] || []);
-
-                    return (
-                      <div className="flex flex-col gap-1 h-full">
-                        <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 px-4">Categorías</h4>
-                        {nextLevelItems.length > 0 ? (
-                          nextLevelItems.map((s) => (
-                            <button
-                              key={s.id}
-                              onMouseEnter={() => setActiveThird(s)}
-                              onClick={() => goToCategory(s.name)}
-                              className={`flex items-center justify-between px-5 py-3.5 rounded-xl transition-all text-left group ${activeThird?.id === s.id ? 'bg-[#f8f9fa] text-black shadow-sm' : 'text-gray-500 hover:text-black hover:bg-[#f8f9fa]/50'}`}
-                            >
-                              <span className="text-[14px] font-bold tracking-tight">{s.name}</span>
-                              {(isAllCategories ? (thirdLevelBySubcategory[s.id || ''] || []).length > 0 : getFourthLevel(s.id || '').length > 0) && (
-                                <ChevronRight className={`w-4 h-4 transition-all ${activeThird?.id === s.id ? 'translate-x-1 opacity-100' : 'opacity-100 text-gray-300'}`} />
-                              )}
-                            </button>
-                          ))
-                        ) : (
-                          <div className="px-5 py-8 mt-2 text-center border overflow-hidden bg-slate-50 border-gray-100 rounded-2xl flex-1 flex flex-col items-center justify-center group cursor-pointer hover:border-black/10 transition-colors" onClick={() => goToCategory(activeSub.name)}>
-                            <p className="text-gray-400 text-sm font-medium">Sin más clasificaciones en <br /><span className="font-bold text-black text-base mt-2 block">{activeSub.name}</span></p>
-                            <button
-                              className="mt-6 w-[85%] py-2.5 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-md group-hover:scale-105 group-hover:bg-blue-600 transition-all"
-                            >
-                              Ver Productos
-                            </button>
-                          </div>
-                        )}
+              <div
+                className="mx-auto w-[95%] max-w-[1400px] z-[501] pointer-events-auto shadow-[0_40px_100px_rgba(0,0,0,0.2)] rounded-2xl overflow-hidden mt-1"
+                onMouseEnter={() => {
+                  if (categoryDropdownTimer.current) clearTimeout(categoryDropdownTimer.current);
+                }}
+              >
+                <div className="bg-white border border-gray-100 rounded-b-2xl overflow-hidden">
+                  {subs.length === 0 ? (
+                    <div className="p-20 text-center flex flex-col items-center justify-center">
+                      <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
+                        <HelpCircle className="w-8 h-8 text-red-500 animate-pulse" />
                       </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Col 3: Level 3 Items */}
-                <div className="flex-1 p-10 bg-white overflow-y-auto custom-scrollbar border-l border-gray-100 min-h-0">
-                  {activeThird ? (
-                    (() => {
-                      const finalLevelItems = isAllCategories
-                        ? (getThirdsForSub(activeThird.id || ''))
-                        : (getFourthLevel(activeThird.id || ''));
-
-                      return (
-                        <div className="flex flex-col gap-1">
-                          <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 px-4">Productos</h4>
-                          <div className="grid grid-cols-1 gap-y-1">
-                            {finalLevelItems.map((f) => (
-                              <button
-                                key={f.id}
-                                onClick={() => goToCategory(f.name)}
-                                className="text-left py-3 px-5 text-[14px] font-medium text-gray-500 hover:text-black hover:bg-[#f8f9fa] rounded-xl transition-all"
-                              >
-                                {f.name}
-                              </button>
-                            ))}
-                            {finalLevelItems.length === 0 && (
-                              <div className="px-5 py-10 text-center border-2 border-dashed border-gray-50 rounded-2xl">
-                                <p className="text-gray-400 text-sm">Explora toda la sección de <br /><span className="font-bold text-black">{activeThird.name}</span></p>
-                                <button
-                                  onClick={() => goToCategory(activeThird.name)}
-                                  className="mt-4 text-xs font-black uppercase underline decoration-2 underline-offset-4 pointer-events-auto"
-                                >
-                                  Ver catálogo completo
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })()
-                  ) : activeSub ? (
-                    <div className="h-full w-full flex flex-col items-center justify-center text-center space-y-4 max-w-sm mx-auto transition-all duration-300 animate-in fade-in zoom-in-95">
-                      <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-gray-100">
-                        <Search className="w-8 h-8 text-gray-300" />
-                      </div>
-                      <h4 className="text-xl font-black text-gray-800">Sección {activeSub.name}</h4>
-                      <p className="text-sm text-gray-500 font-medium leading-relaxed">
-                        {(isAllCategories ? (getThirdsForSub(activeSub.id || '')) : (getThirdsForSub(activeSub.id || ''))).length > 0
-                          ? "Selecciona una categoría de la izquierda para ver más detalles y productos específicos."
-                          : "No existen más subcategorías para este departamento. Selecciona el botón para ver todo el inventario de esta sección."}
-                      </p>
+                      <h4 className="text-xl font-bold text-gray-900">Cargando categorías...</h4>
+                      <p className="text-gray-500 max-w-xs mt-2">Estamos recuperando el catálogo, por favor espera un momento.</p>
                       <button
-                        onClick={() => goToCategory(activeSub.name)}
-                        className="px-8 py-3 bg-gray-100 hover:bg-gray-200 text-black text-xs font-black uppercase tracking-widest rounded-full transition-colors mt-4 shadow-sm"
+                        onClick={() => window.location.reload()}
+                        className="mt-6 px-6 py-2 bg-red-600 text-white rounded-full font-bold text-sm uppercase tracking-widest hover:bg-black transition-colors"
                       >
-                        Ir al catálogo
+                        Reintentar carga
                       </button>
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="flex" style={{ maxHeight: '75vh' }}>
+                      {/* Col 1: Level 1 Subcategories & Promo */}
+                      <div className="w-[350px] bg-[#f8f9fa] p-5 flex flex-col overflow-y-auto border-r border-gray-100" style={{ maxHeight: '75vh' }}>
+                        <div className="flex flex-col gap-1 mb-10">
+                          {subs.map((s) => (
+                            <button
+                              key={s.id}
+                              onMouseEnter={() => {
+                                setActiveSub(s);
+                                setActiveThird(null);
+                              }}
+                              onClick={() => goToCategory(s.name)}
+                              className={`flex items-center justify-between px-6 py-4 rounded-xl transition-all text-left group ${activeSub?.id === s.id ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)] text-black' : 'text-gray-500 hover:text-black hover:bg-white/50'}`}
+                            >
+                              <span className="text-[14px] font-bold tracking-tight">{s.name}</span>
+                              {(thirdLevelBySubcategory[s.id || ''] || []).length > 0 && (
+                                <ChevronRight className={`w-4 h-4 transition-all ${activeSub?.id === s.id ? 'translate-x-1 opacity-100' : 'opacity-100 text-gray-300'}`} />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Promo Box */}
+                        <div className="mt-auto bg-[#eaebed] p-5 rounded-[1.5rem] border border-gray-200/30">
+                          <p className="text-[14px] font-bold text-gray-700 mb-4 leading-tight">
+                            Encuentra el repuesto ideal <span className="font-medium text-gray-400 lowercase">{openCategoryDropdown}</span>
+                          </p>
+                          <button className="w-full bg-[#2a2a2a] text-white py-2.5 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] flex items-center justify-center gap-2 hover:bg-black transition-all shadow-md active:scale-[0.98] group">
+                            <Car className="w-4 h-4 text-white/80 group-hover:scale-110 transition-transform" />
+                            <span>Búsqueda Por Modelo</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Col 2: Level 2 Subcategories */}
+                      <div className="w-[350px] border-l border-gray-100 p-5 flex flex-col bg-white overflow-y-auto" style={{ maxHeight: '75vh' }}>
+                        {activeSub && (() => {
+                          const nextLevelItems = isAllCategories
+                            ? (subcategoriesByParent[activeSub.name] || [])
+                            : (thirdLevelBySubcategory[activeSub.id || ''] || []);
+
+                          return (
+                            <div className="flex flex-col gap-1 h-full">
+                              <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 px-4">Categorías</h4>
+                              {nextLevelItems.length > 0 ? (
+                                nextLevelItems.map((s) => (
+                                  <button
+                                    key={s.id}
+                                    onMouseEnter={() => setActiveThird(s)}
+                                    onClick={() => goToCategory(s.name)}
+                                    className={`flex items-center justify-between px-5 py-3.5 rounded-xl transition-all text-left group ${activeThird?.id === s.id ? 'bg-[#f8f9fa] text-black shadow-sm' : 'text-gray-500 hover:text-black hover:bg-[#f8f9fa]/50'}`}
+                                  >
+                                    <span className="text-[14px] font-bold tracking-tight">{s.name}</span>
+                                    {(isAllCategories ? (thirdLevelBySubcategory[s.id || ''] || []).length > 0 : getFourthLevel(s.id || '').length > 0) && (
+                                      <ChevronRight className={`w-4 h-4 transition-all ${activeThird?.id === s.id ? 'translate-x-1 opacity-100' : 'opacity-100 text-gray-300'}`} />
+                                    )}
+                                  </button>
+                                ))
+                              ) : (
+                                <div className="px-5 py-8 mt-2 text-center border overflow-hidden bg-slate-50 border-gray-100 rounded-2xl flex-1 flex flex-col items-center justify-center group cursor-pointer hover:border-black/10 transition-colors" onClick={() => goToCategory(activeSub.name)}>
+                                  <p className="text-gray-400 text-sm font-medium">Sin más clasificaciones en <br /><span className="font-bold text-black text-base mt-2 block">{activeSub.name}</span></p>
+                                  <button
+                                    className="mt-6 w-[85%] py-2.5 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-md group-hover:scale-105 group-hover:bg-blue-600 transition-all"
+                                  >
+                                    Ver Productos
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Col 3: Level 3 Items */}
+                      <div className="flex-1 p-10 bg-white overflow-y-auto border-l border-gray-100 min-h-0" style={{ maxHeight: '75vh' }}>
+                        {activeThird ? (
+                          (() => {
+                            const finalLevelItems = isAllCategories
+                              ? (getThirdsForSub(activeThird.id || ''))
+                              : (getFourthLevel(activeThird.id || ''));
+
+                            return (
+                              <div className="flex flex-col gap-1">
+                                <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 px-4">Productos</h4>
+                                <div className="grid grid-cols-1 gap-y-1">
+                                  {finalLevelItems.map((f) => (
+                                    <button
+                                      key={f.id}
+                                      onClick={() => goToCategory(f.name)}
+                                      className="text-left py-3 px-5 text-[14px] font-medium text-gray-500 hover:text-black hover:bg-[#f8f9fa] rounded-xl transition-all"
+                                    >
+                                      {f.name}
+                                    </button>
+                                  ))}
+                                  {finalLevelItems.length === 0 && (
+                                    <div className="px-5 py-10 text-center border-2 border-dashed border-gray-50 rounded-2xl">
+                                      <p className="text-gray-400 text-sm">Explora toda la sección de <br /><span className="font-bold text-black">{activeThird.name}</span></p>
+                                      <button
+                                        onClick={() => goToCategory(activeThird.name)}
+                                        className="mt-4 text-xs font-black uppercase underline decoration-2 underline-offset-4 pointer-events-auto"
+                                      >
+                                        Ver catálogo completo
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()
+                        ) : activeSub ? (
+                          <div className="h-full w-full flex flex-col items-center justify-center text-center space-y-4 max-w-sm mx-auto transition-all duration-300 animate-in fade-in zoom-in-95">
+                            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-gray-100">
+                              <Search className="w-8 h-8 text-gray-300" />
+                            </div>
+                            <h4 className="text-xl font-black text-gray-800">Sección {activeSub.name}</h4>
+                            <p className="text-sm text-gray-500 font-medium leading-relaxed">
+                              {(isAllCategories ? (getThirdsForSub(activeSub.id || '')) : (getThirdsForSub(activeSub.id || ''))).length > 0
+                                ? "Selecciona una categoría de la izquierda para ver más detalles y productos específicos."
+                                : "No existen más subcategorías para este departamento. Selecciona el botón para ver todo el inventario de esta sección."}
+                            </p>
+                            <button
+                              onClick={() => goToCategory(activeSub.name)}
+                              className="px-8 py-3 bg-gray-100 hover:bg-gray-200 text-black text-xs font-black uppercase tracking-widest rounded-full transition-colors mt-4 shadow-sm"
+                            >
+                              Ir al catálogo
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
