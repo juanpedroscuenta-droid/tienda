@@ -284,65 +284,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                   </div>
                 </DialogContent>
               </Dialog>
-            </div>
 
-            <div
-              className="relative group/help hidden sm:block"
-              onMouseEnter={() => {
-                if (helpMenuTimer.current) clearTimeout(helpMenuTimer.current);
-                setShowHelpMenu(true);
-              }}
-              onMouseLeave={() => {
-                if (helpMenuTimer.current) clearTimeout(helpMenuTimer.current);
-                helpMenuTimer.current = setTimeout(() => setShowHelpMenu(false), 200);
-              }}
-            >
-              <button
-                className="flex flex-col items-center gap-1 group transition-opacity hover:opacity-80 p-1"
-                aria-label="Menú de Ayuda y Contacto"
-              >
-                <HelpCircle className="w-6 h-6 stroke-[1.5px]" />
-                <span className="text-[10px] uppercase font-bold tracking-wider">Ayuda</span>
-              </button>
-
-              {showHelpMenu && (
-                <div
-                  className="absolute top-full right-0 pt-4 w-56 z-[70]"
-                  onMouseEnter={() => {
-                    if (helpMenuTimer.current) clearTimeout(helpMenuTimer.current);
-                    setShowHelpMenu(true);
-                  }}
-                  onMouseLeave={() => {
-                    if (helpMenuTimer.current) clearTimeout(helpMenuTimer.current);
-                    helpMenuTimer.current = setTimeout(() => setShowHelpMenu(false), 200);
-                  }}
-                >
-                  <div className="bg-white text-gray-900 shadow-[0_10px_40px_rgba(0,0,0,0.2)] border border-gray-100 overflow-hidden rounded-lg">
-                    <a
-                      href="https://wa.me/573239447597"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
-                    >
-                      <span className="text-green-500 text-xl">📱</span>
-                      <div className="text-left">
-                        <div className="text-sm font-bold text-gray-900">WhatsApp</div>
-                        <div className="text-[11px] text-gray-700 font-medium">+57 323 9447597</div>
-                      </div>
-                    </a>
-                    <a
-                      href="mailto:tienda247@gmail.com"
-                      className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors"
-                    >
-                      <span className="text-xl">📧</span>
-                      <div className="text-left">
-                        <div className="text-sm font-bold text-gray-900">Email</div>
-                        <div className="text-[11px] text-gray-700 font-medium">tienda247@gmail.com</div>
-                      </div>
-                    </a>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div
@@ -550,9 +492,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 {[
                   { name: 'Cotización', path: '/cotizacion' },
                   { name: 'Promociones', path: '/promociones' },
-                  { name: 'Tienda', path: '/?tienda=true' },
-                  { name: 'Categorías', action: () => setMenuView('categories') },
-                  { name: 'Ayuda / FAQ', path: '/faq' }
+                  { name: 'Categorías', action: () => setMenuView('categories') }
                 ].map((item: any) => (
                   <button
                     key={item.name}

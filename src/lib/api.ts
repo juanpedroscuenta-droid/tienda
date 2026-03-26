@@ -5,8 +5,7 @@ import { parseFormattedPrice } from './utils';
 import { toast } from '@/hooks/use-toast';
 
 const hostname = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : '127.0.0.1';
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || '/api';
-
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || `http://${hostname}:3001/api`;
 
 // Configuración de timeouts por defecto
 const DEFAULT_TIMEOUT = 25000; // 25 segundos para operaciones normales
@@ -90,25 +89,25 @@ export const clearStoreCache = () => {
 /**
  * Fetch de productos con manejo de errores mejorado, timeout, cache persistente y soporte para paginación.
  */
-export const fetchProducts = async (options: { 
-    forceRefresh?: boolean, 
-    limit?: number, 
-    offset?: number, 
+export const fetchProducts = async (options: {
+    forceRefresh?: boolean,
+    limit?: number,
+    offset?: number,
     category_id?: string,
     category_name?: string,
     search?: string,
     sort?: string,
     order?: 'asc' | 'desc'
 } = {}): Promise<{ products: Product[], total: number }> => {
-    const { 
-        forceRefresh = false, 
-        limit = 24, 
-        offset = 0, 
-        category_id, 
-        category_name, 
-        search, 
-        sort = 'updated_at', 
-        order = 'desc' 
+    const {
+        forceRefresh = false,
+        limit = 24,
+        offset = 0,
+        category_id,
+        category_name,
+        search,
+        sort = 'updated_at',
+        order = 'desc'
     } = options;
 
     try {
@@ -135,7 +134,7 @@ export const fetchProducts = async (options: {
                         originalPrice: p.originalPrice ? parseFormattedPrice(p.originalPrice) : (p.original_price ? parseFormattedPrice(p.original_price) : undefined),
                         additionalImages: p.additional_images || p.additionalImages || []
                     }));
-                    
+
                     return { products: mappedProducts, total: result.total };
                 }
             } catch (err) {
@@ -233,7 +232,7 @@ export const fetchCategories = async (forceRefresh = false) => {
                         storeCategoriesCache = data;
                         storeCategoriesTimestamp = timestamp;
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
         }
 

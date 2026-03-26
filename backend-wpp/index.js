@@ -13,21 +13,21 @@ const DB_PATH = path.join(__dirname, 'chats.json');
 // Mock Data (Persistente)
 let chats = [];
 if (fs.existsSync(DB_PATH)) {
-    try {
-        chats = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-        console.log("📂 Chats cargados desde el archivo local.");
-    } catch (e) {
-        console.error("Error cargando base de datos:", e);
-        chats = [];
-    }
+  try {
+    chats = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+    console.log("📂 Chats cargados desde el archivo local.");
+  } catch (e) {
+    console.error("Error cargando base de datos:", e);
+    chats = [];
+  }
 }
 
 function saveChats() {
-    try {
-        fs.writeFileSync(DB_PATH, JSON.stringify(chats, null, 2));
-    } catch (e) {
-        console.error("❌ Error guardando chats:", e);
-    }
+  try {
+    fs.writeFileSync(DB_PATH, JSON.stringify(chats, null, 2));
+  } catch (e) {
+    console.error("❌ Error guardando chats:", e);
+  }
 }
 
 let metaConfig = {
@@ -41,24 +41,24 @@ let metaConfig = {
 app.post('/api/crm/config', (req, res) => {
   metaConfig = { ...metaConfig, ...req.body };
   console.log("✅ Credenciales de Meta guardadas exitosamente:", { phoneId: metaConfig.phoneId, token: metaConfig.accessToken ? '***' : '' });
-  
+
   if (!chats.find(c => c.id === 'system')) {
     chats.push({
       id: 'system',
       name: 'Meta API (Sistema)',
       platform: 'wpp',
-      time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       unread: 1,
       isStarred: true,
       avatar: 'WA',
       phone: '',
       email: '',
       messages: [
-        { id: 'msg_welcome', content: `¡Conexión guardada! 🎉\n\nTu token y Phone ID han sido registrados.\n\nPara que los mensajes de tus clientes lleguen aquí en tiempo real, ve a Facebook Developers y configura el Webhook usando la URL de este servidor (p.ej con Ngrok) apuntando a la ruta: \n/webhook \n\nToken de verificación: ${metaConfig.verifyToken}`, sender: 'user', time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), type: 'text' }
+        { id: 'msg_welcome', content: `¡Conexión guardada! 🎉\n\nTu token y Phone ID han sido registrados.\n\nPara que los mensajes de tus clientes lleguen aquí en tiempo real, ve a Facebook Developers y configura el Webhook usando la URL de este servidor (p.ej con Ngrok) apuntando a la ruta: \n/webhook \n\nToken de verificación: ${metaConfig.verifyToken}`, sender: 'user', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), type: 'text' }
       ]
     });
   }
-  
+
   res.json({ success: true, verifyToken: metaConfig.verifyToken });
 });
 
@@ -67,7 +67,7 @@ app.get('/webhook', (req, res) => {
   let mode = req.query['hub.mode'];
   let token = req.query['hub.verify_token'];
   let challenge = req.query['hub.challenge'];
-  
+
   if (mode && token) {
     if (mode === 'subscribe' && token === metaConfig.verifyToken) {
       console.log('🟢 WEBHOOK VERIFICADO POR META!');
@@ -90,7 +90,7 @@ app.post('/webhook', async (req, res) => {
 
       let phoneNumber = contact ? contact.wa_id : msg.from;
       let name = contact?.profile?.name || `Cliente ${phoneNumber}`;
-      
+
       let msgText = msg.text ? msg.text.body : '';
       let imageUrl = null;
       let type = msg.type;
@@ -99,63 +99,63 @@ app.post('/webhook', async (req, res) => {
         msgText = msg.image.caption || 'Imagen';
         const imageId = msg.image.id;
         if (metaConfig.accessToken) {
-            try {
-                const imgRes = await fetch(`https://graph.facebook.com/v20.0/${imageId}`, {
-                    headers: { 'Authorization': `Bearer ${metaConfig.accessToken}` }
-                });
-                const imgData = await imgRes.json();
-                imageUrl = imgData.url;
-            } catch (e) {
-                console.error("Error fetching image URL:", e);
-            }
+          try {
+            const imgRes = await fetch(`https://graph.facebook.com/v20.0/${imageId}`, {
+              headers: { 'Authorization': `Bearer ${metaConfig.accessToken}` }
+            });
+            const imgData = await imgRes.json();
+            imageUrl = imgData.url;
+          } catch (e) {
+            console.error("Error fetching image URL:", e);
+          }
         }
       } else if (msg.type === 'audio' || msg.type === 'voice') {
-          msgText = 'Nota de voz';
-          const audioId = msg.audio ? msg.audio.id : msg.voice.id;
-          if (metaConfig.accessToken) {
-              try {
-                  const audioRes = await fetch(`https://graph.facebook.com/v20.0/${audioId}`, {
-                      headers: { 'Authorization': `Bearer ${metaConfig.accessToken}` }
-                  });
-                  const audioData = await audioRes.json();
-                  imageUrl = audioData.url; // Reutilizamos imageUrl para el proxy o guardamos en newMessage.audioUrl
-              } catch (e) {
-                  console.error("Error fetching audio URL:", e);
-              }
+        msgText = 'Nota de voz';
+        const audioId = msg.audio ? msg.audio.id : msg.voice.id;
+        if (metaConfig.accessToken) {
+          try {
+            const audioRes = await fetch(`https://graph.facebook.com/v20.0/${audioId}`, {
+              headers: { 'Authorization': `Bearer ${metaConfig.accessToken}` }
+            });
+            const audioData = await audioRes.json();
+            imageUrl = audioData.url; // Reutilizamos imageUrl para el proxy o guardamos en newMessage.audioUrl
+          } catch (e) {
+            console.error("Error fetching audio URL:", e);
           }
+        }
       }
- else if (!msgText && !msg.type) {
-          msgText = 'Mensaje multimedia';
+      else if (!msgText && !msg.type) {
+        msgText = 'Mensaje multimedia';
       }
-      
+
       let chat = chats.find(c => c.phone === phoneNumber);
       if (!chat) {
-         chat = {
-            id: phoneNumber,
-            name: name,
-            platform: 'wpp',
-            time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-            unread: 1,
-            isStarred: false,
-            avatar: name.substring(0,2).toUpperCase(),
-            phone: phoneNumber,
-            email: '',
-            messages: [],
-            needsIntervention: false
-         };
-         chats.push(chat);
+        chat = {
+          id: phoneNumber,
+          name: name,
+          platform: 'wpp',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          unread: 1,
+          isStarred: false,
+          avatar: name.substring(0, 2).toUpperCase(),
+          phone: phoneNumber,
+          email: '',
+          messages: [],
+          needsIntervention: false
+        };
+        chats.push(chat);
       } else {
-         chat.unread += 1;
-         chat.time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        chat.unread += 1;
+        chat.time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       }
-      
+
       chat.messages.push({
-         id: msg.id,
-         content: msgText,
-         sender: 'user',
-         time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-         type: type,
-         imageUrl: imageUrl
+        id: msg.id,
+        content: msgText,
+        sender: 'user',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        type: type,
+        imageUrl: imageUrl
       });
       saveChats(); // PERSIST
       console.log(`📩 Mensaje Entrante de ${name} (${phoneNumber}): ${msgText}${imageUrl ? ' [Imagen]' : ''}`);
@@ -173,14 +173,14 @@ app.post('/api/crm/chats', (req, res) => {
     id: Date.now().toString(),
     name,
     platform,
-    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     unread: 1,
     isStarred: false,
-    avatar: name.substring(0,2).toUpperCase(),
+    avatar: name.substring(0, 2).toUpperCase(),
     phone: phone,
     email: '',
     messages: [
-      { id: 'm1', content: message, sender: 'user', time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), type: 'text' }
+      { id: 'm1', content: message, sender: 'user', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), type: 'text' }
     ]
   };
   chats.push(newChat);
@@ -218,10 +218,10 @@ app.get('/api/crm/chats/:id', (req, res) => {
 app.post('/api/crm/chats/:id/messages', async (req, res) => {
   const chat = chats.find(c => c.id === req.params.id);
   if (!chat) return res.status(404).json({ error: 'Chat not found' });
-  
+
   const { content, sender = 'agent' } = req.body;
-  
-  const timeString = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+  const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const newMessage = {
     id: 'msg_' + Date.now(),
@@ -234,34 +234,34 @@ app.post('/api/crm/chats/:id/messages', async (req, res) => {
 
   chat.messages.push(newMessage);
   chat.time = timeString;
-  
+
   // Mantenemos needsIntervention como esté. Solo el botón manual devuelve control a la IA.
-  
+
   saveChats(); // PERSIST
 
   // Real outbound push to Meta WhatsApp API
   if (sender === 'agent' && metaConfig.accessToken && metaConfig.phoneId && chat.phone && chat.id !== 'system') {
-     console.log(`🚀 Enviando mensaje en la vida real a ${chat.phone} usando Graph API...`);
-     try {
-       const resp = await fetch(`https://graph.facebook.com/v18.0/${metaConfig.phoneId}/messages`, {
-         method: 'POST',
-         headers: {
-           'Authorization': `Bearer ${metaConfig.accessToken}`,
-           'Content-Type': 'application/json'
-         },
-         body: JSON.stringify({
-           messaging_product: "whatsapp",
-           recipient_type: "individual",
-           to: chat.phone,
-           type: "text",
-           text: { preview_url: false, body: content }
-         })
-       });
-       const data = await resp.json();
-       console.log('📡 Respuesta de Meta Graph API:', data);
-     } catch(e) {
-       console.error("❌ Error conectando a Meta API:", e);
-     }
+    console.log(`🚀 Enviando mensaje en la vida real a ${chat.phone} usando Graph API...`);
+    try {
+      const resp = await fetch(`https://graph.facebook.com/v18.0/${metaConfig.phoneId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${metaConfig.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: chat.phone,
+          type: "text",
+          text: { preview_url: false, body: content }
+        })
+      });
+      const data = await resp.json();
+      console.log('📡 Respuesta de Meta Graph API:', data);
+    } catch (e) {
+      console.error("❌ Error conectando a Meta API:", e);
+    }
   }
 
   res.json(newMessage);
@@ -271,7 +271,7 @@ app.post('/api/crm/chats/:id/messages', async (req, res) => {
 app.put('/api/crm/chats/:id', (req, res) => {
   const chatIndex = chats.findIndex(c => c.id === req.params.id);
   if (chatIndex === -1) return res.status(404).json({ error: 'Chat not found' });
-  
+
   chats[chatIndex] = { ...chats[chatIndex], ...req.body };
   res.json(chats[chatIndex]);
 });
@@ -280,7 +280,7 @@ app.put('/api/crm/chats/:id', (req, res) => {
 app.post('/api/crm/chats/intervention/:phone', (req, res) => {
   const { phone } = req.params;
   const { reason, type = 'danger' } = req.body;
-  
+
   const chat = chats.find(c => c.phone === phone);
   if (chat) {
     chat.needsIntervention = true;
@@ -292,19 +292,19 @@ app.post('/api/crm/chats/intervention/:phone', (req, res) => {
   } else {
     // Si no existe el chat, creamos uno básico
     const newChat = {
-        id: phone,
-        name: `Cliente ${phone}`,
-        platform: 'wpp',
-        time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-        unread: 1,
-        isStarred: false,
-        avatar: 'C',
-        phone: phone,
-        email: '',
-        messages: [],
-        needsIntervention: true,
-        interventionReason: reason,
-        interventionType: type
+      id: phone,
+      name: `Cliente ${phone}`,
+      platform: 'wpp',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      unread: 1,
+      isStarred: false,
+      avatar: 'C',
+      phone: phone,
+      email: '',
+      messages: [],
+      needsIntervention: true,
+      interventionReason: reason,
+      interventionType: type
     };
     chats.push(newChat);
     saveChats(); // PERSIST
@@ -314,60 +314,60 @@ app.post('/api/crm/chats/intervention/:phone', (req, res) => {
 
 // POST stop/pause agent (Cambiar de IA a Humano)
 app.post('/api/crm/chats/stop/:id', async (req, res) => {
-    const chat = chats.find(c => c.id === req.params.id);
-    if (!chat) return res.status(404).json({ error: 'Chat not found' });
+  const chat = chats.find(c => c.id === req.params.id);
+  if (!chat) return res.status(404).json({ error: 'Chat not found' });
 
-    chat.needsIntervention = true;
-    chat.interventionReason = "Control manual (Asesor)";
-    
-    try {
-        await fetch(`http://api-ai-agent:3000/api/agent/session/stop/${chat.phone}`, { method: 'POST' });
-        console.log(`👨‍💻 Chat ${chat.phone} tomado bajo control humano.`);
-    } catch (e) {
-        console.error("Error notificando parada al agente:", e.message);
-    }
+  chat.needsIntervention = true;
+  chat.interventionReason = "Control manual (Asesor)";
 
-    saveChats(); // PERSIST
-    res.json({ success: true, chat });
+  try {
+    await fetch(`http://localhost:3000/api/agent/session/stop/${chat.phone}`, { method: 'POST' });
+    console.log(`👨‍💻 Chat ${chat.phone} tomado bajo control humano.`);
+  } catch (e) {
+    console.error("Error notificando parada al agente:", e.message);
+  }
+
+  saveChats(); // PERSIST
+  res.json({ success: true, chat });
 });
 
 // POST release chat back to agent (IA)
 app.post('/api/crm/chats/release/:id', async (req, res) => {
-    const chat = chats.find(c => c.id === req.params.id);
-    if (!chat) return res.status(404).json({ error: 'Chat not found' });
+  const chat = chats.find(c => c.id === req.params.id);
+  if (!chat) return res.status(404).json({ error: 'Chat not found' });
 
-    chat.needsIntervention = false;
-    chat.interventionReason = null;
-    
-    // Notificar al Agente AI para que retome el control (api-ai-agent:3000)
-    try {
-        await fetch(`http://api-ai-agent:3000/api/agent/session/reset/${chat.phone}`, { method: 'POST' });
-        console.log(`🤖 Chat ${chat.phone} devuelto a la IA.`);
-    } catch (e) {
-        console.error("Error notificando al agente:", e.message);
-    }
+  chat.needsIntervention = false;
+  chat.interventionReason = null;
 
-    saveChats(); // PERSIST
-    res.json({ success: true, chat });
+  // Notificar al Agente AI para que retome el control (Puerto 3000)
+  try {
+    await fetch(`http://localhost:3000/api/agent/session/reset/${chat.phone}`, { method: 'POST' });
+    console.log(`🤖 Chat ${chat.phone} devuelto a la IA.`);
+  } catch (e) {
+    console.error("Error notificando al agente:", e.message);
+  }
+
+  saveChats(); // PERSIST
+  res.json({ success: true, chat });
 });
 
 // Endpoint para proxy de imágenes (WhatsApp bloquea los enlaces directos en el navegador)
 app.get('/api/proxy-image', async (req, res) => {
-    const imageUrl = req.query.url;
-    if (!imageUrl) return res.sendStatus(400);
+  const imageUrl = req.query.url;
+  if (!imageUrl) return res.sendStatus(400);
 
-    try {
-        console.log("📷 Proxying image from Meta:", imageUrl.substring(0, 50) + "...");
-        const response = await fetch(imageUrl, {
-            headers: { 'Authorization': `Bearer ${metaConfig.accessToken}` }
-        });
-        const buffer = await response.arrayBuffer();
-        res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
-        res.send(Buffer.from(buffer));
-    } catch (err) {
-        console.error("❌ Error proxying image:", err);
-        res.sendStatus(500);
-    }
+  try {
+    console.log("📷 Proxying image from Meta:", imageUrl.substring(0, 50) + "...");
+    const response = await fetch(imageUrl, {
+      headers: { 'Authorization': `Bearer ${metaConfig.accessToken}` }
+    });
+    const buffer = await response.arrayBuffer();
+    res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
+    res.send(Buffer.from(buffer));
+  } catch (err) {
+    console.error("❌ Error proxying image:", err);
+    res.sendStatus(500);
+  }
 });
 
 const PORT = 3005;

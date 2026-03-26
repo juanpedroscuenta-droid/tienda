@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
+import {
   MessageSquare, Search, Filter,
-  MoreVertical, Phone, Mail, 
+  MoreVertical, Phone, Mail,
   Send, Paperclip, CheckCheck,
   MessageCircle, Star,
   CheckSquare, Settings,
@@ -27,7 +27,7 @@ export const CRMWhatsAppPanel = () => {
   const [businessId, setBusinessId] = useState('');
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const isFetchingRef = useRef(false);
-  
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -75,7 +75,7 @@ export const CRMWhatsAppPanel = () => {
     const poll = async () => {
       // Evitar peticiones concurrentes si una ya está en curso
       if (isFetchingRef.current) return;
-      
+
       // Solo poll si la ventana está activa y visible
       if (document.visibilityState === 'visible' && document.hasFocus()) {
         try {
@@ -89,7 +89,7 @@ export const CRMWhatsAppPanel = () => {
         }
       }
 
-      
+
       if (isMounted) {
         // Reducimos frecuencia si no hay foco para ahorrar recursos (ej. 10s)
         const delay = document.hasFocus() ? 3000 : 10000;
@@ -156,24 +156,24 @@ export const CRMWhatsAppPanel = () => {
       await fetch('http://localhost:3005/api/crm/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          accessToken, 
-          phoneId, 
-          businessId 
+        body: JSON.stringify({
+          accessToken,
+          phoneId,
+          businessId
         })
       });
       fetchChats();
-    } catch(e) {
+    } catch (e) {
       console.error('Error connecting API:', e);
     }
   };
 
   return (
     <div className="flex h-[calc(100vh-100px)] bg-[#F8FAFC] border border-slate-200 rounded-xl overflow-hidden shadow-sm font-inter">
-      
+
       {/* Inbox List Sidebar */}
       <div className="w-[320px] lg:w-[380px] bg-white border-r border-slate-200 flex flex-col h-full flex-shrink-0">
-        
+
         {/* Inbox Header */}
         <div className="p-4 flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -195,8 +195,8 @@ export const CRMWhatsAppPanel = () => {
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
-                   {/* ... content remains same ... */}
-                   <DialogHeader>
+                  {/* ... content remains same ... */}
+                  <DialogHeader>
                     <DialogTitle>Credenciales Meta API</DialogTitle>
                     <DialogDescription>
                       Actualiza tu Access Token y Phone ID para enviar mensajes reales.
@@ -226,11 +226,11 @@ export const CRMWhatsAppPanel = () => {
               </Dialog>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2 border border-slate-100 bg-slate-50 rounded-lg px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-blue-100 transition-all">
             <Search className="h-4 w-4 text-slate-400" />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Buscar conversaciones..."
               className="bg-transparent border-none outline-none flex-1 text-slate-600 placeholder:text-slate-400 font-medium"
             />
@@ -250,14 +250,13 @@ export const CRMWhatsAppPanel = () => {
         <ScrollArea className="flex-1">
           <div className="flex flex-col">
             {chats.map((chat) => (
-              <div 
+              <div
                 key={chat.id}
                 onClick={() => setActiveChat(chat.id)}
-                className={`flex gap-3 px-4 py-4 cursor-pointer transition-all border-l-2 ${
-                  activeChat === chat.id 
-                  ? 'bg-blue-50/60 border-blue-600' 
-                  : 'hover:bg-slate-50 border-transparent'
-                }`}
+                className={`flex gap-3 px-4 py-4 cursor-pointer transition-all border-l-2 ${activeChat === chat.id
+                    ? 'bg-blue-50/60 border-blue-600'
+                    : 'hover:bg-slate-50 border-transparent'
+                  }`}
               >
                 <div className="relative">
                   <Avatar className="h-11 w-11 border border-slate-200 bg-slate-100 ring-2 ring-white">
@@ -269,14 +268,13 @@ export const CRMWhatsAppPanel = () => {
                     </div>
                   )}
                   {chat.needsIntervention && (
-                    <div className={`absolute -top-1 -left-1 rounded-full p-1 border-2 border-white shadow-md animate-bounce ${
-                      chat.interventionType === 'payment' ? 'bg-green-500' : 'bg-red-500'
-                    }`}>
+                    <div className={`absolute -top-1 -left-1 rounded-full p-1 border-2 border-white shadow-md animate-bounce ${chat.interventionType === 'payment' ? 'bg-green-500' : 'bg-red-500'
+                      }`}>
                       <AlertCircle className="h-3 w-3 text-white" />
                     </div>
                   )}
                 </div>
-                
+
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
                   <div className="flex items-center justify-between mb-0.5">
                     <h4 className={`text-[14px] truncate pr-2 ${activeChat === chat.id ? 'font-bold text-slate-900' : 'font-semibold text-slate-800'}`}>
@@ -284,7 +282,7 @@ export const CRMWhatsAppPanel = () => {
                     </h4>
                     <span className="text-[11px] text-slate-400 font-medium">{chat.time}</span>
                   </div>
-                  
+
                   <div className="flex items-center justify-between gap-2">
                     <p className={`text-[12.5px] truncate max-w-[180px] ${chat.unread > 0 ? 'text-slate-700 font-semibold italic' : 'text-slate-500'}`}>
                       {chat.lastMessage}
@@ -311,17 +309,15 @@ export const CRMWhatsAppPanel = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="relative">
-                    <Avatar className={`h-10 w-10 border bg-slate-150 text-slate-600 ring-2 transition-all ${
-                      currentChatDetail.needsIntervention && currentChatDetail.interventionType === 'payment'
-                      ? 'ring-green-400 shadow-[0_0_15px_rgba(34,197,94,0.4)] border-green-200'
-                      : 'ring-slate-50 border-slate-100'
-                    }`}>
+                    <Avatar className={`h-10 w-10 border bg-slate-150 text-slate-600 ring-2 transition-all ${currentChatDetail.needsIntervention && currentChatDetail.interventionType === 'payment'
+                        ? 'ring-green-400 shadow-[0_0_15px_rgba(34,197,94,0.4)] border-green-200'
+                        : 'ring-slate-50 border-slate-100'
+                      }`}>
                       <AvatarFallback className="font-bold text-sm">{currentChatDetail.avatar}</AvatarFallback>
                     </Avatar>
                     {currentChatDetail.needsIntervention && (
-                      <div className={`absolute -top-1 -left-1 rounded-full p-1 border-2 border-white shadow-sm animate-bounce ${
-                        currentChatDetail.interventionType === 'payment' ? 'bg-green-500' : 'bg-red-500'
-                      }`}>
+                      <div className={`absolute -top-1 -left-1 rounded-full p-1 border-2 border-white shadow-sm animate-bounce ${currentChatDetail.interventionType === 'payment' ? 'bg-green-500' : 'bg-red-500'
+                        }`}>
                         <AlertCircle className="h-3 w-3 text-white" />
                       </div>
                     )}
@@ -341,16 +337,15 @@ export const CRMWhatsAppPanel = () => {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-3">
-                  <Button 
+                  <Button
                     variant={currentChatDetail.needsIntervention ? "default" : "outline"}
                     onClick={currentChatDetail.needsIntervention ? handleReleaseToAgent : handleStopAgent}
-                    className={`h-9 px-4 font-bold text-[11px] gap-2 shadow-sm uppercase tracking-tighter transition-all ${
-                      currentChatDetail.needsIntervention 
-                      ? "bg-blue-600 hover:bg-blue-700 text-white" 
-                      : "border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                    }`}
+                    className={`h-9 px-4 font-bold text-[11px] gap-2 shadow-sm uppercase tracking-tighter transition-all ${currentChatDetail.needsIntervention
+                        ? "bg-blue-600 hover:bg-blue-700 text-white"
+                        : "border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                      }`}
                   >
                     <MessageCircle className="h-3.5 w-3.5" />
                     {currentChatDetail.needsIntervention ? "ACTIVAR AGENTE IA" : "DETENER AGENTE IA"}
@@ -359,11 +354,10 @@ export const CRMWhatsAppPanel = () => {
               </div>
 
               {currentChatDetail.needsIntervention && (
-                <div className={`mt-2 mb-1 border rounded-lg p-2.5 flex items-center gap-3 animate-in slide-in-from-top-2 ${
-                  currentChatDetail.interventionType === 'payment' 
-                  ? 'bg-green-50 border-green-100' 
-                  : 'bg-red-50 border-red-100'
-                }`}>
+                <div className={`mt-2 mb-1 border rounded-lg p-2.5 flex items-center gap-3 animate-in slide-in-from-top-2 ${currentChatDetail.interventionType === 'payment'
+                    ? 'bg-green-50 border-green-100'
+                    : 'bg-red-50 border-red-100'
+                  }`}>
                   <div className={`${currentChatDetail.interventionType === 'payment' ? 'bg-green-500' : 'bg-red-500'} p-1.5 rounded-full`}>
                     <AlertCircle className="h-4 w-4 text-white" />
                   </div>
@@ -376,14 +370,13 @@ export const CRMWhatsAppPanel = () => {
                     </p>
                   </div>
                   <div className="flex gap-2 items-center">
-                    <Badge className={`text-[10px] ${
-                      currentChatDetail.interventionType === 'payment' 
-                      ? 'bg-green-100 text-green-600 border-green-200' 
-                      : 'bg-red-100 text-red-600 border-red-200'
-                    }`}>
+                    <Badge className={`text-[10px] ${currentChatDetail.interventionType === 'payment'
+                        ? 'bg-green-100 text-green-600 border-green-200'
+                        : 'bg-red-100 text-red-600 border-red-200'
+                      }`}>
                       {currentChatDetail.interventionType === 'payment' ? 'PAGO PENDIENTE' : 'ALERTA CRÍTICA'}
                     </Badge>
-                    <Button 
+                    <Button
                       onClick={handleReleaseToAgent}
                       className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] h-7 px-3 font-bold rounded-lg transition-all shadow-sm"
                     >
@@ -397,7 +390,7 @@ export const CRMWhatsAppPanel = () => {
             {/* Chat Messages */}
             <ScrollArea className="flex-1 bg-[#F0F2F5] px-6 py-6" id="chat-messages-area" ref={scrollAreaRef}>
               <div className="flex flex-col gap-6 max-w-4xl mx-auto pb-4">
-                
+
                 <div className="flex justify-center mb-4 mt-2">
                   <span className="bg-white border border-slate-200 text-slate-500 text-[11px] font-bold py-1 px-4 rounded-full shadow-sm">
                     HOY
@@ -422,10 +415,10 @@ export const CRMWhatsAppPanel = () => {
                                 </audio>
                               </div>
                             ) : (
-                              <img 
-                                src={`http://localhost:3005/api/proxy-image?url=${encodeURIComponent(msg.imageUrl)}`} 
-                                alt="Adjunto" 
-                                className="rounded-xl mb-1.5 w-full object-cover max-h-[300px] border border-slate-100 cursor-pointer hover:opacity-90 transition-opacity" 
+                              <img
+                                src={`http://localhost:3005/api/proxy-image?url=${encodeURIComponent(msg.imageUrl)}`}
+                                alt="Adjunto"
+                                className="rounded-xl mb-1.5 w-full object-cover max-h-[300px] border border-slate-100 cursor-pointer hover:opacity-90 transition-opacity"
                                 onClick={() => setSelectedImageUrl(`http://localhost:3005/api/proxy-image?url=${encodeURIComponent(msg.imageUrl)}`)}
                               />
                             )
@@ -441,32 +434,32 @@ export const CRMWhatsAppPanel = () => {
                         </div>
                       </div>
                     ) : (msg.sender === 'assistant' || msg.sender === 'bot') ? (
-                       /* Bot/Agent Outbound (Grey style or specific) */
-                       <div className="flex items-end gap-2 max-w-[85%] self-end">
-                          <div className="bg-[#f0f0f0] border border-slate-300/50 py-2.5 px-4 rounded-2xl rounded-br-sm shadow-sm relative group">
-                            <p className="text-[14.5px] text-slate-700 leading-relaxed font-bold italic">
-                              🤖 {msg.content}
-                            </p>
-                            <div className="flex items-center justify-end gap-1 mt-1.5">
-                              <span className="text-[10px] text-slate-500 font-bold uppercase">{msg.time}</span>
-                              <CheckCheck className="h-3 w-3 text-slate-400" />
-                            </div>
+                      /* Bot/Agent Outbound (Grey style or specific) */
+                      <div className="flex items-end gap-2 max-w-[85%] self-end">
+                        <div className="bg-[#f0f0f0] border border-slate-300/50 py-2.5 px-4 rounded-2xl rounded-br-sm shadow-sm relative group">
+                          <p className="text-[14.5px] text-slate-700 leading-relaxed font-bold italic">
+                            🤖 {msg.content}
+                          </p>
+                          <div className="flex items-center justify-end gap-1 mt-1.5">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase">{msg.time}</span>
+                            <CheckCheck className="h-3 w-3 text-slate-400" />
                           </div>
-                       </div>
+                        </div>
+                      </div>
                     ) : msg.isCampaign ? (
                       /* Campaign Outbound */
-                     <div className="flex items-end gap-2 max-w-[85%] self-end">
+                      <div className="flex items-end gap-2 max-w-[85%] self-end">
                         <div className="bg-[#E7F3FF] border border-blue-200/50 p-1.5 rounded-2xl rounded-br-sm shadow-sm relative w-[340px]">
-                           <div className="bg-white rounded-xl p-3.5 mb-1.5 border border-blue-50">
-                              <p className="text-sm font-bold text-slate-900 mb-1">{msg.campaignTitle}</p>
-                              <p className="text-[13px] text-slate-600 line-clamp-3 leading-relaxed">{msg.content}</p>
-                           </div>
-                           <div className="flex items-center justify-between px-3 pb-1 pt-1">
-                              <span className="text-[10px] text-blue-600 font-bold uppercase tracking-tight">Campaña Activa</span>
-                              <span className="text-[10px] text-blue-700 font-bold flex items-center gap-1 uppercase">
-                                {msg.time} {msg.read && <CheckCheck className="h-3.5 w-3.5 fill-current" />}
-                              </span>
-                           </div>
+                          <div className="bg-white rounded-xl p-3.5 mb-1.5 border border-blue-50">
+                            <p className="text-sm font-bold text-slate-900 mb-1">{msg.campaignTitle}</p>
+                            <p className="text-[13px] text-slate-600 line-clamp-3 leading-relaxed">{msg.content}</p>
+                          </div>
+                          <div className="flex items-center justify-between px-3 pb-1 pt-1">
+                            <span className="text-[10px] text-blue-600 font-bold uppercase tracking-tight">Campaña Activa</span>
+                            <span className="text-[10px] text-blue-700 font-bold flex items-center gap-1 uppercase">
+                              {msg.time} {msg.read && <CheckCheck className="h-3.5 w-3.5 fill-current" />}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -485,7 +478,7 @@ export const CRMWhatsAppPanel = () => {
                     )}
                   </React.Fragment>
                 ))}
-                
+
                 {/* Scroll Bottom Anchor */}
                 <div ref={scrollRef} />
               </div>
@@ -496,9 +489,9 @@ export const CRMWhatsAppPanel = () => {
               <Button variant="ghost" size="icon" className="h-11 w-11 rounded-full text-slate-500 hover:text-blue-600 hover:bg-blue-50 flex-shrink-0">
                 <Paperclip className="h-5 w-5" />
               </Button>
-              
+
               <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl flex items-end focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all p-1">
-                <textarea 
+                <textarea
                   placeholder="Escribe un mensaje..."
                   className="w-full bg-transparent border-none outline-none resize-none max-h-32 min-h-[44px] py-2.5 px-3 text-[15px] text-slate-700 placeholder:text-slate-400"
                   rows={1}
@@ -513,7 +506,7 @@ export const CRMWhatsAppPanel = () => {
                 />
               </div>
 
-              <Button 
+              <Button
                 className="h-11 w-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm flex-shrink-0"
                 onClick={handleSendMessage}
               >
@@ -579,15 +572,15 @@ export const CRMWhatsAppPanel = () => {
           </div>
         )}
       </div>
-      
+
       {/* Full Size Image Modal */}
       <Dialog open={!!selectedImageUrl} onOpenChange={(open) => !open && setSelectedImageUrl(null)}>
         <DialogContent className="max-w-[90vw] max-h-[90vh] p-1 bg-transparent border-none shadow-none flex items-center justify-center">
           {selectedImageUrl && (
-            <img 
-              src={selectedImageUrl} 
-              alt="Full view" 
-              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" 
+            <img
+              src={selectedImageUrl}
+              alt="Full view"
+              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
             />
           )}
         </DialogContent>
