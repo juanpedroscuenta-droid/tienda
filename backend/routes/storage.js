@@ -20,29 +20,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         const bucket = '24';
         const folder = req.body.folder || 'general';
         
-        // 1. PROCESAR CON SHARP SI ES IMAGEN
-        let finalBuffer = file.buffer;
-        let finalFileName = file.originalname.replace(/\..+$/, '').replace(/\s+/g, '_');
-        let contentType = file.mimetype;
-
-        if (file.mimetype.startsWith('image/')) {
-            // Optimizar manteniendo el formato original (JPG o PNG)
-            const isPng = file.mimetype === 'image/png';
-            const isJpeg = file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg';
-
-            if (isPng) {
-                finalBuffer = await sharp(file.buffer).png({ quality: 80 }).toBuffer();
-            } else if (isJpeg) {
-                finalBuffer = await sharp(file.buffer).jpeg({ quality: 80 }).toBuffer();
-            } else {
-                finalBuffer = file.buffer;
-            }
-            
-            finalFileName = file.originalname.replace(/\s+/g, '_');
-            contentType = file.mimetype;
-        } else {
-            finalFileName = file.originalname.replace(/\s+/g, '_');
-        }
+        // 1. USAR EL BUFFER ORIGINAL (SIN OPTIMIZACIÓN)
+        const finalBuffer = file.buffer;
+        const finalFileName = file.originalname.replace(/\s+/g, '_');
+        const contentType = file.mimetype;
 
         const remotePath = `${folder}/${Date.now()}-${finalFileName}`;
 

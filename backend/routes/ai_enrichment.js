@@ -125,7 +125,7 @@ router.post('/generate-image', authenticateToken, isAdmin, async (req, res) => {
         
         const timestamp = Date.now();
         const folder = category?.toLowerCase().replace(/\s+/g, '_') || 'varios';
-        const remotePath = `products/${folder}/${cleanName}_${timestamp}.webp`; // Cambio a .webp
+        const remotePath = `products/${folder}/${cleanName}_${timestamp}.png`;
 
         // Prompt optimizado con marca de agua
         const imagePrompt = `Professional product studio photography of ${productName}, solid white background, high resolution 4k, cinematic lighting, sharp focus on mechanical details, industrial spare part aesthetic, with a small subtle semi-transparent watermark text 'r.repuestos 24/7' in the bottom right corner.`;
@@ -133,13 +133,8 @@ router.post('/generate-image', authenticateToken, isAdmin, async (req, res) => {
         // 1. Generar imagen
         const imageBufferPng = await generateGeminiImage(imagePrompt);
 
-        // 2. CONVERTIR A WEBP (optimización)
-        const imageBufferWebp = await sharp(imageBufferPng)
-            .webp({ quality: 80 })
-            .toBuffer();
-
-        // 3. Subir a Supabase
-        const imageUrl = await uploadToSupabase(imageBufferWebp, remotePath, 'image/webp');
+        // 2. Subir a Supabase (sin conversión a WebP)
+        const imageUrl = await uploadToSupabase(imageBufferPng, remotePath, 'image/png');
 
         res.json({
             success: true,

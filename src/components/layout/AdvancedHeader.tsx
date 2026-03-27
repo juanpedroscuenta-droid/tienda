@@ -313,7 +313,88 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 </div>
                 <span className="text-[10px] uppercase font-bold tracking-wider">Favoritos</span>
               </button>
-              {/* Favorites Dropdown Overlay (Moved to shared logic below) */}
+              {showFavoritesMenu && (
+                <div
+                  className="absolute top-full right-0 w-80 z-[160] pointer-events-none transition-all duration-300 opacity-100 translate-y-0"
+                  onMouseEnter={() => {
+                    if (favoritesMenuTimer.current) clearTimeout(favoritesMenuTimer.current);
+                    setShowFavoritesMenu(true);
+                  }}
+                  onMouseLeave={() => {
+                    if (favoritesMenuTimer.current) clearTimeout(favoritesMenuTimer.current);
+                    favoritesMenuTimer.current = setTimeout(() => setShowFavoritesMenu(false), 200);
+                  }}
+                >
+                  <div className="bg-white text-gray-900 shadow-[0_10px_40px_rgba(0,0,0,0.2)] border border-gray-100 rounded-xl overflow-hidden p-4 mt-1 pointer-events-auto">
+                    <div className="flex items-center justify-between mb-4 px-1">
+                      <h3 className="text-sm font-black text-gray-900">Favoritos</h3>
+                      <Badge variant="secondary" className="text-[10px] font-black bg-gray-100 text-gray-600 rounded-full h-5">{favorites.length}</Badge>
+                    </div>
+
+                    {favorites.length === 0 ? (
+                      <div className="py-10 text-center">
+                        <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <Heart className="w-6 h-6 text-gray-300" />
+                        </div>
+                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Tu lista está vacía</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                          {favorites.slice(0, 5).map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-xl group/fav transition-all duration-200 border border-transparent hover:border-gray-100 cursor-pointer"
+                              onClick={() => {
+                                navigate(`/producto/${slugify(item.name)}`);
+                                setShowFavoritesMenu(false);
+                              }}
+                            >
+                              <div className="w-16 h-16 bg-white rounded-lg overflow-hidden flex-shrink-0 border border-gray-100 p-1">
+                                <img
+                                  src={item.image || '/placeholder.png'}
+                                  alt={item.name}
+                                  className="w-full h-full object-contain group-hover/fav:scale-105 transition-transform duration-500"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-bold text-gray-900 line-clamp-2 leading-tight group-hover/fav:text-blue-600 transition-colors">
+                                  {item.name}
+                                </p>
+                                <p className="text-xs font-black text-gray-900 mt-1">${item.price?.toLocaleString('es-CO')}</p>
+                              </div>
+                              <button
+                                className="w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFavorite(item);
+                                }}
+                              >
+                                <Heart className="w-4 h-4 fill-current transition-colors" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+
+                        {favorites.length > 5 && (
+                          <div className="py-2 text-center border-t border-gray-50 mt-2">
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                              + {favorites.length - 5} artículos más
+                            </p>
+                          </div>
+                        )}
+
+                        <button
+                          onClick={() => { navigate('/favoritos'); setShowFavoritesMenu(false); }}
+                          className="w-full mt-4 bg-white border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white py-3 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 transform active:scale-[0.98]"
+                        >
+                          Ver todos los favoritos
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Mobile Favorites Button (Always navigates) */}
@@ -353,7 +434,87 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 <User className="w-6 h-6 stroke-[1.5px]" />
                 <span className="text-[10px] uppercase font-bold tracking-wider hidden md:block">Mi cuenta</span>
               </button>
-              {/* Account Dropdown Overlay (Moved to shared logic below) */}
+              {showAccountMenu && (
+                <div
+                  className="absolute top-full right-0 w-[280px] max-w-[calc(100vw-32px)] z-[160] pointer-events-none transition-all duration-300 opacity-100 translate-y-0"
+                  onMouseEnter={() => {
+                    if (accountMenuTimer.current) clearTimeout(accountMenuTimer.current);
+                    setShowAccountMenu(true);
+                  }}
+                  onMouseLeave={() => {
+                    if (accountMenuTimer.current) clearTimeout(accountMenuTimer.current);
+                    accountMenuTimer.current = setTimeout(() => setShowAccountMenu(false), 150);
+                  }}
+                >
+                  <div className="bg-white text-gray-900 shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-50 rounded-[28px] overflow-hidden p-6 mt-1 pointer-events-auto">
+                    {user ? (
+                      <div className="flex flex-col">
+                        <div className="mb-4">
+                          <p className="text-[17px] font-black text-gray-900">Hola, {user.email?.split('@')[0]}</p>
+                        </div>
+
+                        <div className="flex flex-col space-y-1">
+                          <button
+                            onClick={() => { navigate('/perfil'); setShowAccountMenu(false); }}
+                            className="w-full text-left px-4 py-3 bg-[#f2f2f2] rounded-2xl text-[15px] font-bold text-gray-800 transition-colors"
+                          >
+                            Perfil
+                          </button>
+                          <button
+                            onClick={() => { navigate('/perfil?tab=addresses'); setShowAccountMenu(false); }}
+                            className="w-full text-left px-4 py-3 rounded-2xl text-[15px] font-bold text-gray-800 hover:bg-gray-50 transition-colors"
+                          >
+                            Mis direcciones
+                          </button>
+                          <button
+                            onClick={() => { navigate('/perfil?tab=orders'); setShowAccountMenu(false); }}
+                            className="w-full text-left px-4 py-3 rounded-2xl text-[15px] font-bold text-gray-800 hover:bg-gray-50 transition-colors"
+                          >
+                            Mis pedidos
+                          </button>
+
+                          {(user.isAdmin || user.subCuenta === "si") && (
+                            <button
+                              onClick={() => { navigate('/admin'); setShowAccountMenu(false); }}
+                              className="w-full text-left px-4 py-3 rounded-2xl text-[15px] font-bold text-gray-800 hover:bg-gray-50 transition-colors"
+                            >
+                              Panel Administrador
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="mt-6">
+                          <button
+                            onClick={async () => { await logout(); setShowAccountMenu(false); }}
+                            className="w-full py-3 px-4 border border-gray-900 text-gray-900 rounded-[12px] font-black text-[13px] uppercase tracking-widest transition-all hover:bg-gray-900 hover:text-white"
+                          >
+                            CERRAR SESIÓN
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col space-y-4">
+                        <div className="mb-2">
+                          <p className="text-base font-black text-gray-900 uppercase tracking-tight">Bienvenido</p>
+                          <p className="text-xs font-medium text-gray-400">Accede a tu cuenta 24/7</p>
+                        </div>
+                        <button
+                          onClick={() => { navigate('/login'); setShowAccountMenu(false); }}
+                          className="w-full py-3.5 bg-gray-900 text-white rounded-xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-black transition-all"
+                        >
+                          Ingresar
+                        </button>
+                        <button
+                          onClick={() => { navigate('/register'); setShowAccountMenu(false); }}
+                          className="w-full py-3.5 border-2 border-gray-900 text-gray-900 rounded-xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-gray-900 hover:text-white transition-all"
+                        >
+                          Registrarme
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Cart */}
@@ -492,6 +653,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 {[
                   { name: 'Cotización', path: '/cotizacion' },
                   { name: 'Promociones', path: '/promociones' },
+                  { name: 'Tienda', path: '/?tienda=true' },
                   { name: 'Categorías', action: () => setMenuView('categories') }
                 ].map((item: any) => (
                   <button
