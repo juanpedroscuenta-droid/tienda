@@ -31,10 +31,10 @@ function saveChats() {
 }
 
 let metaConfig = {
-  accessToken: 'EAAQPOigEjZCwBQ4x8yKC0dOrk4BvRf02AKRIMxtFUC5qas2HPkywlBpDY38BNvyxcINx07guKIF74GiHr2D8rypN08uiPZBNTkBTu8ZBhnFiCqX8lzB7lNgzZAomQHs4iAPfFz9GeavVBbZAwKezFCTxXPPxyEEklPpVTn8P2AxGfAIvzQAZAcZCNu8EFWpNwArv1jsCafZCFFYqZAgw0yEwJ34jFmLt7ZB3HxBsPfT0ISNMCaOZB8ObxbpTOS66pYs8DwJqRoaMos6Tl5tiAgvhImtjUsRkGRpH8TZBdAZDZD',
+  accessToken: 'EAAQPOigEjZCwBREAT2UzEEvC9idh8Tu5ZCJyhsSFPlRIicvKFuExAzdRlfAlIs3leZAZCsDveWWZBS9lMQe3pOgl2YZCWlffcUscfBbvNHj7icF24UURLZC5yF2e0O6etebVZCVFcdX00E1gZBukyTlCzZCxlh6NfQZBdsSwm90iDnP5YfEFO0tEthdbLbqofxcOpyh2O5MRYcXiakvXm0eGFwOUr7TChceOT3UILGYt0aLqiyxb1Dhn4UPx8NQcrelAo3YZAEq0ZCWGorUMsK9tdZCTZAngHkm6TTnOutqGwZDZD',
   phoneId: '833690719823401',
   businessId: '1029384756', // Dejamos el genérico o el que tenga
-  verifyToken: 'fuego_shop_wpp_token_2026'
+  verifyToken: 'hola'
 };
 
 // Config endpoint: Guardar credenciales de Meta Graph API
@@ -81,6 +81,7 @@ app.get('/webhook', (req, res) => {
 
 // WEBHOOK de Meta (Recibir mensajes entrantes)
 app.post('/webhook', async (req, res) => {
+  console.log('📡 [WEBHOOK] Petición recibida en /webhook', JSON.stringify(req.body, null, 2));
   let body = req.body;
   if (body.object) {
     if (body.entry && body.entry[0].changes && body.entry[0].changes[0].value.messages && body.entry[0].changes[0].value.messages[0]) {
@@ -243,7 +244,7 @@ app.post('/api/crm/chats/:id/messages', async (req, res) => {
   if (sender === 'agent' && metaConfig.accessToken && metaConfig.phoneId && chat.phone && chat.id !== 'system') {
     console.log(`🚀 Enviando mensaje en la vida real a ${chat.phone} usando Graph API...`);
     try {
-      const resp = await fetch(`https://graph.facebook.com/v18.0/${metaConfig.phoneId}/messages`, {
+      const resp = await fetch(`https://graph.facebook.com/v20.0/${metaConfig.phoneId}/messages`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${metaConfig.accessToken}`,
