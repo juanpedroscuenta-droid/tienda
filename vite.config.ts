@@ -41,8 +41,8 @@ export default defineConfig(({ mode }) => ({
       png: { quality: 80 },
       jpeg: { quality: 80 },
       jpg: { quality: 80 },
-      webp: { lossy: true, quality: 80 },
-      avif: { lossy: true, quality: 70 },
+      webp: { quality: 80 },
+      avif: { quality: 70 },
     }),
   ].filter(Boolean),
   resolve: {
@@ -65,18 +65,7 @@ export default defineConfig(({ mode }) => ({
     },
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          if (id.includes('node_modules')) {
-            if (id.includes('react')) return 'vendor-react';
-            if (id.includes('firebase')) return 'vendor-firebase';
-            if (id.includes('supabase')) return 'vendor-supabase';
-            if (id.includes('lucide-react')) return 'vendor-icons';
-            if (id.includes('framer-motion')) return 'vendor-animation';
-            if (id.includes('@radix-ui')) return 'vendor-ui-radix';
-            if (id.includes('recharts')) return 'vendor-charts';
-            return 'vendor';
-          }
-        },
+        // Removed flawed manualChunks to allow Vite to chunk node_modules safely
       },
     },
     chunkSizeWarningLimit: 800,
