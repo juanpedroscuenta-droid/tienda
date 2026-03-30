@@ -6,7 +6,9 @@ import { StepComponentProps } from '../types';
 import { FilterGroupsSelector } from './FilterGroupsSelector';
 import { fetchSuppliers, createSupplier } from '@/lib/api';
 import { Plus, Loader2, Building2 } from 'lucide-react';
+
 import { toast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
 
 interface Supplier {
   id: string;
@@ -31,6 +33,8 @@ export const BasicInfoStep: React.FC<StepComponentProps> = ({
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState('');
   const [creatingSupplier, setCreatingSupplier] = useState(false);
+  
+
 
   // Cargar proveedores
   useEffect(() => {
@@ -68,8 +72,11 @@ export const BasicInfoStep: React.FC<StepComponentProps> = ({
     }
   };
 
+
+
   return (
     <div className="space-y-6">
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Nombre y Marca */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:col-span-2">

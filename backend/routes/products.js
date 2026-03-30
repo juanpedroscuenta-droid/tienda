@@ -7,6 +7,7 @@ const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+const { scrapeProducts } = require('../utils/product-scraper');
 
 // Simple in-memory cache for category nodes to speed up recursive lookups
 let cachedCatNodes = null;
@@ -376,7 +377,22 @@ router.put('/:id', authenticateToken, isAdmin, async (req, res) => {
     }
 });
 
-// Delete product - PROTEGIDO
+// Scrape product from URL
+router.post('/scrape', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const { url } = req.body;
+        if (!url) {
+            return res.status(400).json({ error: 'URL is required' });
+        }
+
+        const scrapedData = await scrapeProducts(url);
+        res.json(scrapedData);
+    } catch (error) {
+        console.error('Error in /scrape:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { id } = req.params;

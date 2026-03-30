@@ -406,6 +406,24 @@ export const updateProduct = async (id: string, productData: any) => {
     return await response.json();
 }
 
+export const scrapeProduct = async (url: string) => {
+    const token = await getAuthToken();
+    const response = await fetchWithTimeout(`${API_BASE_URL}/products/scrape`, {
+        method: 'POST',
+        timeout: 60000, // Scrapping takes time
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ url }),
+    });
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Error al extraer información' }));
+        throw new Error(error.error || 'Error al extraer información');
+    }
+    return await response.json();
+}
+
 export const fetchOrders = async (userId?: string) => {
     try {
         const token = await getAuthToken();

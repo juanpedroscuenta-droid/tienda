@@ -31,7 +31,9 @@ interface ProductFormWizardProps {
   categories?: Array<{ id: string; name: string; parentId?: string | null }>;
   user?: any;
   liberta?: string;
+  initialData?: any;
 }
+
 
 export const ProductFormWizard: React.FC<ProductFormWizardProps> = ({
   selectedProductId,
@@ -39,8 +41,10 @@ export const ProductFormWizard: React.FC<ProductFormWizardProps> = ({
   onSave,
   categories: externalCategories,
   user,
-  liberta = 'no'
+  liberta = 'no',
+  initialData
 }) => {
+
   const [categories, setCategories] = useState<Array<{ id: string; name: string; parentId?: string | null }>>(externalCategories || []);
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(!!selectedProductId);
@@ -63,7 +67,8 @@ export const ProductFormWizard: React.FC<ProductFormWizardProps> = ({
     previousStep,
     resetWizard,
     canProceedToStep
-  } = useProductWizard(undefined, isEditing);
+  } = useProductWizard(initialData, isEditing);
+
 
   // Verificar si hay un borrador guardado al montar el componente
   useEffect(() => {

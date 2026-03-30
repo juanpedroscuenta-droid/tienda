@@ -18,6 +18,9 @@ import { db } from '@/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProductFormWizard } from './ProductFormWizard';
 import { CustomClock } from '@/components/ui/CustomClock';
+import { scrapeProduct } from '@/lib/api';
+import { Sparkles, Wand2 } from 'lucide-react';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +45,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { 
+  Globe, 
+  Zap, 
+  ChevronDown as ChevronDownIcon,
+  Search as SearchIcon
+} from 'lucide-react';
+
 
 
 // Utilidad para crear slugs SEO-friendly
@@ -93,6 +103,17 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
   const [priceMarkup, setPriceMarkup] = useState<number>(0);
   const [selectedProductIndices, setSelectedProductIndices] = useState<Set<number>>(new Set());
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const [scrapeUrl, setScrapeUrl] = useState('');
+  const [isScraping, setIsScraping] = useState(false);
+  const [initialScrapedData, setInitialScrapedData] = useState<any>(null);
+  const [showScrapeDialog, setShowScrapeDialog] = useState(false);
+  const [scrapingLogs, setScrapingLogs] = useState<string[]>([]);
+  const [scrapingTimer, setScrapingTimer] = useState(0);
+
+
+
+
 
 
   const isSupabase = typeof (db as any)?.from === 'function';
@@ -380,16 +401,131 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
   const handleWizardClose = () => {
     setShowWizard(false);
     setEditingProductId(null);
+    setInitialScrapedData(null);
     fetchProducts();
     if (onProductSelected) {
       onProductSelected();
     }
   };
 
+
   const handleAddProduct = () => {
     setEditingProductId(null);
+    setInitialScrapedData(null);
     setShowWizard(true);
   };
+
+  const handleScrape = async () => {
+    if (!scrapeUrl.trim()) {
+      toast({ variant: 'destructive', title: 'URL requerida', description: 'Por favor ingresa una URL válida.' });
+      return;
+    }
+
+    setIsScraping(true);
+    setScrapingLogs(['🔍 Iniciando análisis de la URL...']);
+    setScrapingTimer(0);
+    
+    // Contador de tiempo real
+    const timerInterval = setInterval(() => {
+      setScrapingTimer(prev => prev + 1);
+    }, 1000);
+
+    // Simulador de logs dinámico
+    const logSteps = [
+      '🤖 Iniciando motor de extracción ultra-rápido...',
+      '🌐 Intentando conexión directa con APIs de la tienda...',
+      '📂 Escaneando Índice de Sitemaps principal...',
+      '⚡ Mapeando catálogo completo (esto puede tardar unos segundos)...',
+      '🔗 Validando rutas de productos detectadas...',
+      '📸 Localizando fuentes de imágenes en CDNs...',
+      '📝 Preparando estructuración masiva de datos...',
+      '⚖️ Calculando precios y normalizando campos...'
+    ];
+
+    let logIndex = 0;
+    const logSimInterval = setInterval(() => {
+      if (logIndex < logSteps.length) {
+        setScrapingLogs(prev => [...prev, logSteps[logIndex]]);
+        logIndex++;
+      } else {
+        setScrapingLogs(prev => {
+          const lastLog = prev.length > 0 ? prev[prev.length - 1] : '';
+          if (lastLog && lastLog.includes('analizando')) return prev;
+          return [...prev, '⏳ Seguimos analizando el catálogo masivo, por favor mantén esta ventana abierta...'];
+        });
+      }
+    }, 2500);
+
+    try {
+      const data = await scrapeProduct(scrapeUrl.trim());
+      clearInterval(timerInterval);
+      clearInterval(logSimInterval);
+      
+      setScrapingLogs(prev => [...prev, `✅ ¡Catálogo extraído! Se encontraron ${data.length} productos.`]);
+
+      if (!data || data.length === 0) {
+        toast({ variant: 'destructive', title: 'Sin resultados', description: 'No pudimos extraer información de esta URL. Intenta con otra.' });
+        setScrapingLogs(prev => [...prev, '❌ Error: No se encontraron productos.']);
+        return;
+      }
+      
+      await new Promise(r => setTimeout(r, 1000));
+
+
+      // Si recibimos múltiples productos de un dominio masivo
+      if (data.length > 1) {
+        const items = data.map((product: any) => ({
+          name: product.name || 'Sin título',
+          price: product.price ? parseFloat(product.price.toString().replace(/[^\d.]/g, '')) : 0,
+          originalPrice: product.price ? parseFloat(product.price.toString().replace(/[^\d.]/g, '')) : 0,
+          brand: '',
+          reference: '',
+          discountText: '',
+          image: product.images && product.images.length > 0 ? product.images[0] : null,
+          categoryId: '',
+          description: product.description || ''
+        }));
+
+        setPendingImportProducts(items);
+        setSelectedProductIndices(new Set(items.map((_, i) => i)));
+        setIsImportView(true);
+        setShowScrapeDialog(false);
+        setScrapeUrl('');
+        toast({ title: '📦 Importación Masiva', description: `Se encontraron ${items.length} productos listos para procesar.` });
+        return;
+      }
+
+      const product = data[0]; 
+      
+      const normalizedData = {
+        name: product.name || '',
+        description: product.description || '',
+        price: product.price ? product.price.toString() : '',
+        originalPrice: product.price ? product.price.toString() : '',
+        image: product.images && product.images.length > 0 ? product.images[0] : '',
+        additionalImages: product.images && product.images.length > 1 
+          ? [...product.images.slice(1), '', '', ''].slice(0, 3) 
+          : ['', '', ''],
+      };
+
+      setInitialScrapedData(normalizedData);
+      setEditingProductId(null);
+      setShowWizard(true);
+      setScrapeUrl('');
+      setShowScrapeDialog(false);
+      
+      toast({ title: '✨ ¡Magia completada!', description: 'Hemos extraído la información y abierto el editor.', duration: 5000 });
+    } catch (err: any) {
+      clearInterval(logSimInterval);
+      setScrapingLogs(prev => [...prev, `❌ Error: ${err.message}`]);
+      toast({ variant: 'destructive', title: 'Error de extracción', description: err.message });
+    } finally {
+      setIsScraping(false);
+    }
+  };
+
+
+
 
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -758,11 +894,13 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
       <div className="space-y-4 max-w-full overflow-x-hidden">
         <ProductFormWizard
           selectedProductId={editingProductId}
+          initialData={initialScrapedData}
           onProductSelected={handleWizardClose}
           categories={categories}
           user={user}
           liberta={liberta}
         />
+
       </div>
     );
   }
@@ -1025,6 +1163,146 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
           >
             CREAR
           </Button>
+
+          {/* Botón de Importación Inteligente (Solo el trigger) */}
+          <div className="flex items-center gap-2 border-l border-slate-200 ml-2 pl-2">
+            <Button
+              onClick={() => setShowScrapeDialog(true)}
+              variant="outline"
+              size="sm"
+              className="h-9 border-blue-200 bg-blue-50/50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 transition-all flex items-center gap-2 px-4 shadow-sm"
+            >
+              <Sparkles className="h-4 w-4 animate-pulse" />
+              <span className="font-bold text-xs uppercase tracking-tight">Importación Inteligente</span>
+            </Button>
+          </div>
+
+          <Dialog open={showScrapeDialog} onOpenChange={setShowScrapeDialog}>
+            <DialogContent className="sm:max-w-[500px] border-blue-100 shadow-2xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-xl font-black text-blue-900">
+                  <Wand2 className="h-6 w-6 text-blue-600" />
+                  IMPORTACIÓN INTELIGENTE
+                </DialogTitle>
+                <DialogDescription className="text-slate-500 font-medium">
+                  Extrae productos automáticamente desde cualquier tienda online.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6 py-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                    <Globe className="h-4 w-4 text-blue-500" />
+                    URL del Dominio o Producto
+                  </div>
+                  <div className="relative group">
+                    <Input
+                      placeholder="https://tienda-ejemplo.com"
+                      value={scrapeUrl}
+                      onChange={(e) => setScrapeUrl(e.target.value)}
+                      className="h-12 bg-slate-50 border-2 border-slate-100 focus:border-blue-400 focus:ring-4 focus:ring-blue-50/50 transition-all font-bold text-slate-800 pr-10"
+                      disabled={isScraping}
+                    />
+                    <Zap className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                  </div>
+                  
+                  {isScraping && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-blue-800 bg-blue-100/50 p-2 rounded-lg border border-blue-100">
+                        <div className="flex items-center gap-2">
+                           <History className="h-3 w-3 animate-spin" />
+                           TIEMPO TRANSCURRIDO: <span className="font-black text-blue-900">{scrapingTimer}s</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <Zap className="h-3 w-3 text-yellow-600" />
+                           VELOCIDAD: <span className="font-black text-blue-900">ULTRA FAST</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-900 rounded-xl p-4 font-mono text-[11px] h-48 overflow-y-auto border border-slate-800 shadow-inner custom-scrollbar">
+                        <div className="flex items-center gap-2 text-green-400 mb-2 border-b border-white/10 pb-1">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                          </span>
+                          SISTEMA_DE_LOGS_ACTIVO (SCAN_V2)
+                        </div>
+                        <div className="space-y-1.5">
+                          {scrapingLogs.map((log, i) => (
+                            <div key={i} className="flex gap-2 animate-in fade-in slide-in-from-left-1 duration-300">
+                              <span className="text-slate-500 text-[9px] mt-0.5">[{new Date().toLocaleTimeString([], { hour12: false, second: '2-digit' })}]</span>
+                              <span className={(log || '').startsWith('✅') ? 'text-green-400 font-bold' : (log || '').startsWith('❌') ? 'text-red-400' : 'text-slate-300'}>
+                                {log}
+                              </span>
+                            </div>
+                          ))}
+                          <div className="animate-pulse text-blue-400 flex items-center gap-1 pl-12 h-4">
+                            <span className="inline-block w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="inline-block w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
+                            <span className="inline-block w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '400ms' }} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+
+                  {!isScraping && (
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                      <h5 className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        <Zap className="h-3 w-3" /> ¿Qué hace esta herramienta?
+                      </h5>
+                      <ul className="space-y-2">
+                        <li className="flex items-center gap-2 text-xs text-blue-700 font-medium">
+                          <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                          Si pones el <span className="font-bold underline">dominio</span>, buscaremos todo su catálogo.
+                        </li>
+                        <li className="flex items-center gap-2 text-xs text-blue-700 font-medium">
+                          <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                          Si pones el <span className="font-bold underline">link de un producto</span>, lo abriremos en el editor.
+                        </li>
+                        <li className="flex items-center gap-2 text-xs text-blue-700 font-medium">
+                          <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                          Funciona con Shopify, WooCommerce, Amazon y más.
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setShowScrapeDialog(false)}
+                  disabled={isScraping}
+                  className="font-bold uppercase text-xs"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleScrape}
+                  disabled={isScraping || !scrapeUrl.trim()}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-xs px-8 shadow-lg shadow-blue-100 transition-all active:scale-95"
+                >
+                  {isScraping ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Extrayendo...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      COMENZAR EXTRACCIÓN
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+
 
           <div className="flex items-center gap-1 border-l border-slate-200 ml-2 pl-2">
             <input
