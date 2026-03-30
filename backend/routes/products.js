@@ -28,14 +28,14 @@ async function getCatNodes() {
 // Get all published products (with pagination and filters)
 router.get('/', async (req, res) => {
     try {
-        const { 
-            limit = 24, 
-            offset = 0, 
-            category_id, 
-            category_name, 
+        const {
+            limit = 24,
+            offset = 0,
+            category_id,
+            category_name,
             search,
-            sort = 'updated_at',
-            order = 'desc'
+            sort = 'id', // Default to ID (UUID) for a perfectly stable random distribution of bulk imports
+            order = 'asc'
         } = req.query;
 
         let query = supabase
@@ -64,7 +64,7 @@ router.get('/', async (req, res) => {
             query = query.in('category_id', Array.from(catIds));
         } else if (category_name && category_name !== 'Todos' && category_name !== 'all') {
             const { data: targetCat } = await supabase.from('categories').select('id').ilike('name', category_name).maybeSingle();
-            
+
             if (targetCat) {
                 const catNodes = await getCatNodes();
                 const catIds = new Set([targetCat.id]);
@@ -77,7 +77,7 @@ router.get('/', async (req, res) => {
                     });
                 };
                 addChildren(targetCat.id);
-                
+
                 const idsString = Array.from(catIds).join(',');
                 query = query.or(`category_id.in.(${idsString}),category_name.ilike.%${category_name}%`);
             } else {
@@ -91,11 +91,11 @@ router.get('/', async (req, res) => {
         // Apply Pagination
         const start = parseInt(offset);
         const end = start + parseInt(limit) - 1;
-        
+
         const { data, count, error } = await query.range(start, end);
 
         if (error) throw error;
-        
+
         res.json({
             products: data,
             total: count,
@@ -148,14 +148,14 @@ router.get('/:slug', async (req, res) => {
             .eq('slug', slug)
             .is('is_published', true)
             .maybeSingle();
-        
+
         if (productBySlug && !slugError) return res.json(productBySlug);
 
         // 3. Fallback: Buscar por nombre similar (ilike) y luego filtrar con slugify en JS
         // Esto es mucho más eficiente que traer TODO. Traemos solo los que coinciden un poco con las palabras del slug.
         const searchTerms = slug.split('-').filter(t => t.length > 2);
         let query = supabase.from('products').select('*').is('is_published', true);
-        
+
         if (searchTerms.length > 0) {
             query = query.ilike('name', `%${searchTerms[0]}%`);
         } else {
@@ -181,7 +181,7 @@ router.get('/:slug', async (req, res) => {
                 .ilike('name', slug.replace(/-/g, ' '))
                 .limit(1)
                 .maybeSingle();
-            
+
             if (approx) return res.json(approx);
 
             return res.status(404).json({ error: 'Product not found' });

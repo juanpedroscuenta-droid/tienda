@@ -89,13 +89,20 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
     try {
       const offset = (currentPage - 1) * itemsPerPage;
 
+      const selectedSort = sortBy === 'relevance' ? 'id' : 
+                           sortBy === 'price-asc' ? 'price' : 
+                           sortBy === 'price-desc' ? 'price' : 
+                           sortBy === 'name' ? 'name' : 'updated_at'; // newest case
+      
+      const selectedOrder = (sortBy === 'price-asc' || sortBy === 'relevance' || sortBy === 'name') ? 'asc' : 'desc';
+
       const { products: fetchedProducts, total } = await fetchProductsApi({
         limit: itemsPerPage,
         offset: offset,
         category_name: selectedCategory === 'Todos' ? undefined : selectedCategory,
         search: searchTerm,
-        sort: sortBy === 'price-asc' ? 'price' : (sortBy === 'price-desc' ? 'price' : 'updated_at'),
-        order: sortBy === 'price-asc' ? 'asc' : 'desc'
+        sort: selectedSort,
+        order: selectedOrder
       });
 
       startTransition(() => {
@@ -421,10 +428,11 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                     <SelectValue placeholder="Orden por defecto" />
                   </SelectTrigger>
                   <SelectContent className="rounded-none border-gray-200">
-                    <SelectItem value="relevance">Orden por defecto</SelectItem>
+                    <SelectItem value="relevance">Orden por defecto (Mezcla)</SelectItem>
                     <SelectItem value="name">Alfabético</SelectItem>
                     <SelectItem value="price-asc">Menor precio</SelectItem>
                     <SelectItem value="price-desc">Mayor precio</SelectItem>
+                    <SelectItem value="newest">Más recientes</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

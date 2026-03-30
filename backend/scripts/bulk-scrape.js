@@ -25,7 +25,15 @@ async function bulkScrape(baseUrl) {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
     const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-    const shopUrl = `${cleanBase}tienda/`;
+    let storeSlug = 'tienda/';
+    if (baseUrl.includes('repuesto.co')) storeSlug = 'comprar/';
+    else if (baseUrl.includes('autoplanet.com.co')) storeSlug = 'shop/';
+    const shopUrl = `${cleanBase}${storeSlug}`;
+    
+    let domainName = 'default';
+    try { domainName = new URL(baseUrl).hostname.replace('www.', ''); } catch (e) {}
+    const jsonFile = `scraped_data_${domainName}.json`;
+    const sqlFile = `products_import_${domainName}.sql`;
     
     const allProducts = [];
     const uniqueCategories = new Set();
@@ -37,8 +45,26 @@ async function bulkScrape(baseUrl) {
             const pagUrl = i === 1 ? shopUrl : `${shopUrl}page/${i}/`;
             console.log(`🔎 Escaneando página ${i}: ${pagUrl}...`);
             
-            const response = await page.goto(pagUrl, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => null);
-            if (!response || !response.ok()) break;
+            let response = null;
+            for (let retries = 0; retries < 3; retries++) {
+                response = await page.goto(pagUrl, { waitUntil: 'domcontentloaded', timeout: 90000 }).catch(e => {
+                    console.log(`[Reintento ${retries+1}/3] Error navegando a ${pagUrl}: ${e.message}`);
+                    return null;
+                });
+                if (response && response.ok()) break;
+                if (response && response.status() === 404) break;
+                await new Promise(r => setTimeout(r, 8000));
+            }
+            
+            if (!response || !response.ok()) {
+                console.log(`Aviso repetido de error en ${pagUrl} - status: ${response ? response.status() : 'TIMEOUT'}`);
+                if (response && response.status() === 404) {
+                    console.log("Detectado 404, fin del catálogo.");
+                    break;
+                }
+                continue; // Saltamos la pág accidentada pero seguimos con la siguiente
+            }
+            await new Promise(r => setTimeout(r, 2000));
 
             await page.evaluate(async () => {
                 window.scrollBy(0, 1500);
@@ -72,14 +98,18 @@ async function bulkScrape(baseUrl) {
                 return results;
             });
 
-            if (pageProducts.length === 0) break;
+            if (pageProducts.length === 0) {
+                console.log("Tomando screenshot para depurar...");
+                await page.screenshot({ path: `debug_page_${i}.png`, fullPage: true });
+                break;
+            }
             allProducts.push(...pageProducts);
             pageProducts.forEach(p => p.categories.forEach(c => uniqueCategories.add(c)));
             
             console.log(`✅ Página ${i} terminada. Total: ${allProducts.length} productos.`);
             
             // Guardamos respaldo en cada página para que map-categories.js siempre tenga datos
-            fs.writeFileSync('scraped_data.json', JSON.stringify(allProducts, null, 2));
+            fs.writeFileSync(jsonFile, JSON.stringify(allProducts, null, 2));
         }
 
         console.log(`\n🎉 EXTRACCIÓN EXITOSA: ${allProducts.length} productos encontrados.`);
@@ -101,8 +131,8 @@ async function bulkScrape(baseUrl) {
         sqlContent += sqlLines.join(",\n") + ";\n";
         sqlContent += "COMMIT;";
 
-        fs.writeFileSync('products_import.sql', sqlContent);
-        console.log("💾 Archivo 'products_import.sql' regenerado.");
+        fs.writeFileSync(sqlFile, sqlContent);
+        console.log(`💾 Archivo '${sqlFile}' regenerado.`);
 
     } catch (error) {
         console.error("❌ Error:", error);

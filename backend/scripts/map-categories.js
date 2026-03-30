@@ -14,7 +14,12 @@ const escapeSQL = (str) => {
 
 const slugify = (text) => text?.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-').toLowerCase() || 'general';
 
-// Mapeo inteligente de palabras clave a categorias existentes
+const domainName = process.argv[2] || 'default';
+const mode = process.argv[3] || 'update';
+const inputFile = domainName === 'default' ? 'scraped_data.json' : `scraped_data_${domainName}.json`;
+const outputFile = domainName === 'default' ? 'products_mapped_final.sql' : `products_mapped_${domainName}.sql`;
+
+// Diccionario de palabras clave para mapeo automático
 const keywordMapping = {
     // ELÉCTRICOS
     'bujia': { cat: 'Eléctricos', sub: 'Bujias' },
@@ -55,10 +60,10 @@ const keywordMapping = {
 };
 
 async function mapCategories() {
-    console.log("📂 Cargando respaldo de productos...");
-    const dataPath = path.join(__dirname, '../scraped_data.json');
+    const dataPath = path.join(__dirname, '../', inputFile);
+    console.log(`📂 Cargando respaldo de productos de ${dataPath}...`);
     if (!fs.existsSync(dataPath)) {
-        console.error("❌ Error: No existe 'scraped_data.json'. Corre el scraper primero.");
+        console.error(`❌ Error: No se encontró el archivo ${dataPath}. ¡Asegúrate de ejecutar bulk-scrape.js primero!`);
         return;
     }
     const products = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
@@ -124,11 +129,21 @@ async function mapCategories() {
             }
         }
 
+        let fixedPrice = p.price;
+        if (fixedPrice > 0 && fixedPrice < 1000) {
+            fixedPrice = Math.floor(fixedPrice) * 1000;
+        } else {
+            fixedPrice = Math.floor(fixedPrice);
+        }
+
         const slug = slugify(p.name) + '-' + Math.floor(Math.random() * 1000);
         
-        return `(${escapeSQL(p.name)}, ${p.price}, ${p.price}, ${escapeSQL(p.image)}, true, 10, ${escapeSQL(slug)}, 
-        ${catId ? escapeSQL(catId) : '(SELECT id FROM categories WHERE name = ' + escapeSQL(catName) + ' LIMIT 1)'}, ${escapeSQL(catName)},
-        ${subcatId ? escapeSQL(subcatId) : (subcatName ? '(SELECT id FROM categories WHERE name = ' + escapeSQL(subcatName) + ' LIMIT 1)' : 'NULL')}, ${escapeSQL(subcatName)})`;
+        if (mode === 'insert') {
+            return `(${escapeSQL(p.name)}, ${escapeSQL('')}, ${fixedPrice}, ${fixedPrice}, ${escapeSQL(p.image)}, true, 10, ${escapeSQL(slug)}, false, false, ${escapeSQL(catName)}, 
+        ${catId ? escapeSQL(catId) : '(SELECT id FROM categories WHERE name = ' + escapeSQL(catName) + ' LIMIT 1)'}, ${escapeSQL(catName)})`;
+        } else {
+            return `UPDATE products SET price = ${fixedPrice}, original_price = ${fixedPrice}, category = ${escapeSQL(catName)}, category_id = ${catId ? escapeSQL(catId) : '(SELECT id FROM categories WHERE name = ' + escapeSQL(catName) + ' LIMIT 1)'}, category_name = ${escapeSQL(catName)} WHERE name = ${escapeSQL(p.name)};`;
+        }
     });
 
     if (pendingCats.size > 0) {
@@ -139,11 +154,23 @@ async function mapCategories() {
         sqlContent += "\n";
     }
 
-    sqlContent += "INSERT INTO products (name, price, original_price, image, is_published, stock, slug, category_id, category_name, subcategory, subcategory_name) \nVALUES \n";
-    sqlContent += sqlLines.join(",\n") + ";\n\nCOMMIT;";
+    // Mezclar sqlLines aleatoriamente para que los productos no se agrupen por tienda o pagina de forma secuencial
+    for (let i = sqlLines.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [sqlLines[i], sqlLines[j]] = [sqlLines[j], sqlLines[i]];
+    }
 
-    fs.writeFileSync('products_mapped_final.sql', sqlContent);
-    console.log(`✅ ¡Mapeo completado! Archivo 'products_mapped_final.sql' generado con ${products.length} productos.`);
+    if (mode === 'insert') {
+        sqlContent += "INSERT INTO products (name, description, price, original_price, image, is_published, stock, slug, is_offer, featured, category, category_id, category_name, created_at, updated_at) \nVALUES \n";
+        sqlContent += sqlLines.join(",\n") + ";\n\nCOMMIT;";
+    } else {
+        sqlContent += "-- ACTUALIZANDO PRODUCTOS EXISTENTES\n";
+        sqlContent += sqlLines.join("\n") + "\n\nCOMMIT;";
+    }
+
+    const outPath = path.join(__dirname, '../', outputFile);
+    fs.writeFileSync(outPath, sqlContent);
+    console.log(`✅ ¡Mapeo completado! Archivo '${outputFile}' generado con ${products.length} productos en la carpeta backend.`);
 }
 
 mapCategories();
