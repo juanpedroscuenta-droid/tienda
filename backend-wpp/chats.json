@@ -3,7 +3,7 @@
     "id": "573186218792",
     "name": "SEBASTIÁN AGUIRRE",
     "platform": "wpp",
-    "time": "14:19",
+    "time": "11:29",
     "unread": 82,
     "isStarred": false,
     "avatar": "SE",
@@ -1549,6 +1549,30 @@
         "content": "📸 Aquí tiene el código QR de Bold para su pago:",
         "sender": "assistant",
         "time": "14:19",
+        "type": "text",
+        "read": true
+      },
+      {
+        "id": "msg_1774628948617",
+        "content": "f",
+        "sender": "agent",
+        "time": "11:29",
+        "type": "text",
+        "read": true
+      },
+      {
+        "id": "msg_1774628988981",
+        "content": "k",
+        "sender": "agent",
+        "time": "11:29",
+        "type": "text",
+        "read": true
+      },
+      {
+        "id": "msg_1774628997335",
+        "content": "b",
+        "sender": "agent",
+        "time": "11:29",
         "type": "text",
         "read": true
       }

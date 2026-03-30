@@ -438,7 +438,14 @@ ${productContext}`;
                     needsIntervention = true;
                     reason = "Confirmación de Pago / Comprobante enviado";
                 } 
-                // 2. Detección de malestar/enojo
+                // 2. Detección de intención de compra
+                const purchaseKeywords = ["me interesa", "lo quiero", "la quiero", "comprar", "precio", "cuanto vale", "cuánto vale", "pásame el link", "pasame el link", "donde pago", "dónde pago"];
+                if (!needsIntervention && lowerInput && purchaseKeywords.some(k => lowerInput.includes(k))) {
+                    needsIntervention = true;
+                    reason = "Intención de compra detectada";
+                }
+
+                // 3. Detección de malestar/enojo
                 const angerKeywords = ["asesor", "humano", "persona", "ayuda", "atención", "atencion", "no me gusta", "molesto", "enojado", "mal servicio", "queja", "estafa", "no entiendo", "llamar", "llamada"];
                 if (!needsIntervention && lowerInput && angerKeywords.some(k => lowerInput.includes(k))) {
                     needsIntervention = true;
