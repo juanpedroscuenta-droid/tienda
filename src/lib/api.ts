@@ -4,8 +4,9 @@ import { supabase } from '@/supabase';
 import { parseFormattedPrice } from './utils';
 import { toast } from '@/hooks/use-toast';
 
-const hostname = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : '127.0.0.1';
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || `http://${hostname}:3001/api`;
+const hostname = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
+const protocol = typeof window !== 'undefined' ? window.location.protocol : 'http:';
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || `${protocol}//${hostname}:3001/api`;
 
 // Configuración de timeouts por defecto
 const DEFAULT_TIMEOUT = 25000; // 25 segundos para operaciones normales
