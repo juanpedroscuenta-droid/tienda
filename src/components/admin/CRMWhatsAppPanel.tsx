@@ -41,7 +41,7 @@ export const CRMWhatsAppPanel = () => {
     scrollToBottom();
   }, [currentChatDetail?.messages]);
 
-  const BACKEND_URL = 'http://localhost:3005/api/crm/chats';
+  const BACKEND_URL = '/api/crm/chats';
 
   const fetchChats = async () => {
     try {
@@ -128,7 +128,7 @@ export const CRMWhatsAppPanel = () => {
   const handleStopAgent = async () => {
     if (!activeChat) return;
     try {
-      await fetch(`http://localhost:3005/api/crm/chats/stop/${activeChat}`, {
+      await fetch(`/api/crm/chats/stop/${activeChat}`, {
         method: 'POST'
       });
       fetchChatDetail(activeChat);
@@ -140,7 +140,7 @@ export const CRMWhatsAppPanel = () => {
   const handleReleaseToAgent = async () => {
     if (!activeChat) return;
     try {
-      await fetch(`http://localhost:3005/api/crm/chats/release/${activeChat}`, {
+      await fetch(`/api/crm/chats/release/${activeChat}`, {
         method: 'POST'
       });
       fetchChatDetail(activeChat);
@@ -153,7 +153,7 @@ export const CRMWhatsAppPanel = () => {
     setIsConnectModalOpen(false);
     setIsSettingsModalOpen(false);
     try {
-      await fetch('http://localhost:3005/api/crm/config', {
+      await fetch('/api/crm/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -410,16 +410,16 @@ export const CRMWhatsAppPanel = () => {
                             msg.content === 'Nota de voz' ? (
                               <div className="mt-2 min-w-[200px]">
                                 <audio controls className="h-8 w-full">
-                                  <source src={`http://localhost:3005/api/proxy-image?url=${encodeURIComponent(msg.imageUrl)}`} type="audio/ogg" />
+                                  <source src={`/api/proxy-image?url=${encodeURIComponent(msg.imageUrl)}`} type="audio/ogg" />
                                   Tu navegador no soporta el audio.
                                 </audio>
                               </div>
                             ) : (
                               <img
-                                src={`http://localhost:3005/api/proxy-image?url=${encodeURIComponent(msg.imageUrl)}`}
+                                src={`/api/proxy-image?url=${encodeURIComponent(msg.imageUrl)}`}
                                 alt="Adjunto"
                                 className="rounded-xl mb-1.5 w-full object-cover max-h-[300px] border border-slate-100 cursor-pointer hover:opacity-90 transition-opacity"
-                                onClick={() => setSelectedImageUrl(`http://localhost:3005/api/proxy-image?url=${encodeURIComponent(msg.imageUrl)}`)}
+                                onClick={() => setSelectedImageUrl(`/api/proxy-image?url=${encodeURIComponent(msg.imageUrl)}`)}
                               />
                             )
                           )}
