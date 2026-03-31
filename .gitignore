@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Dependencies
 node_modules/
 dist/
@@ -31,3 +32,47 @@ Thumbs.db
 /apps/agents-service/processed_ids.json
 /apps/agents-service/backend-wpp/chats.json
 /apps/client/webp-images/products/
+=======
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Variables de entorno - NUNCA subir al repositorio
+.env
+.env.*
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Documentos sensibles
+informe_proyecto_24_7.tex
+
+# WhatsApp session data and dependencies
+backend-wpp/node_modules
+backend-wpp/session
+backend-wpp/.env
+
+backend-wpp/deploy.zip
+backend-wpp/chats.json
+>>>>>>> beaaf10f31fcae60d9c599b29e34632beae661ba

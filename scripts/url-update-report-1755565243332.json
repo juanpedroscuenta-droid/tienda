@@ -1,0 +1,12 @@
+{
+  "date": "2025-08-19T01:00:43.332Z",
+  "oldPath": "/imagenes/",
+  "newPath": "/imagenes_convertidas/",
+  "stats": {
+    "collectionsProcessed": 0,
+    "documentsProcessed": 0,
+    "imagesUpdated": 0,
+    "imagesSkipped": 0,
+    "errors": []
+  }
+}
