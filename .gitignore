@@ -1,3 +1,38 @@
+<<<<<<< HEAD
+# Dependencies
+node_modules/
+dist/
+.next/
+out/
+build/
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# Project Specific
+*.zip
+*.log
+*.sqlite
+/apps/agents-service/processed_ids.json
+/apps/agents-service/backend-wpp/chats.json
+/apps/client/webp-images/products/
+=======
 # Logs
 logs
 *.log
@@ -40,3 +75,4 @@ backend-wpp/.env
 
 backend-wpp/deploy.zip
 backend-wpp/chats.json
+>>>>>>> beaaf10f31fcae60d9c599b29e34632beae661ba
