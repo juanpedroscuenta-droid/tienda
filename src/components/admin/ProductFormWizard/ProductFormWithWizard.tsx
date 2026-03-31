@@ -1133,7 +1133,6 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
                             <span className="text-[10px] font-black text-red-600 uppercase tracking-tighter bg-red-50 border border-red-200 px-3 py-1 rounded-lg animate-pulse">
                               PENDIENTE
                             </span>
-                            <span className="text-[8px] text-red-400 font-bold mt-1 uppercase">Falta Categoría</span>
                           </div>
                         )}
                       </div>
@@ -1148,593 +1147,218 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
     );
   }
 
-
-
-
   return (
-    <div className="space-y-4 -mt-2">
-      {/* ERP Style Header Toolbar */}
-      <div className="bg-white border-b border-slate-200 -mx-6 px-6 py-2 mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-30 shadow-sm">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-medium text-slate-500">Productos</h1>
-          <Button
-            onClick={handleAddProduct}
-            className="bg-[#00A09D] hover:bg-[#00817e] text-white font-bold uppercase text-xs px-6 py-1.5 h-auto rounded transition-colors"
-          >
-            CREAR
+    <div className="flex h-[calc(100vh-120px)] -mt-6 -mx-6 bg-[#F8FAFB]">
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col overflow-hidden shrink-0">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Filtros</h2>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setSelectedCategory(''); setSearchTerm(''); }}>
+            <X className="h-3 w-3" />
           </Button>
+        </div>
+        
+        <ScrollArea className="flex-1">
+          <div className="p-4 space-y-6">
+            <div className="space-y-2">
+               <Label className="text-[11px] font-bold text-slate-700 uppercase">Buscar en catálogo</Label>
+               <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                  <Input 
+                    placeholder="Ejem: Motor..." 
+                    className="h-8 pl-8 text-xs bg-slate-50 border-slate-200"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+               </div>
+            </div>
 
-          {/* Botón de Importación Inteligente (Solo el trigger) */}
-          <div className="flex items-center gap-2 border-l border-slate-200 ml-2 pl-2">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-slate-700 uppercase">Categorías</Label>
+              <div className="space-y-1">
+                <button 
+                  onClick={() => setSelectedCategory('')}
+                  className={cn(
+                    "w-full text-left px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-between",
+                    !selectedCategory ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                    <span>Todas</span>
+                  </div>
+                </button>
+                {categories.filter(c => !c.parentId).map(cat => (
+                  <button 
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={cn(
+                      "w-full text-left px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-between",
+                      selectedCategory === cat.id ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-600 hover:bg-slate-50"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Tags className="h-3.5 w-3.5" />
+                      <span className="truncate max-w-[120px]">{cat.name}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-slate-700 uppercase">Ordenar</Label>
+              <select 
+                className="w-full h-8 text-xs bg-slate-50 border-slate-200 rounded px-2"
+                value={sortOrder}
+                onChange={(e: any) => setSortOrder(e.target.value)}
+              >
+                <option value="recent">Más recientes</option>
+                <option value="oldest">Más antiguos</option>
+                <option value="price-high">Precio: Alto a Bajo</option>
+                <option value="price-low">Precio: Bajo a Alto</option>
+              </select>
+            </div>
+          </div>
+        </ScrollArea>
+      </aside>
+
+      <main className="flex-1 flex flex-col min-w-0">
+        <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between bg-white sticky top-0 z-20">
+          <div className="flex items-center gap-6">
+            <h1 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+              Inventario <span className="text-blue-600 font-mono tracking-tight font-light lowercase">({sortedProducts.length})</span>
+            </h1>
+            <div className="flex items-center gap-2 border-l border-slate-200 pl-6">
+              <Badge variant="outline" className="bg-blue-50/50 text-blue-600 border-blue-100 font-bold px-3 py-1">
+                Total: {sortedProducts.length}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
             <Button
               onClick={() => setShowScrapeDialog(true)}
               variant="outline"
               size="sm"
-              className="h-9 border-blue-200 bg-blue-50/50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 transition-all flex items-center gap-2 px-4 shadow-sm"
+              className="h-8 border-[#00A09D]/20 bg-[#00A09D]/5 text-[#00A09D] font-black uppercase text-[10px]"
             >
-              <Sparkles className="h-4 w-4 animate-pulse" />
-              <span className="font-bold text-xs uppercase tracking-tight">Importación Inteligente</span>
+              <Sparkles className="h-3.5 w-3.5 mr-2" />
+              IA Import
             </Button>
-          </div>
-
-          <Dialog open={showScrapeDialog} onOpenChange={setShowScrapeDialog}>
-            <DialogContent className="sm:max-w-[500px] border-blue-100 shadow-2xl">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-xl font-black text-blue-900">
-                  <Wand2 className="h-6 w-6 text-blue-600" />
-                  IMPORTACIÓN INTELIGENTE
-                </DialogTitle>
-                <DialogDescription className="text-slate-500 font-medium">
-                  Extrae productos automáticamente desde cualquier tienda online.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-6 py-4">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                    <Globe className="h-4 w-4 text-blue-500" />
-                    URL del Dominio o Producto
-                  </div>
-                  <div className="relative group">
-                    <Input
-                      placeholder="https://tienda-ejemplo.com"
-                      value={scrapeUrl}
-                      onChange={(e) => setScrapeUrl(e.target.value)}
-                      className="h-12 bg-slate-50 border-2 border-slate-100 focus:border-blue-400 focus:ring-4 focus:ring-blue-50/50 transition-all font-bold text-slate-800 pr-10"
-                      disabled={isScraping}
-                    />
-                    <Zap className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
-                  </div>
-                  
-                  {isScraping && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between text-[11px] font-bold text-blue-800 bg-blue-100/50 p-2 rounded-lg border border-blue-100">
-                        <div className="flex items-center gap-2">
-                           <History className="h-3 w-3 animate-spin" />
-                           TIEMPO TRANSCURRIDO: <span className="font-black text-blue-900">{scrapingTimer}s</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                           <Zap className="h-3 w-3 text-yellow-600" />
-                           VELOCIDAD: <span className="font-black text-blue-900">ULTRA FAST</span>
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-900 rounded-xl p-4 font-mono text-[11px] h-48 overflow-y-auto border border-slate-800 shadow-inner custom-scrollbar">
-                        <div className="flex items-center gap-2 text-green-400 mb-2 border-b border-white/10 pb-1">
-                          <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                          </span>
-                          SISTEMA_DE_LOGS_ACTIVO (SCAN_V2)
-                        </div>
-                        <div className="space-y-1.5">
-                          {scrapingLogs.map((log, i) => (
-                            <div key={i} className="flex gap-2 animate-in fade-in slide-in-from-left-1 duration-300">
-                              <span className="text-slate-500 text-[9px] mt-0.5">[{new Date().toLocaleTimeString([], { hour12: false, second: '2-digit' })}]</span>
-                              <span className={(log || '').startsWith('✅') ? 'text-green-400 font-bold' : (log || '').startsWith('❌') ? 'text-red-400' : 'text-slate-300'}>
-                                {log}
-                              </span>
-                            </div>
-                          ))}
-                          <div className="animate-pulse text-blue-400 flex items-center gap-1 pl-12 h-4">
-                            <span className="inline-block w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <span className="inline-block w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
-                            <span className="inline-block w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '400ms' }} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-
-                  {!isScraping && (
-                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                      <h5 className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                        <Zap className="h-3 w-3" /> ¿Qué hace esta herramienta?
-                      </h5>
-                      <ul className="space-y-2">
-                        <li className="flex items-center gap-2 text-xs text-blue-700 font-medium">
-                          <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-                          Si pones el <span className="font-bold underline">dominio</span>, buscaremos todo su catálogo.
-                        </li>
-                        <li className="flex items-center gap-2 text-xs text-blue-700 font-medium">
-                          <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-                          Si pones el <span className="font-bold underline">link de un producto</span>, lo abriremos en el editor.
-                        </li>
-                        <li className="flex items-center gap-2 text-xs text-blue-700 font-medium">
-                          <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-                          Funciona con Shopify, WooCommerce, Amazon y más.
-                        </li>
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-
-              <DialogFooter className="gap-2 sm:gap-0">
-                <Button 
-                  variant="ghost" 
-                  onClick={() => setShowScrapeDialog(false)}
-                  disabled={isScraping}
-                  className="font-bold uppercase text-xs"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleScrape}
-                  disabled={isScraping || !scrapeUrl.trim()}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-xs px-8 shadow-lg shadow-blue-100 transition-all active:scale-95"
-                >
-                  {isScraping ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Extrayendo...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      COMENZAR EXTRACCIÓN
-                    </>
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-
-
-          <div className="flex items-center gap-1 border-l border-slate-200 ml-2 pl-2">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImportExcel}
-              accept=".xlsx, .xls"
-              className="hidden"
-            />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600 hover:bg-slate-50">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                <DropdownMenuItem onClick={() => fileInputRef.current?.click()} disabled={importing} className="text-xs font-bold uppercase tracking-wider py-2 cursor-pointer">
-                  <FileSpreadsheet className="h-3.5 w-3.5 mr-2 text-green-600" />
-                  <span>{importing ? "Importando..." : "Importar Excel"}</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleExportExcel} className="text-xs font-bold uppercase tracking-wider py-2 cursor-pointer border-b border-slate-100">
-                  <Download className="h-3.5 w-3.5 mr-2 text-blue-600" />
-                  <span>Exportar Excel</span>
-                </DropdownMenuItem>
-
-                {/* Acción de eliminar todo solo para administradores */}
-                {(user?.isAdmin || user?.email === "admin@gmail.com") && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <DropdownMenuItem 
-                        onSelect={(e) => e.preventDefault()} 
-                        className="text-xs font-bold uppercase tracking-wider py-2 cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-2" />
-                        <span>Vaciar Inventario</span>
-                      </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle className="text-red-600 flex items-center gap-2 font-bold uppercase tracking-tight">
-                          <AlertTriangle className="h-5 w-5" />
-                          ¿VACIAR TODO EL INVENTARIO?
-                        </AlertDialogTitle>
-                        <AlertDialogDescription className="text-slate-600 pt-2">
-                          Estás a punto de eliminar <strong>TODOS</strong> los productos ({products.length}) del catálogo.
-                          <br /><br />
-                          Esta acción es <strong>permanente</strong> y borrará toda la información, imágenes y especificaciones de cada producto en la base de datos.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel className="border-slate-200">Cancelar</AlertDialogCancel>
-                        <AlertDialogAction 
-                          onClick={handleDeleteAllProducts}
-                          className="bg-red-600 hover:bg-red-700 text-white font-bold"
-                        >
-                          SÍ, ELIMINAR TODO
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        <div className="flex flex-1 max-w-2xl items-center gap-2">
-          <div className="relative flex-1 group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Filter className="h-3.5 w-3.5 text-slate-400" />
-            </div>
-            <Input
-              placeholder="Productos / Buscar..."
-              className="bg-slate-50 border-slate-200 pl-9 pr-10 h-9 text-sm focus:bg-white transition-all rounded"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm ? (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            ) : (
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-slate-300" />
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center border border-slate-200 rounded divide-x divide-slate-200">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 text-xs font-medium flex items-center gap-1.5 outline-none">
-                  <Filter className="h-3 w-3" /> Filtros {selectedCategory && <span className="ml-1 text-[#00A09D]">•</span>}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56 max-h-[300px] overflow-y-auto">
-                <DropdownMenuItem onClick={() => setSelectedCategory('')} className={!selectedCategory ? 'bg-slate-100 text-slate-900' : ''}>
-                  <span className="h-4 w-4 mr-2 opacity-70">🏠</span> Todas las categorías
-                </DropdownMenuItem>
-                {categories
-                  .filter(category => !category.parentId)
-                  .map((category) => (
-                    <DropdownMenuItem
-                      key={category.id}
-                      onClick={() => setSelectedCategory(category.id)}
-                      className={selectedCategory === category.id ? 'bg-slate-100 text-slate-900' : ''}
-                    >
-                      <Tags className="h-4 w-4 mr-2 opacity-70" /> {category.name}
-                    </DropdownMenuItem>
-                  ))
-                }
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 text-xs font-medium flex items-center gap-1.5 outline-none">
-                  <SlidersHorizontal className="h-3 w-3" /> Agrupar por
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                <DropdownMenuItem onClick={() => setSortOrder('recent')} className={sortOrder === 'recent' ? 'bg-slate-100' : ''}>Más recientes</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortOrder('price-high')} className={sortOrder === 'price-high' ? 'bg-slate-100' : ''}>Precio: Mayor a menor</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortOrder('price-low')} className={sortOrder === 'price-low' ? 'bg-slate-100' : ''}>Precio: Menor a mayor</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <button
-              className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 text-xs font-medium flex items-center gap-1.5"
-              onClick={() => onViewLibrary ? onViewLibrary() : toast({ title: "Biblioteca de Imágenes", description: "Cambiando a la vista de biblioteca..." })}
-            >
-              <ImageIcon className="h-3 w-3 text-emerald-600" /> Biblioteca de imágenes
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-            <span>{Math.min(1, sortedProducts.length)}-{paginatedProducts.length} / {sortedProducts.length}</span>
-            <div className="flex items-center border border-slate-200 rounded bg-white overflow-hidden">
-              <button
-                onClick={() => setVisibleProducts(Math.max(20, visibleProducts - 20))}
-                disabled={visibleProducts <= 20}
-                className="p-1.5 hover:bg-slate-50 disabled:opacity-30 border-r border-slate-200"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                onClick={loadMoreProducts}
-                disabled={!hasMoreProducts}
-                className="p-1.5 hover:bg-slate-50 disabled:opacity-30"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center border border-slate-200 rounded bg-white overflow-hidden">
-            <button
-              onClick={() => setViewMode('kanban')}
-              className={cn(
-                "p-2 transition-colors",
-                viewMode === 'kanban' ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-              )}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={cn(
-                "p-2 transition-colors border-l border-slate-200",
-                viewMode === 'list' ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-              )}
-            >
-              <History className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Aviso del estado de libertad */}
-      {user?.subCuenta === "si" && (
-        <div className={`p-4 rounded-lg border ${liberta === "si"
-          ? "bg-green-50 border-green-200 text-green-800"
-          : "bg-blue-50 border-blue-200 text-blue-800"}`}>
-          <div className="flex items-center">
-            {liberta === "si" ? (
-              <ShieldCheck className="h-5 w-5 mr-2 text-green-600" />
-            ) : (
-              <AlertTriangle className="h-5 w-5 mr-2 text-blue-600" />
-            )}
-            <p className="text-sm font-medium">
-              {liberta === "si"
-                ? "Tu cuenta tiene permisos para publicar cambios directamente."
-                : "Tu cuenta no tiene permisos para publicar cambios directos. Los cambios que realices serán enviados a revisión del administrador."}
-            </p>
-          </div>
-        </div>
-      )}
-
-      <div className="px-2">
-        {loadingProducts ? (
-          <div className="flex justify-center items-center py-24">
-            <div className="flex flex-col items-center">
-              <Loader2 className="h-10 w-10 animate-spin text-[#00A09D] mb-3" />
-              <p className="text-slate-500 font-medium animate-pulse">Cargando catálogo...</p>
-            </div>
-          </div>
-        ) : sortedProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
-            <Package className="h-16 w-16 text-slate-300 mb-4" />
-            <h3 className="text-lg font-bold text-slate-900">No se encontraron productos</h3>
-            <p className="text-slate-500 mt-1 max-w-sm text-center px-4">
-              {searchTerm
-                ? `No hay resultados para "${searchTerm}". Intenta con otros términos.`
-                : "Aún no tienes productos en tu inventario. ¡Haz clic en CREAR para empezar!"}
-            </p>
-          </div>
-        ) : viewMode === 'kanban' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-            {paginatedProducts.map((product) => {
-              const stockStatus = getStockStatus(product.stock || 0);
-              return (
-                <div
-                  key={product.id}
-                  className="group bg-white border border-slate-200 rounded-sm hover:shadow-md transition-all duration-200 relative overflow-hidden"
-                >
-                  <div className="flex p-3 gap-3">
-                    {/* Image Area */}
-                    <div className="w-20 h-20 bg-slate-50 rounded flex-shrink-0 relative overflow-hidden flex items-center justify-center border border-slate-100 group-hover:border-slate-300 transition-colors">
-                      {loadingImages[product.id] && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-slate-50 z-10">
-                          <Loader2 className="h-4 w-4 text-[#00A09D] animate-spin" />
-                        </div>
-                      )}
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className={cn(
-                          "w-full h-full object-contain transition-transform duration-300 group-hover:scale-105",
-                          loadingImages[product.id] ? "opacity-0" : "opacity-100"
-                        )}
-                        onLoad={() => handleImageLoadEnd(product.id)}
-                        onLoadStart={() => handleImageLoadStart(product.id)}
-                        onError={(e) => {
-                          handleImageLoadEnd(product.id);
-                          e.currentTarget.src = 'https://via.placeholder.com/150?text=No+Image';
-                        }}
-                      />
-                    </div>
-
-                    {/* Content Area */}
-                    <div className="flex-1 min-w-0 pr-6">
-                      <h4 className="font-bold text-sm text-slate-800 leading-tight mb-1 group-hover:text-[#00A09D] transition-colors line-clamp-2" title={product.name}>
-                        {product.name}
-                      </h4>
-                      <div className="space-y-0.5">
-                        <p className="text-xs text-slate-600 font-medium">
-                          Precio: <span className="text-slate-900">${(product.price || 0).toLocaleString('es-CO')}</span>
-                        </p>
-                        <p className="text-[10px] text-slate-500">
-                          A mano: <span className={cn(
-                            "font-bold",
-                            product.stock > 10 ? "text-green-600" :
-                              product.stock > 0 ? "text-orange-600" :
-                                "text-red-600"
-                          )}>{product.stock || 0},00 Unidades</span>
-                        </p>
-                      </div>
-
-                      {/* Badges/Tags */}
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-[2px] bg-slate-100 text-slate-600 text-[9px] uppercase font-bold tracking-tight">
-                          {product.categoryName || product.category || 'Sin Cat'}
-                        </span>
-                        {product.supplierName && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-[2px] bg-indigo-50 text-indigo-600 text-[9px] uppercase font-bold tracking-tight border border-indigo-100">
-                            {product.supplierName}
-                          </span>
-                        )}
-                        {!product.isPublished && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-[2px] bg-red-50 text-red-600 text-[9px] uppercase font-bold tracking-tight">
-                            Borrador
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Action Float Area (Right top corner) */}
-                    <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => handleEdit(product)}
-                        className="p-1.5 bg-white shadow-sm border border-slate-200 rounded hover:bg-[#00A09D] hover:text-white transition-colors text-slate-500"
-                        title="Editar"
-                      >
-                        <Edit className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          const slug = slugify(product.name || 'producto');
-                          window.open(`/producto/${slug}`, '_blank')?.focus();
-                        }}
-                        className="p-1.5 bg-white shadow-sm border border-slate-200 rounded hover:bg-blue-600 hover:text-white transition-colors text-slate-500"
-                        title="Vista previa"
-                      >
-                        <Eye className="h-3 w-3" />
-                      </button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <button
-                            className="p-1.5 bg-white shadow-sm border border-slate-200 rounded hover:bg-red-600 hover:text-white transition-colors text-slate-500"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>¿Eliminar producto?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Se eliminará permanentemente "{product.name}".
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(product.id)}
-                              className="bg-red-600 hover:bg-red-700"
-                            >
-                              Eliminar
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="bg-white border rounded shadow-sm overflow-hidden">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-medium">
-                <tr>
-                  <th className="px-4 py-2 font-semibold">Producto</th>
-                  <th className="px-4 py-2 font-semibold">Categoría</th>
-                  <th className="px-4 py-2 font-semibold">Proveedor</th>
-                  <th className="px-4 py-2 font-semibold text-right">Precio</th>
-                  <th className="px-4 py-2 font-semibold text-right">Stock</th>
-                  <th className="px-4 py-2 font-semibold text-center">Estado</th>
-                  <th className="px-4 py-2 font-semibold text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {paginatedProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <img src={product.image || 'https://via.placeholder.com/40'} alt="" className="w-8 h-8 rounded object-cover border border-slate-100" />
-                        <span className="font-bold text-slate-800">{product.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{product.categoryName || 'General'}</td>
-                    <td className="px-4 py-3">
-                      {product.supplierName ? (
-                        <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-100 uppercase font-bold">
-                          {product.supplierName}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-slate-400">Interno</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium">${(product.price || 0).toLocaleString('es-CO')}</td>
-                    <td className="px-4 py-3 text-right">
-                      <span className={cn(
-                        "font-bold",
-                        product.stock > 10 ? "text-green-600" : "text-orange-600"
-                      )}>{product.stock || 0}</span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <Badge variant="outline" className={cn(
-                        "text-[10px] uppercase font-bold tracking-tight rounded-[2px]",
-                        product.isPublished !== false ? "bg-green-50 text-green-700 border-green-200" : "bg-slate-50 text-slate-500 border-slate-200"
-                      )}>
-                        {product.isPublished !== false ? 'Publicado' : 'Borrador'}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600" onClick={() => handleEdit(product)}>
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => {
-                          setDeletingProductId(product.id);
-                          handleDelete(product.id);
-                        }}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {hasMoreProducts && (
-          <div className="flex justify-center mt-8 pb-10">
             <Button
-              onClick={loadMoreProducts}
-              variant="outline"
-              className="border-slate-200 text-[#00A09D] hover:bg-slate-50"
-              disabled={loadingMoreProducts}
+              onClick={handleAddProduct}
+              className="h-8 bg-[#00A09D] hover:bg-[#00817e] text-white font-black uppercase text-[10px] px-6"
             >
-              {loadingMoreProducts ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4 mr-2" />
-              )}
-              Cargar más productos
+              CREAR PRODUCTO
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={handleExportExcel}>
+               <Download className="h-4 w-4" />
             </Button>
           </div>
-        )}
-      </div>
+        </header>
 
+        <div className="flex-1 overflow-auto p-6">
+           {loadingProducts ? (
+              <div className="flex flex-col items-center justify-center py-32 space-y-4">
+                 <Loader2 className="h-10 w-10 animate-spin text-[#00A09D]" />
+                 <p className="text-xs font-black text-slate-400 capitalize">Cargando catálogo...</p>
+              </div>
+           ) : (
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                 <table className="w-full text-left">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                       <tr>
+                          <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-wider">Producto</th>
+                          <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-wider">Categoría</th>
+                          <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-wider">Precio</th>
+                          <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Acciones</th>
+                       </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                       {paginatedProducts.map((product) => (
+                          <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
+                             <td className="px-6 py-3">
+                                <div className="flex items-center gap-3">
+                                   <div className="h-10 w-10 shrink-0 bg-slate-50 rounded border border-slate-100 overflow-hidden">
+                                      <img src={product.image} className="w-full h-full object-contain" />
+                                   </div>
+                                   <div className="min-w-0">
+                                      <div className="text-[11px] font-black text-slate-800 uppercase tracking-tighter truncate max-w-[250px]">{product.name}</div>
+                                   </div>
+                                </div>
+                             </td>
+                             <td className="px-6 py-3">
+                                <Badge variant="outline" className="text-[9px] font-black uppercase text-slate-500 bg-white border-slate-200">
+                                   {product.categoryName || 'General'}
+                                </Badge>
+                             </td>
+                             <td className="px-6 py-3 font-mono text-[11px] font-black text-slate-700">
+                                ${(product.price || 0).toLocaleString('es-CO')}
+                             </td>
+                             <td className="px-6 py-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                   <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#00A09D]" onClick={() => handleEdit(product)}>
+                                      <Edit className="h-4 w-4" />
+                                   </Button>
+                                   <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-500" onClick={() => handleDelete(product.id)}>
+                                      <Trash2 className="h-4 w-4" />
+                                   </Button>
+                                </div>
+                             </td>
+                          </tr>
+                       ))}
+                    </tbody>
+                 </table>
+              </div>
+           )}
 
+           {hasMoreProducts && (
+              <div className="flex justify-center py-6">
+                 <Button onClick={loadMoreProducts} variant="ghost" className="text-[#00A09D] font-black uppercase text-[10px]">
+                    Cargar más resultados
+                 </Button>
+              </div>
+           )}
+        </div>
+      </main>
+
+      <Dialog open={showScrapeDialog} onOpenChange={setShowScrapeDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-blue-600" />
+              IA Importación
+            </DialogTitle>
+            <DialogDescription>
+              Introduce la URL de un producto o tienda para extraer datos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input 
+              placeholder="https://tienda.com/producto" 
+              value={scrapeUrl} 
+              onChange={(e) => setScrapeUrl(e.target.value)} 
+              disabled={isScraping}
+            />
+          </div>
+          {isScraping && (
+             <div className="p-3 bg-slate-50 rounded-lg space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                   <Loader2 className="h-3 w-3 animate-spin" />
+                   Escanenado sitio...
+                </div>
+                <div className="h-32 overflow-y-auto font-mono text-[9px] text-slate-600">
+                   {scrapingLogs.map((log, i) => <div key={i}>{log}</div>)}
+                </div>
+             </div>
+          )}
+          <DialogFooter>
+            <Button onClick={handleScrape} disabled={isScraping || !scrapeUrl}>
+              {isScraping ? 'Extrayendo...' : 'Comenzar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
-
   );
 };

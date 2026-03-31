@@ -1,81 +1,42 @@
 import React, { useEffect, useState, useRef, lazy, Suspense, useMemo, useCallback } from 'react';
-import { auth, db } from '@/firebase';
-import { ImageLibrary } from '@/components/admin/ImageLibrary';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { Input } from "@/components/ui/input";
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import Sidebar from '@/components/admin/Sidebar';
+import AdminLayout from '@/components/admin/AdminLayout';
+import { MailConfiguration } from '@/components/admin/MailConfiguration';
+import { useSubAccountRenderFix } from '@/hooks/use-subaccount-render-fix';
+import { useStockNotifications } from '@/hooks/use-stock-notifications';
+import { DashboardStats } from '@/components/admin/DashboardStats';
+import { getTotalWebsiteVisits } from '@/lib/product-analytics';
+import { fetchOrders, fetchAdminProducts, fetchOrderStats } from '@/lib/api';
+import {
+  Users, Package, ShoppingCart, TrendingUp, Settings, BarChart3,
+  DollarSign, AlertCircle, Home, Bell, Tag, BrainCog, Sparkles,
+  MessagesSquare, Check, ArrowUp, RefreshCw, Maximize2, User,
+  Send, Lightbulb, ShoppingBag, PenTool, LineChart, ChartBar,
+  HelpCircle, Book, ClipboardList, Video, Download, FileQuestion,
+  Info, Search, Star, HeartHandshake, Mail, ChevronLeft, ChevronRight,
+  ChevronDown, Megaphone, Briefcase, Share2, Calendar, Image as ImageIcon,
+  Pencil, MoreVertical, Zap, LayoutGrid, X, Copy, Trash2, Edit,
+  UserX, Eye, Building2, Ticket, Key, Truck, BadgePercent,
+  ShieldCheck, FolderTree, ClipboardCheck, ArrowRight
+} from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-// Tabs import removed — replaced with CSS display switching for performance
-import {
-  Users,
-  Package,
-  ShoppingCart,
-  TrendingUp,
-  Settings,
-  BarChart3,
-  DollarSign,
-  AlertCircle,
-  Home,
-  Bell,
-  Tag,
-  BrainCog,
-  Sparkles,
-  MessagesSquare,
-  Check,
-  ArrowUp,
-  RefreshCw,
-  Maximize2,
-  User,
-  Send,
-  Lightbulb,
-  ShoppingBag,
-  PenTool,
-  LineChart,
-  ChartBar,
-  HelpCircle,
-  Book,
-  ClipboardList,
-  Video,
-  Download,
-  FileQuestion,
-  Info,
-  Search,
-  Star,
-  HeartHandshake,
-  Mail,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  Megaphone,
-  Briefcase,
-  Share2,
-  Calendar,
-  Image as ImageIcon,
-  Pencil,
-  MoreVertical,
-  Zap,
-  LayoutGrid,
-  X,
-  Copy,
-  Trash2,
-  Edit,
-  UserX,
-  Eye,
-  Building2,
-  Ticket,
-  Key,
-  Truck,
-  BadgePercent,
-  ShieldCheck,
-  FolderTree,
-  ClipboardCheck,
-  ArrowRight
-} from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { CustomClock } from '@/components/ui/CustomClock';
-import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, getDoc, query, where, limit, orderBy, Timestamp } from "firebase/firestore";
+
+// Componente de carga para lazy components
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center p-8">
+    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-400"></div>
+  </div>
+);
 
 // Lazy load de componentes pesados
 const ProductFormWithWizard = lazy(() => import('@/components/admin/ProductFormWizard').then(m => ({ default: m.ProductFormWithWizard })));
@@ -98,41 +59,20 @@ const SupplierManager = lazy(() => import('@/components/admin/SupplierManager').
 const CRMWhatsAppPanel = lazy(() => import('@/components/admin/CRMWhatsAppPanel').then(m => ({ default: m.CRMWhatsAppPanel })));
 const QuoteManager = lazy(() => import('@/components/admin/QuoteManager').then(m => ({ default: m.QuoteManager })));
 const AIEnrichment = lazy(() => import('@/components/admin/AIEnrichment').then(m => ({ default: m.AIEnrichment })));
+const ImageLibrary = lazy(() => import('@/components/admin/ImageLibrary').then(m => ({ default: m.ImageLibrary })));
 
-// (ya importado arriba)
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { setDoc, doc } from "firebase/firestore";
-import { Input } from "@/components/ui/input";
-import { toast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
-import Sidebar from '@/components/admin/Sidebar';
-import AdminLayout from '@/components/admin/AdminLayout';
-import { MailConfiguration } from '@/components/admin/MailConfiguration';
-import { useSubAccountRenderFix } from '@/hooks/use-subaccount-render-fix';
-import { useStockNotifications } from '@/hooks/use-stock-notifications';
-import { DashboardStats } from '@/components/admin/DashboardStats';
-import { getTotalWebsiteVisits } from '@/lib/product-analytics';
-import { fetchOrders, fetchAdminProducts, fetchOrderStats } from '@/lib/api';
-
-// Componente de carga para lazy components
-const LoadingFallback = () => (
-  <div className="flex items-center justify-center p-8">
-    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-400"></div>
-  </div>
-);
-
-const ManagementGrid = ({ setActiveTab }: { setActiveTab: (tab: string) => void }) => {
+const ManagementGrid = ({ setActiveTab, user }: { setActiveTab: (tab: string) => void, user: any }) => {
   const [companyName, setCompanyName] = useState('empresa');
 
   useEffect(() => {
     const fetchCompany = async () => {
-      const isSupabase = typeof (db as any)?.from === 'function';
-      if (isSupabase) {
-        try {
-          const { data } = await (db as any).from('company_profile').select('friendly_name').maybeSingle();
+      try {
+        const response = await fetch('/api/company');
+        if (response.ok) {
+          const data = await response.json();
           if (data && data.friendly_name) setCompanyName(data.friendly_name);
-        } catch (e) { }
-      }
+        }
+      } catch (e) { }
     };
     fetchCompany();
   }, []);
@@ -208,7 +148,10 @@ const ManagementGrid = ({ setActiveTab }: { setActiveTab: (tab: string) => void 
   return (
     <div className="w-full p-4 lg:p-6 bg-white rounded-3xl">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {items.map((item, index) => (
+        {items.filter(item => {
+          if (item.id === 'credentials' && !user?.isAdmin) return false;
+          return true;
+        }).map((item, index) => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
@@ -252,21 +195,12 @@ const ManagementGrid = ({ setActiveTab }: { setActiveTab: (tab: string) => void 
 };
 
 export const AdminPanel: React.FC = () => {
-  const isSupabase = typeof (db as any)?.from === 'function';
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isAdmin = !!user?.isAdmin;
+  const isSubAdmin = user?.subCuenta === "si";
 
-  // ✅ FIX PRINCIPAL: Derivar isAdmin e isSubAdmin DIRECTAMENTE del user (sin estado separado)
-  // Esto elimina el useEffect que causaba el loop de loading
-  const isAdmin = isSupabase
-    ? !!user?.isAdmin
-    : false; // En modo Firebase, el mock devuelve false (ruta legacy)
-  const isSubAdmin = isSupabase
-    ? user?.subCuenta === "si"
-    : false;
-
-  // Loading solo existe para el caso Firebase legacy (Supabase ya lo maneja el AuthContext)
-  const [loading, setLoading] = useState(!isSupabase); // false si Supabase, true si Firebase
+  const [loading, setLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState('dashboard');
   // Track which tabs have been visited so we only mount them once, then keep alive
@@ -309,9 +243,9 @@ export const AdminPanel: React.FC = () => {
   ]);
   const [aiTyping, setAiTyping] = useState(false);
   const [aiTypedText, setAiTypedText] = useState('');
-  const aiTypingRef = useRef<NodeJS.Timeout | null>(null);
+  const aiTypingRef = useRef<any>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
-  const mouseLeaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const mouseLeaveTimeoutRef = useRef<any>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [dateRange] = useState("2025-12-28 → 2026-01-27");
   const [totalVisits, setTotalVisits] = useState<number>(0);
@@ -425,34 +359,17 @@ export const AdminPanel: React.FC = () => {
     return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
   };
 
-  // Solo necesitamos el useEffect de Firebase para el caso legacy (cuando no es Supabase)
+  // Solo necesitamos el useEffect para el caso de sesión iniciada
   useEffect(() => {
-    if (isSupabase) return; // Supabase: isAdmin/isSubAdmin ya son derivados de user, no necesitamos nada
-
-    // Rama Firebase legacy (mock) — solo si no es Supabase
-    const unsubscribe = (auth as any).onAuthStateChanged(async (firebaseUser: any) => {
-      if (firebaseUser) {
-        try {
-          const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-          const userData = userDoc.data();
-          if (firebaseUser.email === "admin@gmail.com") {
-            // noop - en Firebase legacy no usamos isAdmin derivado
-          } else if (userData?.subCuenta === "si") {
-            document.documentElement.classList.add('notranslate');
-            document.body.setAttribute('translate', 'no');
-          }
-          setSessionStart(new Date());
-        } catch (error) {
-          console.error("Error al verificar permisos de usuario:", error);
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        setLoading(false);
+    if (user) {
+      if (user.subCuenta === "si") {
+        document.documentElement.classList.add('notranslate');
+        document.body.setAttribute('translate', 'no');
       }
-    });
-    return () => unsubscribe();
-  }, [isSupabase]);
+      setSessionStart(new Date());
+      setLoading(false);
+    }
+  }, [user]);
 
 
 
@@ -576,79 +493,50 @@ export const AdminPanel: React.FC = () => {
   }, [activeTab]);
 
 
+  const fetchSubAccounts = async () => {
+    setSubAccountsLoading(true);
+    try {
+      const response = await fetch('/api/users/subaccounts', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSubAccounts(data || []);
+      }
+    } catch (e) {
+      toast({ title: "Error", description: "No se pudieron cargar las subcuentas", variant: "destructive" });
+    }
+    setSubAccountsLoading(false);
+  };
+
   const handleCreateSubAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubLoading(true);
     try {
-      if (isSupabase) {
-        // Intentar usar signIn+signUp o Admin API en su lugar, pero si estamos en el frontend usando auth normal, 
-        // supabase no deja crear usuarios sin desloguear al admin si se usa signUp normal (limita IPs).
-        // Usaremos window.fetch a un endpoint si existiera o llamamos a auth.signUp. Para evitar deslogueos: 
-        const { data: authData, error: authError } = await (db as any).auth.signUp({
+      const response = await fetch('/api/auth/register-subaccount', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
           email: subEmail,
           password: subPassword,
-          options: {
-            data: {
-              name: subName,
-              sub_cuenta: 'si'
-            }
-          }
-        });
-
-        if (authError) throw authError;
-
-        // Si ya hay usuario, insertamos (a veces el signUp no lo mete si falla en triggers)
-        if (authData?.user) {
-          const { error: dbError } = await (db as any)
-            .from('users')
-            .upsert({
-              id: authData.user.id,
-              name: subName,
-              email: subEmail,
-              sub_cuenta: 'si',
-              is_admin: false
-            });
-
-          if (dbError) throw dbError;
-        }
-
-        toast({
-          title: "Subcuenta creada",
-          description: "El sub-administrador fue creado exitosamente. Se ha enviado un correo de confirmación (si está habilitado).",
-        });
-      } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, subEmail, subPassword);
-        await setDoc(doc(db, "users", userCredential.user.uid), {
-          uid: userCredential.user.uid,
           name: subName,
-          email: subEmail,
-          subCuenta: "si"
-        });
-        toast({
-          title: "Subcuenta creada",
-          description: "El sub-administrador fue creado exitosamente.",
-        });
-      }
+          subCuenta: 'si'
+        })
+      });
 
+      if (!response.ok) throw new Error("Error al crear subcuenta");
+
+      toast({ title: "Subcuenta creada", description: "El sub-administrador fue creado exitosamente." });
       setSubName('');
       setSubEmail('');
       setSubPassword('');
       setShowCreateSubForm(false);
-      fetchSubAccounts(); // Recargar la lista
+      fetchSubAccounts();
     } catch (error: any) {
-      const status = error?.status;
-      const code = error?.code;
-      const msg = error?.message || "No se pudo crear la subcuenta";
-      const is429 = status === 429 || code === 'over_email_send_rate_limit' ||
-        msg?.toLowerCase?.().includes('429') || msg?.toLowerCase?.().includes('rate limit');
-      const description = is429
-        ? "Demasiados intentos. Supabase limita a 2 registros por hora. Espera 1 hora e intenta de nuevo."
-        : msg;
-      toast({
-        title: "Error",
-        description,
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setSubLoading(false);
     }
@@ -659,129 +547,65 @@ export const AdminPanel: React.FC = () => {
     if (!editingSubAccount) return;
     setIsEditingSub(true);
     try {
-      if (isSupabase) {
-        const { error } = await (db as any)
-          .from('users')
-          .update({ name: editSubName })
-          .eq('id', editingSubAccount.id);
-        if (error) throw error;
-      } else {
-        await setDoc(doc(db, "users", editingSubAccount.id), { name: editSubName }, { merge: true });
-      }
+      const response = await fetch(`/api/users/${editingSubAccount.id}`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ name: editSubName })
+      });
+
+      if (!response.ok) throw new Error("Error al actualizar");
+
       toast({ title: "Subcuenta actualizada", description: "El nombre ha sido actualizado." });
       setEditingSubAccount(null);
       fetchSubAccounts();
     } catch (e: any) {
-      toast({ title: "Error", description: e.message || "No se pudo actualizar", variant: "destructive" });
+      toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
       setIsEditingSub(false);
     }
   };
 
-  const fetchSubAccounts = async () => {
-    setSubAccountsLoading(true);
-    try {
-      if (isSupabase) {
-        const { data, error } = await (db as any)
-          .from('users')
-          .select('*')
-          .eq('sub_cuenta', 'si');
-
-        if (error) throw error;
-
-        setSubAccounts(data || []);
-      } else {
-        const querySnapshot = await getDocs(collection(db, "users"));
-        const subs = querySnapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() } as { id: string; subCuenta?: string; name?: string; email?: string }))
-          .filter(u => u.subCuenta === "si");
-        setSubAccounts(subs);
-      }
-    } catch (e) {
-      toast({ title: "Error", description: "No se pudieron cargar las subcuentas", variant: "destructive" });
-    }
-    setSubAccountsLoading(false);
-  };
-
   const handleDeleteSubAccount = async (uid: string) => {
-    if (!window.confirm("¿Seguro que deseas eliminar esta subcuenta? Esta acción no se puede deshacer.")) return;
+    if (!window.confirm("¿Seguro que deseas eliminar esta subcuenta?")) return;
     setDeletingId(uid);
     try {
-      if (isSupabase) {
-        const { error } = await (db as any)
-          .from('users')
-          .delete()
-          .eq('id', uid);
-
-        if (error) throw error;
-
-        setSubAccounts(subAccounts.filter(u => u.id !== uid));
-        toast({ title: "Subcuenta eliminada", description: "La subcuenta fue eliminada correctamente." });
-      } else {
-        await setDoc(doc(db, "users", uid), {}, { merge: false });
-        setSubAccounts(subAccounts.filter(u => u.id !== uid));
-        toast({ title: "Subcuenta eliminada", description: "La subcuenta fue eliminada correctamente." });
-      }
+      const response = await fetch(`/api/users/${uid}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (!response.ok) throw new Error("Error al eliminar");
+      
+      setSubAccounts(subAccounts.filter(u => u.id !== uid));
+      toast({ title: "Subcuenta eliminada", description: "La subcuenta fue eliminada correctamente." });
     } catch (e: any) {
-      toast({ title: "Error", description: e.message || "No se pudo eliminar", variant: "destructive" });
+      toast({ title: "Error", description: e.message, variant: "destructive" });
     }
     setDeletingId(null);
-  };
-
-  const handleDarLiberta = async (uid: string) => {
-    try {
-      if (isSupabase) {
-        const { error } = await (db as any)
-          .from('users')
-          .update({ liberta: "si" })
-          .eq('id', uid);
-        if (error) throw error;
-      } else {
-        await setDoc(doc(db, "users", uid), { liberta: "si" }, { merge: true });
-      }
-      toast({
-        title: "Liberta otorgada",
-        description: "La subcuenta ahora tiene liberta.",
-      });
-      setSubAccounts(subAccounts.map(u =>
-        u.id === uid ? { ...u, liberta: "si" } : u
-      ));
-    } catch (e: any) {
-      toast({
-        title: "Error",
-        description: e?.message || "No se pudo dar liberta",
-        variant: "destructive"
-      });
-    }
   };
 
   const handleToggleLiberta = async (uid: string, current: string) => {
     const newValue = current === "si" ? "no" : "si";
     try {
-      if (isSupabase) {
-        const { error } = await (db as any)
-          .from('users')
-          .update({ liberta: newValue })
-          .eq('id', uid);
-        if (error) throw error;
-      } else {
-        await setDoc(doc(db, "users", uid), { liberta: newValue }, { merge: true });
-      }
+      const response = await fetch(`/api/users/${uid}/liberta`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ liberta: newValue })
+      });
+      if (!response.ok) throw new Error("Error al actualizar liberta");
+
       toast({
         title: newValue === "si" ? "Liberta otorgada" : "Liberta retirada",
-        description: newValue === "si"
-          ? "La subcuenta ahora tiene liberta."
-          : "La subcuenta ya no tiene liberta.",
+        description: newValue === "si" ? "La subcuenta ahora tiene liberta." : "Liberta retirada.",
       });
-      setSubAccounts(subAccounts.map(u =>
-        u.id === uid ? { ...u, liberta: newValue } : u
-      ));
+      setSubAccounts(subAccounts.map(u => u.id === uid ? { ...u, liberta: newValue } : u));
     } catch (e: any) {
-      toast({
-        title: "Error",
-        description: e?.message || "No se pudo actualizar liberta",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: e?.message, variant: "destructive" });
     }
   };
 
@@ -1023,10 +847,10 @@ export const AdminPanel: React.FC = () => {
 
                         {/* Tipo de usuario */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline - flex px - 2 py - 1 text - xs font - semibold rounded - full ${userType === "ACCOUNT-ADMIN"
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${userType === "ACCOUNT-ADMIN"
                             ? "bg-purple-100 text-purple-800"
                             : "bg-gray-100 text-gray-800"
-                            } `}>
+                            }`}>
                             {userType}
                           </span>
                         </td>
@@ -1120,7 +944,7 @@ export const AdminPanel: React.FC = () => {
   };
 
   // Para Supabase: si user aún no está disponible, mostrar cargando brevemente
-  if (loading || (isSupabase && !user)) {
+  if (loading || !user) {
     return <div className="min-h-screen flex items-center justify-center bg-white">
       <div className="text-center">
         <div className="w-10 h-10 mx-auto mb-3 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -1221,7 +1045,7 @@ export const AdminPanel: React.FC = () => {
             {/* Gestión - Menu Quick Access */}
             <button
               onClick={() => handleTabChange('management')}
-              className={`w - 8 h - 8 rounded - full flex items - center justify - center transition - all active: scale - 95 cursor - pointer touch - manipulation ${activeTab === 'management' ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} `}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 cursor-pointer touch-manipulation ${activeTab === 'management' ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
               style={{ WebkitTapHighlightColor: 'transparent' }}
               type="button"
               title="Gestión de Recursos"
@@ -1274,7 +1098,7 @@ export const AdminPanel: React.FC = () => {
                       stockNotifications.map((notification) => (
                         <div
                           key={notification.id}
-                          className={`p - 3 hover: bg - slate - 50 border - b border - slate - 100 transition - colors cursor - pointer ${!notification.read ? 'bg-blue-50' : ''} `}
+                          className={`p-3 hover:bg-slate-50 border-b border-slate-100 transition-colors cursor-pointer ${!notification.read ? 'bg-blue-50' : ''}`}
                           onClick={() => {
                             markAsRead(notification.id);
                             setSelectedProductId(notification.productId);
@@ -1640,22 +1464,30 @@ export const AdminPanel: React.FC = () => {
                     <div className="w-14 h-14 rounded-xl bg-[hsl(214,100%,38%)] flex items-center justify-center shadow-sm">
                       <HelpCircle className="w-7 h-7 text-white" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
-                        Manual de Ayuda
-                      </h2>
-                      <p className="mt-1 text-slate-600">
-                        Todo lo que necesitas saber para gestionar tu tienda de manera efectiva
-                      </p>
-                      <div className="flex flex-wrap gap-2 mt-4">
-                        <Badge variant="outline" className="bg-white text-slate-700 border-slate-200 cursor-pointer hover:bg-slate-100 hover:border-[hsl(214,100%,38%)] transition-colors rounded-lg">Primeros Pasos</Badge>
-                        <Badge variant="outline" className="bg-white text-slate-700 border-slate-200 cursor-pointer hover:bg-slate-100 hover:border-[hsl(214,100%,38%)] transition-colors rounded-lg">Gestión de Productos</Badge>
-                        <Badge variant="outline" className="bg-white text-slate-700 border-slate-200 cursor-pointer hover:bg-slate-100 hover:border-[hsl(214,100%,38%)] transition-colors rounded-lg">Pedidos</Badge>
-                        <Badge variant="outline" className="bg-white text-slate-700 border-slate-200 cursor-pointer hover:bg-slate-100 hover:border-[hsl(214,100%,38%)] transition-colors rounded-lg">Usuarios</Badge>
-                        <Badge variant="outline" className="bg-white text-slate-700 border-slate-200 cursor-pointer hover:bg-slate-100 hover:border-[hsl(214,100%,38%)] transition-colors rounded-lg">Analítica</Badge>
-                        <Badge variant="outline" className="bg-white text-slate-700 border-slate-200 cursor-pointer hover:bg-slate-100 hover:border-[hsl(214,100%,38%)] transition-colors rounded-lg">Configuración</Badge>
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
+                          Manual de Ayuda
+                        </h2>
+                        <p className="mt-1 text-slate-600">
+                          Todo lo que necesitas saber para gestionar tu tienda de manera efectiva
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-4">
+                          <Badge variant="outline" className="text-[10px] py-0 h-4 bg-emerald-50 text-emerald-700 border-emerald-100">STOCK</Badge>
+                          <Badge variant="outline" className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100">FOTOS</Badge>
+                          <Badge variant="outline" className="text-[10px] py-0 h-4 bg-purple-50 text-purple-700 border-purple-100">SEO</Badge>
+                          <Badge variant="outline" className="text-[10px] py-0 h-4 bg-amber-50 text-amber-700 border-amber-100">BOLA</Badge>
+                          <Badge variant="outline" className="text-[10px] py-0 h-4 bg-rose-50 text-rose-700 border-rose-100">PRECIO</Badge>
+                          <Badge variant="outline" className="text-[10px] py-0 h-4 bg-slate-50 text-slate-700 border-slate-100">ALT</Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-4">
+                          <Badge variant="outline" className="bg-white text-slate-700 border-slate-200 cursor-pointer hover:bg-slate-100 hover:border-[hsl(214,100%,38%)] transition-colors rounded-lg">Primeros Pasos</Badge>
+                          <Badge variant="outline" className="bg-white text-slate-700 border-slate-200 cursor-pointer hover:bg-slate-100 hover:border-[hsl(214,100%,38%)] transition-colors rounded-lg">Gestión de Productos</Badge>
+                          <Badge variant="outline" className="bg-white text-slate-700 border-slate-200 cursor-pointer hover:bg-slate-100 hover:border-[hsl(214,100%,38%)] transition-colors rounded-lg">Pedidos</Badge>
+                          <Badge variant="outline" className="bg-white text-slate-700 border-slate-200 cursor-pointer hover:bg-slate-100 hover:border-[hsl(214,100%,38%)] transition-colors rounded-lg">Usuarios</Badge>
+                          <Badge variant="outline" className="bg-white text-slate-700 border-slate-200 cursor-pointer hover:bg-slate-100 hover:border-[hsl(214,100%,38%)] transition-colors rounded-lg">Analítica</Badge>
+                          <Badge variant="outline" className="bg-white text-slate-700 border-slate-200 cursor-pointer hover:bg-slate-100 hover:border-[hsl(214,100%,38%)] transition-colors rounded-lg">Configuración</Badge>
+                        </div>
                       </div>
-                    </div>
                   </div>
 
                   {/* Mensaje de bienvenida */}
@@ -2597,7 +2429,7 @@ export const AdminPanel: React.FC = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="p-0 sm:p-2">
-                    <ManagementGrid setActiveTab={handleTabChange} />
+                    <ManagementGrid setActiveTab={handleTabChange} user={user} />
                   </CardContent>
                 </Card>
               </div>}
@@ -2691,9 +2523,9 @@ export const AdminPanel: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
+            </div>
         </div>
       </div>
-    </div >
+    </div>
   );
 };
